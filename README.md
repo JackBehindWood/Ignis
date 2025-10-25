@@ -32,8 +32,8 @@ Built for macOS using **Metal** for high-performance GPU rendering.
 ## 🗺️ Roadmap
 
 ### 🚀 Phase 1: Core Simulation (Foundations)
-- [x] Project setup (window, Metal init, render loop)
-- [x] Basic camera controls and input
+- [ ] Project setup (window, Metal init, render loop)
+- [ ] Basic camera controls and input
 - [ ] Particle system (position, velocity, lifetime)
 - [ ] Simple explosion physics (radial impulse, decay)
 - [ ] Basic lighting and color gradient shaders
