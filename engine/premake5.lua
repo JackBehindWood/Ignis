@@ -18,10 +18,15 @@ project "IgnisEngine"
    includedirs 
    { 
       "src", 
-      "vendor" 
+      "vendor",
+      "vendor/spdlog/include",
    }
 
-   --links { "Metal", "MetalKit", "Cocoa" }
+   filter "system:macos"
+      systemversion "latest"
+      links { "Metal", "MetalKit", "Cocoa" }
+      files { "src/IgnisBackend/**.mm" }  -- ensure these are included
+      buildoptions { "-fobjc-arc" }  -- optional if using ARC
 
    filter "configurations:Debug"
 		defines "IG_DEBUG"

@@ -1,16 +1,25 @@
 #pragma once
 
-#include "Ignis/Core/PlatformDetection.h"
+#include <Ignis/Core/PlatformDetection.h>
 
+#include <Ignis/Foundation/Memory.h>
+
+#include <stdint.h>
 #include <iostream>
-#include <memory>
 #include <utility>
 #include <algorithm>
 #include <functional>
 
-#include <string>
+#include <Ignis/Foundation/String.h>
+#include <Ignis/Foundation/Vector.h>
+
 #include <sstream>
 #include <array>
-#include <vector>
 #include <unordered_map>
 #include <unordered_set>
+
+#include <chrono>
+
+#include "Ignis/Core/Base.h"
+#include "Ignis/Core/Log.h"
+

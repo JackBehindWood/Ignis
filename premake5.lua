@@ -5,6 +5,9 @@ workspace "Ignis"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
+group "Dependencies"
+group ""
+
 -- Include engine and editor premake files
 include "engine"
 include "editor"

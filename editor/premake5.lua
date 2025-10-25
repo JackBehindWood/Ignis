@@ -16,6 +16,7 @@ project "IgnisEditor"
     { 
         "%{wks.location}/engine/src",
         "%{wks.location}/engine/vendor",
+        "%{wks.location}/engine/vendor/spdlog/include",
         "src",
         "vendor",
     }

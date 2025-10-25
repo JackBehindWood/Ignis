@@ -4,3 +4,5 @@
 /bin-int
 /bin
 Makefile
+*.log
+Ignis.log
