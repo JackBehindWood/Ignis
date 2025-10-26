@@ -24,7 +24,7 @@ namespace Ignis
 
         // Initialize GLFW for Metal
         IG_CORE_ASSERT(glfwInit(), "Failed to initialize GLFW");
-        //glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     }
 
     void MetalGRI::shutdown()
@@ -33,7 +33,7 @@ namespace Ignis
         m_device->release();
         m_device = nullptr;
 
-        //glfwTerminate();
+        glfwTerminate();
     }
 
     GRIViewportPtr MetalGRI::create_viewport(uint32_t width, uint32_t height)
