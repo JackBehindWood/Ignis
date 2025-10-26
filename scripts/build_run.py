@@ -28,6 +28,9 @@ if len(sys.argv) > 1 and sys.argv[1].lower() in ["debug", "release", "distributi
 # Name of the main executable
 EXEC_NAME = "IgnisEditor"
 
+# Enable verbose output
+VERBOSE = 0 # 1  # Set to 1 for verbose output, 0 for quiet
+
 # -----------------------------
 # Utility functions
 # -----------------------------
@@ -52,7 +55,7 @@ def generate_build_files():
 # -----------------------------
 def build_project():
     # Run make inside the build directory (where makefiles are)
-    run_command(["make", "verbose=1", f"CONFIG={CONFIGURATION}"], cwd=PROJECT_DIR)
+    run_command(["make", f"CONFIG={CONFIGURATION}"], cwd=PROJECT_DIR)
 
 # -----------------------------
 # Run executable

@@ -16,22 +16,33 @@ project "IgnisEditor"
     { 
         "%{wks.location}/engine/src",
         "%{wks.location}/engine/vendor",
-        "%{wks.location}/engine/vendor/spdlog/include",
+        "%{include_dirs.spdlog}",
+        "%{include_dirs.GLFW}",
         "src",
         "vendor",
     }
 
-    links { "IgnisEngine" } -- --"Metal", "MetalKit", "Cocoa" }
+    links { "IgnisEngine", "GLFW" }
 
-    filter "system:macos"
-        systemversion "latest"
+    defines
+    {
+        "_CRT_SECURE_NO_WARNINGS",
+    }
 
-        includedirs
+    filter "system:macosx"
+        --systemversion "latest"
+
+        externalincludedirs { "%{include_dirs.metal}" }
+
+
+        links
         {
-           "%{wks.location}/engine/vendor/metal-cpp"
+            "Foundation.framework",
+            "Metal.framework",
+            "QuartzCore.framework",
+            "AppKit.framework",
+            "IoKit.framework",
         }
-
-        links { "Metal", "MetalKit", "Cocoa" }
 
     filter "configurations:Debug"
 		defines "IG_DEBUG"

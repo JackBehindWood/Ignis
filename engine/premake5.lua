@@ -19,18 +19,36 @@ project "IgnisEngine"
    { 
       "src", 
       "vendor",
-      "vendor/spdlog/include",
+
+      "%{include_dirs.spdlog}",
+      "%{include_dirs.GLFW}",
+
    }
 
-   filter "system:macos"
-      systemversion "latest"
+   links
+   {
+      "GLFW",
+   }
 
-      includedirs
+   defines
+   {
+      "_CRT_SECURE_NO_WARNINGS",
+   }
+
+   filter "system:macosx"
+      --systemversion "latest"
+
+      externalincludedirs { "%{include_dirs.metal}" }
+
+
+      links
       {
-         "vendor/metal-cpp"
+         "Foundation.framework",
+         "Metal.framework",
+         "QuartzCore.framework",
+         "AppKit.framework",
+         "IoKit.framework",
       }
-
-      links { "Metal", "Foundation", "QuartzCore" }
       files { "src/IgnisBackend/**.mm" }  -- ensure these are included
       buildoptions { "-fobjc-arc" }  -- optional if using ARC
 
