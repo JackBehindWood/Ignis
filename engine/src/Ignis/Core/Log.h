@@ -14,7 +14,7 @@ namespace Ignis
 	class Log
 	{
 	public:
-		static void init();
+		static void init(bool log_to_file = true);
 
 		static SharedPtr<spdlog::logger>& get_core_logger() { return s_core_logger; }
 		static SharedPtr<spdlog::logger>& get_client_logger() { return s_client_logger; }
