@@ -4,6 +4,15 @@ namespace Ignis
 {
     class GRIViewport;
     typedef UniquePtr<GRIViewport> GRIViewportPtr;
+
+    struct GRIViewportDesc
+    {
+        uint32_t width = 800;
+        uint32_t height = 600;
+
+        const char* title = "Ignis GRI Viewport";
+    };
+
     class GRIViewport
     {
     public:

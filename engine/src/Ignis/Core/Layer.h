@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Ignis/Core/Timestep.h"
+#include "Timestep.h"
+#include "Ignis/Events/Event.h"
 
 namespace Ignis 
 {
@@ -14,6 +15,9 @@ namespace Ignis
 		virtual void attach() {}
 		virtual void detach() {}
 		virtual void update(Timestep ts) {}
+
+		virtual void event(Event& event) {};
+
 
 		const String& get_name() const { return m_debug_name; }
 	protected:

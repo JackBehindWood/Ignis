@@ -16,8 +16,10 @@ namespace Ignis
         GLFWwindow* m_window;
         uint32_t m_width, m_height;
         CA::MetalLayer* m_metal_layer;
+
+        void setup_callbacks();
     public:
-        MetalViewport(MetalDevice* device, uint32_t width, uint32_t height);
+        MetalViewport(MetalDevice* device, const GRIViewportDesc& desc);
         ~MetalViewport() override;
 
         void resize(uint32_t width, uint32_t height);

@@ -1,15 +1,17 @@
 #include "igpch.h"
 #include "Application.h"
 #include "Log.h"
+#include "Platform.h"
 
 #include "Ignis/Rendering/RenderSystem.h"
+
 
 namespace Ignis
 {
     Application* Application::s_instance = nullptr;
 
     Application::Application(const ApplicationSpecification& specification)
-        : m_specification(specification)
+        : m_specification(specification), m_last_frame_time(0.0f)
     {
         IG_CORE_ASSERT(!s_instance, "Application already exists!");
         s_instance = this;
@@ -22,7 +24,7 @@ namespace Ignis
 
         RenderSystem::init(GRIRenderAPI::Metal);
 
-        m_window.init(1280, 720);
+        m_window.init("Ignis",1280, 720);
     }
 
     Application::~Application()
@@ -42,6 +44,21 @@ namespace Ignis
         run();
     }
 
+    void Application::event(Event& e)
+    {
+        EventDispatcher dispatcher(e);
+		dispatcher.dispatch<WindowCloseEvent>(IG_BIND_EVENT_FN(Application::window_close));
+		
+		for (Vector<Layer*>::reverse_iterator it = m_layer_stack.rbegin(); it != m_layer_stack.rend(); ++it)
+		{
+			(*it)->event(e);
+			if (e.handled)
+			{
+				break;
+			}
+		}
+    }
+
     void Application::push_layer(Layer* layer)
     {
         m_layer_stack.push_layer(layer);
@@ -56,10 +73,11 @@ namespace Ignis
 
     void Application::run()
     {
-        m_timer.reset();
         while (m_running)
         {
-            Timestep timestep = m_timer.elapsed();
+            float time = Platform::get_time();
+			Timestep timestep = time - m_last_frame_time;
+			m_last_frame_time = time;
             // Main application loop
             for (Layer* layer : m_layer_stack)
             {
@@ -67,9 +85,8 @@ namespace Ignis
             }
 
             m_window.update();
-            m_window.poll_events();
-
-            m_timer.reset();
+            
+            Platform::poll_events();
         }
     }
     

@@ -24,7 +24,7 @@ namespace Ignis
 
         virtual GRIRenderAPI get_api() const = 0;
 
-        virtual GRIViewportPtr create_viewport(uint32_t width, uint32_t height) = 0;
+        virtual GRIViewportPtr create_viewport(const GRIViewportDesc& desc) = 0;
     };
     
 } // namespace Ignis

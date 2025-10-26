@@ -33,12 +33,10 @@ namespace Ignis
         // Shutdown code for Metal backend
         delete m_device;
         m_device = nullptr;
-
-        glfwTerminate();
     }
 
-    GRIViewportPtr MetalGRI::create_viewport(uint32_t width, uint32_t height)
+    GRIViewportPtr MetalGRI::create_viewport(const GRIViewportDesc& desc)
     {
-        return create_unique<MetalViewport>(m_device, width, height);
+        return create_unique<MetalViewport>(m_device, desc);
     }
 } // namespace Ignis

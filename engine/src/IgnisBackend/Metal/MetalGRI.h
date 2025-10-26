@@ -14,7 +14,7 @@ namespace Ignis
         void init() override;
         void shutdown() override;
 
-        GRIViewportPtr create_viewport(uint32_t width, uint32_t height) override;
+        GRIViewportPtr create_viewport(const GRIViewportDesc& desc) override;
 
         inline GRIRenderAPI get_api() const override
         {

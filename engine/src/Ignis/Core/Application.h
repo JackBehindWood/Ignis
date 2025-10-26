@@ -1,8 +1,10 @@
 #pragma once
 
 #include "LayerStack.h"
-#include "Timer.h"
 #include "Window.h"
+
+#include "Ignis/Events/Event.h"
+#include "Ignis/Events/ApplicationEvent.h"
 
 int main(int argc, char** argv);
 
@@ -36,7 +38,7 @@ namespace Ignis
         ApplicationSpecification m_specification;
         bool m_running = true;
         LayerStack m_layer_stack;
-        Timer m_timer;
+        float m_last_frame_time;
 
         Window m_window;
 
@@ -48,8 +50,16 @@ namespace Ignis
         void close();
         void restart();
 
+        void event(Event& e);
+
         void push_layer(Layer* layer);
 		void push_overlay(Layer* layer);
+
+		inline bool window_close(WindowCloseEvent& e) 
+        { 
+            m_running = false; 
+            return true;
+        }
 
         static inline Application& get() { return *s_instance; }
 

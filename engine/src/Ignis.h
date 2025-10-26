@@ -8,6 +8,7 @@
 #include "Ignis/Core/Log.h"
 #include "Ignis/Core/Assert.h"
 #include "Ignis/Core/Timestep.h"
+#include "Ignis/Core/Platform.h"
 
 // Rendering
 #include "Ignis/Rendering/RenderSystem.h"
