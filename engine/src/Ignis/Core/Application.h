@@ -2,6 +2,7 @@
 
 #include "LayerStack.h"
 #include "Timer.h"
+#include "Window.h"
 
 int main(int argc, char** argv);
 
@@ -36,6 +37,8 @@ namespace Ignis
         bool m_running = true;
         LayerStack m_layer_stack;
         Timer m_timer;
+
+        Window m_window;
 
         void run();
     public:

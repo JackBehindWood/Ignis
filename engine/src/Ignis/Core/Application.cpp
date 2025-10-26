@@ -1,11 +1,11 @@
 #include "igpch.h"
 #include "Application.h"
-
 #include "Log.h"
+
+#include "Ignis/Rendering/RenderSystem.h"
 
 namespace Ignis
 {
-    
     Application* Application::s_instance = nullptr;
 
     Application::Application(const ApplicationSpecification& specification)
@@ -19,16 +19,22 @@ namespace Ignis
             m_specification.working_directory = std::filesystem::current_path().string();
         }
         std::filesystem::current_path(m_specification.working_directory);
+
+        RenderSystem::init(GRIRenderAPI::Metal);
+
+        m_window.init(1280, 720);
     }
 
     Application::~Application()
     {
+        RenderSystem::shutdown();
     }
 
     void Application::close()
     {
         m_running = false;
     }
+
 
     void Application::restart()
     {
@@ -59,6 +65,8 @@ namespace Ignis
             {
                 layer->update(timestep);
             }
+
+            m_window.update();
 
             m_timer.reset();
         }

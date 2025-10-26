@@ -2,14 +2,21 @@
 
 #include "Application.h"
 
-extern Ignis::Application* Ignis::create_application(const Ignis::ApplicationCommandLineArgs& spec);
+namespace Ignis
+{
+	void init()
+	{
+		Log::init(false); // Initialize the logger without file logging
+	}
 
+	extern Application* create_application(const ApplicationCommandLineArgs& spec);
+}
 
 int main(int argc, char** argv)
 {
-	Ignis::Log::init();
+	Ignis::init();
 
-	auto app = Ignis::create_application(Ignis::ApplicationCommandLineArgs{ argc, argv });
+	Ignis::Application* app = Ignis::create_application(Ignis::ApplicationCommandLineArgs{ argc, argv });
 
 	app->run();
 
