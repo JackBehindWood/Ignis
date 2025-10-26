@@ -52,7 +52,7 @@ def generate_build_files():
 # -----------------------------
 def build_project():
     # Run make inside the build directory (where makefiles are)
-    run_command(["make", f"CONFIG={CONFIGURATION}"], cwd=PROJECT_DIR)
+    run_command(["make", "verbose=1", f"CONFIG={CONFIGURATION}"], cwd=PROJECT_DIR)
 
 # -----------------------------
 # Run executable

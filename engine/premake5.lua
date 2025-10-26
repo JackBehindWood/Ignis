@@ -24,7 +24,13 @@ project "IgnisEngine"
 
    filter "system:macos"
       systemversion "latest"
-      links { "Metal", "MetalKit", "Cocoa" }
+
+      includedirs
+      {
+         "vendor/metal-cpp"
+      }
+
+      links { "Metal", "Foundation", "QuartzCore" }
       files { "src/IgnisBackend/**.mm" }  -- ensure these are included
       buildoptions { "-fobjc-arc" }  -- optional if using ARC
 

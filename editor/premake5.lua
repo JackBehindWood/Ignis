@@ -23,6 +23,16 @@ project "IgnisEditor"
 
     links { "IgnisEngine" } -- --"Metal", "MetalKit", "Cocoa" }
 
+    filter "system:macos"
+        systemversion "latest"
+
+        includedirs
+        {
+           "%{wks.location}/engine/vendor/metal-cpp"
+        }
+
+        links { "Metal", "MetalKit", "Cocoa" }
+
     filter "configurations:Debug"
 		defines "IG_DEBUG"
 		runtime "Debug"
