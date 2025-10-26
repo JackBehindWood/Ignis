@@ -1,13 +1,12 @@
 #include "Ignis/Rendering/GRI/GRI.h"
 
-namespace MTL { class Device; }
-
 namespace Ignis
 {
+    class MetalDevice;
     class MetalGRI : public GRI
     {
     private:
-        MTL::Device* m_device;
+        MetalDevice* m_device;
     public:
         MetalGRI();
         ~MetalGRI() = default;
@@ -22,7 +21,7 @@ namespace Ignis
             return GRIRenderAPI::Metal;
         }
 
-        inline MTL::Device* get_device() const
+        inline MetalDevice* get_device() const
         {
             return m_device;
         }

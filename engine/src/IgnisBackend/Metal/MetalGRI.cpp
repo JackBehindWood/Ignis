@@ -1,5 +1,6 @@
 #include "igpch.h"
 #include "MetalGRI.h"
+#include "MetalDevice.h"
 #include "MetalViewport.h"
 
 #include <Foundation/Foundation.hpp>
@@ -20,7 +21,7 @@ namespace Ignis
     void MetalGRI::init()
     {
         // Initialize Metal device
-        m_device = MTL::CreateSystemDefaultDevice();
+        m_device = MetalDevice::create_device();
 
         // Initialize GLFW for Metal
         IG_CORE_ASSERT(glfwInit(), "Failed to initialize GLFW");
@@ -30,7 +31,7 @@ namespace Ignis
     void MetalGRI::shutdown()
     {
         // Shutdown code for Metal backend
-        m_device->release();
+        delete m_device;
         m_device = nullptr;
 
         glfwTerminate();

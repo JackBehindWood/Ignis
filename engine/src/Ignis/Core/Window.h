@@ -18,5 +18,7 @@ namespace Ignis
         inline GRIViewport* get_viewport() const { return m_viewport.get(); }
         inline uint32_t get_width() const { return m_viewport->get_width(); }
         inline uint32_t get_height() const { return m_viewport->get_height(); }
+
+        void poll_events();
     };
 }

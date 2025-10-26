@@ -49,6 +49,7 @@ project "IgnisEngine"
          "AppKit.framework",
          "IoKit.framework",
       }
+      
       files { "src/IgnisBackend/**.mm" }  -- ensure these are included
       buildoptions { "-fobjc-arc" }  -- optional if using ARC
 

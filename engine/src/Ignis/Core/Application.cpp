@@ -67,6 +67,7 @@ namespace Ignis
             }
 
             m_window.update();
+            m_window.poll_events();
 
             m_timer.reset();
         }
