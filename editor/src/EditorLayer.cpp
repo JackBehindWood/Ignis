@@ -24,7 +24,11 @@ namespace Ignis
     void EditorLayer::update(Timestep ts)
     {
         // Update logic here
-        IG_INFO("EditorLayer updated: {0} seconds", ts.get_seconds());
+        //IG_INFO("EditorLayer updated: {0} seconds", ts.get_seconds());
     }
 
+    void EditorLayer::event(Event& event)
+    {
+        // Event handling code here
+    }
 }

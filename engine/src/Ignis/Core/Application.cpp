@@ -38,7 +38,6 @@ namespace Ignis
 		dispatcher.dispatch<WindowCloseEvent>(IG_BIND_EVENT_FN(Application::window_close));
         dispatcher.dispatch<WindowResizeEvent>(IG_BIND_EVENT_FN(Application::window_resize));
 
-		
 		for (Vector<Layer*>::reverse_iterator it = m_layer_stack.rbegin(); it != m_layer_stack.rend(); ++it)
 		{
 			(*it)->event(e);

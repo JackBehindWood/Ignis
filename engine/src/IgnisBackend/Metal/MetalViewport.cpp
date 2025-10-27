@@ -29,14 +29,36 @@ namespace Ignis
     {
         glfwSetWindowUserPointer(m_window, this);
 
-        glfwSetWindowSizeCallback(m_window, [](GLFWwindow* window, int width, int height)
+        glfwSetFramebufferSizeCallback(m_window, [](GLFWwindow* window, int fb_width, int fb_height) 
         {
             MetalViewport* viewport = (MetalViewport*)glfwGetWindowUserPointer(window);
-
-            WindowResizeEvent event(viewport, width, height);
+            WindowResizeEvent event(viewport, fb_width, fb_height);
             Application::get().event(event);
         });
 
+        glfwSetWindowIconifyCallback(m_window, [](GLFWwindow* window, int iconified) 
+        {
+            MetalViewport* viewport = (MetalViewport*)glfwGetWindowUserPointer(window);
+
+            int fb_width, fb_height;
+            glfwGetFramebufferSize(window, &fb_width, &fb_height);
+
+            // Send WindowResizeEvent even on minimize/restore
+            WindowResizeEvent event(viewport, fb_width, fb_height);
+            Application::get().event(event);
+        });
+
+        glfwSetWindowMaximizeCallback(m_window, [](GLFWwindow* window, int maximized) 
+        {
+            MetalViewport* viewport = (MetalViewport*)glfwGetWindowUserPointer(window);
+
+            int fb_width, fb_height;
+            glfwGetFramebufferSize(window, &fb_width, &fb_height);
+
+            // Send WindowResizeEvent on maximize/restore
+            WindowResizeEvent event(viewport, fb_width, fb_height);
+            Application::get().event(event);
+        });
 
         glfwSetWindowCloseCallback(m_window, [](GLFWwindow* window)
         {

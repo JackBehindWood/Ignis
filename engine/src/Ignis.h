@@ -13,3 +13,8 @@
 // Rendering
 #include "Ignis/Rendering/RenderSystem.h"
 
+// Events
+#include "Ignis/Events/Event.h"
+#include "Ignis/Events/KeyEvent.h"
+#include "Ignis/Events/MouseEvent.h"
+#include "Ignis/Events/ApplicationEvent.h"
