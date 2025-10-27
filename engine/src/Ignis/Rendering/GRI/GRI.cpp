@@ -5,7 +5,7 @@
 
 namespace Ignis
 {
-    GRI* GRI::init(GRIRenderAPI api)
+    GRI* GRI::create(GRIRenderAPI api)
     {
         switch (api)
         {

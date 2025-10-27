@@ -1,8 +1,12 @@
 #include "igpch.h"
-#include "MetalViewport.h"
+
+#include "MetalResource.h"
+#include "MetalGRI.h"
 
 #include "Ignis/Core/Application.h"
 #include "Ignis/Events/ApplicationEvent.h"
+#include "Ignis/Events/KeyEvent.h"
+#include "Ignis/Events/MouseEvent.h"
 
 #include "MetalDevice.h"
 
@@ -25,11 +29,83 @@ namespace Ignis
     {
         glfwSetWindowUserPointer(m_window, this);
 
+        glfwSetWindowSizeCallback(m_window, [](GLFWwindow* window, int width, int height)
+        {
+            MetalViewport* viewport = (MetalViewport*)glfwGetWindowUserPointer(window);
+
+            WindowResizeEvent event(viewport, width, height);
+            Application::get().event(event);
+        });
+
+
         glfwSetWindowCloseCallback(m_window, [](GLFWwindow* window)
         {
             MetalViewport* viewport = static_cast<MetalViewport*>(glfwGetWindowUserPointer(window));
 
-            WindowCloseEvent event;
+            WindowCloseEvent event(viewport);
+            Application::get().event(event);
+        });
+
+        glfwSetKeyCallback(m_window, [](GLFWwindow* window, int key, int scancode, int action, int mods)
+        {
+            switch (action)
+            {
+                case GLFW_PRESS:
+                {
+                    KeyPressedEvent event(key, 0);
+                    Application::get().event(event);
+                    break;
+                }
+                case GLFW_RELEASE:
+                {
+                    KeyReleasedEvent event(key);
+                    Application::get().event(event);
+                    break;
+                }
+                case GLFW_REPEAT:
+                {
+                    KeyPressedEvent event(key, true);
+                    Application::get().event(event);
+                    break;
+                }
+            }
+        });
+
+		glfwSetCharCallback(m_window, [](GLFWwindow* window, unsigned int keycode)
+        {
+            KeyTypedEvent event(keycode);
+            Application::get().event(event);
+        });
+
+		glfwSetMouseButtonCallback(m_window, [](GLFWwindow* window, int button, int action, int mods)
+        {
+            switch (action)
+            {
+                case GLFW_PRESS:
+                {
+                    MouseButtonPressedEvent event(button);
+                    Application::get().event(event);
+                    break;
+                }
+                
+                case GLFW_RELEASE:
+                {
+                    MouseButtonReleasedEvent event(button);
+                    Application::get().event(event);
+                    break;
+                }
+            }
+        });
+
+		glfwSetScrollCallback(m_window, [](GLFWwindow* window, double x_offset, double y_offset)
+        {
+            MouseScrolledEvent event((float)x_offset, (float)y_offset);
+            Application::get().event(event);
+        });
+
+		glfwSetCursorPosCallback(m_window, [](GLFWwindow* window, double x_pos, double y_pos)
+        {
+            MouseMovedEvent event((float)x_pos, (float)y_pos);
             Application::get().event(event);
         });
     }
@@ -62,4 +138,15 @@ namespace Ignis
         m_width = width;
         m_height = height;
     }
+
+    GRIViewportPtr MetalGRI::create_viewport(const GRIViewportDesc& desc)
+    {
+        return create_unique<MetalViewport>(m_device, desc);
+    }
+
+    void MetalGRI::resize_viewport(GRIViewport* viewport, uint32_t width, uint32_t height)
+	{
+		MetalViewport* native_viewport = resource_cast(viewport);
+		native_viewport->resize(width, height);
+	}
 } // namespace Ignis

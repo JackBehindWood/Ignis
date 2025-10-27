@@ -2,15 +2,29 @@
 
 namespace Ignis
 {
+    class GRI;
+    class GRIResource;
     class GRIViewport;
+
     typedef UniquePtr<GRIViewport> GRIViewportPtr;
+
+    enum class GRIResourceType
+    {
+        Texture,
+        Buffer,
+        Shader,
+        Pipeline,
+        RenderTarget,
+        Sampler,
+        Unknown
+    };
 
     struct GRIViewportDesc
     {
         uint32_t width = 800;
         uint32_t height = 600;
 
-        const char* title = "Ignis GRI Viewport";
+        const char* title = "GRIViewport";
     };
 
     class GRIViewport
@@ -22,4 +36,4 @@ namespace Ignis
 
         virtual void* get_native_handle() const = 0;
     };
-} // namespace Ignis
+}

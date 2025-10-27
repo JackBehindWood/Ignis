@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Ignis/Rendering/GRI/GRIViewport.h"
+#include "Ignis/Rendering/GRI/GRIResource.h"
 
 struct GLFWwindow;
 
@@ -8,7 +8,9 @@ namespace CA { class MetalLayer; }
 
 namespace Ignis
 {
+    class MetalGRI;
     class MetalDevice;
+    class GRIViewport;
     class MetalViewport : public GRIViewport
     {
     private:
@@ -32,4 +34,15 @@ namespace Ignis
         inline GLFWwindow* get_window() {return m_window;}
         inline CA::MetalLayer* get_metal_layer() {return m_metal_layer; }
     };
+
+    template<class T>
+	struct MetalResourceTraits
+	{
+	};
+
+    template<>
+	struct MetalResourceTraits<GRIViewport>
+	{
+		typedef MetalViewport ConcreteType;
+	};
 }

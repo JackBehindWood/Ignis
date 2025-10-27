@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Ignis/Rendering/GRI/GRIViewport.h"
+#include "Ignis/Rendering/GRI/GRIResource.h"
 
 namespace Ignis
 {

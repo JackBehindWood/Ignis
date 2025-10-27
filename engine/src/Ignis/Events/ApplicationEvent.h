@@ -4,17 +4,21 @@
 
 namespace Ignis
 {
+	class GRIViewport;
+
 	class WindowResizeEvent : public Event
 	{
 	private:
+		GRIViewport* m_viewport;
 		uint32_t m_width, m_height;
 	public:
-		WindowResizeEvent(uint32_t width, uint32_t height)
-			: m_width(width), m_height(height) {
-		}
+		WindowResizeEvent(GRIViewport* viewport, uint32_t width, uint32_t height)
+			: m_viewport(viewport), m_width(width), m_height(height) {}
 
+		GRIViewport* get_viewport() const { return m_viewport; }
 		uint32_t get_width() const { return m_width; }
 		uint32_t get_height() const { return m_height; }
+
 
 		String to_string() const override
 		{
@@ -29,8 +33,12 @@ namespace Ignis
 
 	class WindowCloseEvent : public Event
 	{
+	private:
+		GRIViewport* m_viewport;
 	public:
-		WindowCloseEvent() = default;
+		WindowCloseEvent(GRIViewport* viewport) : m_viewport(viewport) {}
+
+		GRIViewport* get_viewport() const { return m_viewport; }
 
 		EVENT_CLASS_TYPE(WindowClose)
 		EVENT_CLASS_CATEGORY(EventCategoryApplication)

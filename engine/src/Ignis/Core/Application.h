@@ -37,6 +37,7 @@ namespace Ignis
 
         ApplicationSpecification m_specification;
         bool m_running = true;
+        bool m_minimised = false;
         LayerStack m_layer_stack;
         float m_last_frame_time;
 
@@ -47,8 +48,10 @@ namespace Ignis
         Application(const ApplicationSpecification& specification);
 		virtual ~Application();
         
-        void close();
-        void restart();
+        inline void close()
+        {
+            m_running = false;
+        }
 
         void event(Event& e);
 
@@ -61,14 +64,16 @@ namespace Ignis
             return true;
         }
 
+        bool window_resize(WindowResizeEvent& e);
+
         static inline Application& get() { return *s_instance; }
 
+        inline Window& get_window() { return m_window; }
 		inline const ApplicationSpecification& get_specification() const { return m_specification; }
     };
 
     // To be defined in CLIENT
     Application* create_application(const ApplicationCommandLineArgs& spec);
-
     
 } // namespace Ignis
 

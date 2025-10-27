@@ -1,7 +1,8 @@
 #include "igpch.h"
 #include "MetalGRI.h"
 #include "MetalDevice.h"
-#include "MetalViewport.h"
+
+#include "MetalResource.h"
 
 #include <Foundation/Foundation.hpp>
 #include <Metal/Metal.hpp>
@@ -33,10 +34,5 @@ namespace Ignis
         // Shutdown code for Metal backend
         delete m_device;
         m_device = nullptr;
-    }
-
-    GRIViewportPtr MetalGRI::create_viewport(const GRIViewportDesc& desc)
-    {
-        return create_unique<MetalViewport>(m_device, desc);
     }
 } // namespace Ignis

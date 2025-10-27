@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GRIViewport.h"
+#include "GRIResource.h"
 
 namespace Ignis
 {    
@@ -15,7 +15,7 @@ namespace Ignis
     class GRI
     {
     public:
-        static GRI* init(GRIRenderAPI api);
+        static GRI* create(GRIRenderAPI api);
 
         virtual ~GRI() = default;
 
@@ -25,6 +25,7 @@ namespace Ignis
         virtual GRIRenderAPI get_api() const = 0;
 
         virtual GRIViewportPtr create_viewport(const GRIViewportDesc& desc) = 0;
+        virtual void resize_viewport(GRIViewport* viewport, uint32_t width, uint32_t height) = 0;
     };
     
 } // namespace Ignis

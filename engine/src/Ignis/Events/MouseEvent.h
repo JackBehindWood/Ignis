@@ -3,7 +3,7 @@
 #include "Event.h"
 #include <Ignis/Core/MouseCodes.h>
 
-namespace Havok
+namespace Ignis
 {
 	class MouseMovedEvent : public Event
 	{

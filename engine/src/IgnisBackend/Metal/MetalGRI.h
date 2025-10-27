@@ -1,8 +1,9 @@
 #include "Ignis/Rendering/GRI/GRI.h"
 
+#include "MetalResource.h"
+
 namespace Ignis
 {
-    class MetalDevice;
     class MetalGRI : public GRI
     {
     private:
@@ -15,6 +16,7 @@ namespace Ignis
         void shutdown() override;
 
         GRIViewportPtr create_viewport(const GRIViewportDesc& desc) override;
+        void resize_viewport(GRIViewport* viewport, uint32_t width, uint32_t height) override;
 
         inline GRIRenderAPI get_api() const override
         {
@@ -25,5 +27,11 @@ namespace Ignis
         {
             return m_device;
         }
+
+        template <typename T>
+		static inline typename MetalResourceTraits<T>::ConcreteType* resource_cast(T* resource)
+		{
+			return static_cast<typename MetalResourceTraits<T>::ConcreteType*>(resource);
+		}
     };
 } // namespace Ignis

@@ -18,7 +18,7 @@ namespace Ignis
                 return;
             }
             
-            s_GRI = GRI::init(api);
+            s_GRI = GRI::create(api);
             s_GRI->init();
         }
 
