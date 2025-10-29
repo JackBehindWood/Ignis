@@ -98,17 +98,17 @@ namespace Ignis
             return &m_ptr;
         }
 
-        template<typename F>
-        static inline MetalPtr<T> adopt(F&& creator) 
-        {
-            return MetalPtr<T>(creator());
-        }
-
-        static inline MetalPtr<T> adopt(T* ptr)
+        static inline MetalPtr<T> from_retained(T* ptr)
         {
             MetalPtr<T> mp;
             mp.m_ptr = ptr; // take ownership directly
             return mp;
+        }
+
+        template<typename F>
+        static inline MetalPtr<T> adopt(F&& creator) 
+        {
+            return MetalPtr<T>(creator());
         }
     };
 

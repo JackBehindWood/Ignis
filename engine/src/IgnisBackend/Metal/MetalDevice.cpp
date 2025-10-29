@@ -6,7 +6,7 @@
 
 namespace Ignis
 {
-    MetalDevice::MetalDevice(MTL::Device* device) : m_device(MetalPtr<MTL::Device>::adopt(device))
+    MetalDevice::MetalDevice(MTL::Device* device) : m_device(MetalPtr<MTL::Device>::from_retained(device))
     {
         for (size_t i = 0; i < static_cast<size_t>(MetalQueueType::_Count); i++)
         {
