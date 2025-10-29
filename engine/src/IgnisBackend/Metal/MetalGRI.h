@@ -1,4 +1,5 @@
 #include "Ignis/Rendering/GRI/GRI.h"
+#include "MetalContext.h"
 
 #include "MetalResource.h"
 
@@ -8,6 +9,7 @@ namespace Ignis
     {
     private:
         MetalDevice* m_device;
+        MetalCommandContext m_context;
     public:
         MetalGRI();
         ~MetalGRI() = default;
@@ -26,6 +28,11 @@ namespace Ignis
         inline MetalDevice* get_device() const
         {
             return m_device;
+        }
+
+        inline GRICommandContext* get_context() override
+        {
+            return &m_context;
         }
 
         template <typename T>

@@ -2,6 +2,7 @@
 
 #include "MetalResource.h"
 #include "MetalGRI.h"
+#include "MetalContext.h"
 
 #include "Ignis/Core/Application.h"
 #include "Ignis/Events/ApplicationEvent.h"
@@ -22,6 +23,8 @@
 #include <QuartzCore/QuartzCore.hpp>
 
 #include <QuartzCore/CAMetalLayer.hpp>
+
+//#include <MetalKit/MetalKit.hpp>
 
 namespace Ignis
 {
@@ -133,12 +136,13 @@ namespace Ignis
     }
 
     MetalViewport::MetalViewport(MetalDevice* device, const GRIViewportDesc& desc) : 
-    m_width(desc.width), m_height(desc.height), m_metal_layer(nullptr), m_device(*device), m_window(nullptr)
+    m_width(desc.width), m_height(desc.height), m_metal_layer(nullptr), m_device(*device), m_window(nullptr), m_drawable(nullptr)
     {
         m_window = glfwCreateWindow(m_width, m_height, desc.title, nullptr, nullptr);
     
         m_metal_layer = CA::MetalLayer::layer();
         m_metal_layer->setDevice(m_device.get_device());
+        m_metal_layer->setPixelFormat(MTL::PixelFormat::PixelFormatBGRA8Unorm); //TODO: Add support for other pixel formats
         
         wNSWindow* nswindow = reinterpret_cast<wNSWindow*>(glfwGetCocoaWindow(m_window));
         
@@ -153,12 +157,28 @@ namespace Ignis
     MetalViewport::~MetalViewport()
     {
         glfwDestroyWindow(m_window);
+
+        release_drawable();
     }
 
     void MetalViewport::resize(uint32_t width, uint32_t height)
     {
         m_width = width;
         m_height = height;
+    }
+
+    MetalPtr<CA::MetalDrawable> MetalViewport::get_drawable()
+    {
+        if (!m_drawable)
+        {
+            m_drawable = m_metal_layer->nextDrawable();
+        }
+        return m_drawable;
+    }
+
+    void MetalViewport::release_drawable()
+    {
+        m_drawable.reset();
     }
 
     GRIViewportPtr MetalGRI::create_viewport(const GRIViewportDesc& desc)

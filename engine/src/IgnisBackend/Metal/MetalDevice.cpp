@@ -6,18 +6,21 @@
 
 namespace Ignis
 {
-    MetalDevice::MetalDevice(MTL::Device* device) : m_device(device)
+    MetalDevice::MetalDevice(MTL::Device* device) : m_device(MetalPtr<MTL::Device>::adopt(device))
     {
-        m_device->retain();
-
-        m_command_queue = new MetalCommandQueue(*this);
+        for (size_t i = 0; i < static_cast<size_t>(MetalQueueType::_Count); i++)
+        {
+            m_command_queues[i] = new MetalCommandQueue(*this);
+        }
     }
 
     MetalDevice::~MetalDevice()
-    {    
-        delete m_command_queue;
-
-        m_device->release();
+    {
+        for (size_t i = 0; i < static_cast<size_t>(MetalQueueType::_Count); i++)
+        {
+            delete m_command_queues[i];
+            m_command_queues[i] = nullptr;
+        }
     }
 
     MetalDevice* MetalDevice::create_device()
@@ -28,5 +31,4 @@ namespace Ignis
         
         return mtl_device;
     }
-
 }

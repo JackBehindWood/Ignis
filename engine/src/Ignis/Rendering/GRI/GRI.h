@@ -12,6 +12,8 @@ namespace Ignis
         DirectX12 = 3,
         Metal = 4
     };
+
+    class GRICommandContext;
     class GRI
     {
     public:
@@ -23,6 +25,7 @@ namespace Ignis
         virtual void shutdown() = 0;
 
         virtual GRIRenderAPI get_api() const = 0;
+        virtual GRICommandContext* get_context() = 0;
 
         virtual GRIViewportPtr create_viewport(const GRIViewportDesc& desc) = 0;
         virtual void resize_viewport(GRIViewport* viewport, uint32_t width, uint32_t height) = 0;

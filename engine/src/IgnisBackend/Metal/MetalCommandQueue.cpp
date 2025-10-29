@@ -7,7 +7,9 @@ namespace Ignis
 {
     MetalCommandQueue::MetalCommandQueue(MetalDevice& device) : m_device(device)
     {
-        m_command_queue = device.get_device()->newCommandQueue();
+        m_command_queue = MetalPtr<MTL::CommandQueue>::adopt(
+            device.get_device()->newCommandQueue()
+        );
     }
 }
 

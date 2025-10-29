@@ -2,9 +2,15 @@
 
 #include "Ignis/Rendering/GRI/GRIResource.h"
 
+#include "MetalPtr.h"
+
 struct GLFWwindow;
 
-namespace CA { class MetalLayer; }
+namespace CA 
+{ 
+    class MetalLayer; 
+    class MetalDrawable;
+}
 
 namespace Ignis
 {
@@ -18,6 +24,7 @@ namespace Ignis
         GLFWwindow* m_window;
         uint32_t m_width, m_height;
         CA::MetalLayer* m_metal_layer;
+        MetalPtr<CA::MetalDrawable> m_drawable;
 
         void setup_callbacks();
     public:
@@ -28,7 +35,10 @@ namespace Ignis
         virtual inline uint32_t get_width() const override { return m_width; };
         virtual inline uint32_t get_height() const override { return m_height; };
 
-        virtual inline void* get_native_handle() const override { return static_cast<void*>(m_window); };
+        MetalPtr<CA::MetalDrawable> get_drawable();
+        void release_drawable();
+
+        virtual inline void* get_native_handle() const override { return static_cast<void*>(m_window); }
 
         inline MetalDevice& get_device() {return m_device;}
         inline GLFWwindow* get_window() {return m_window;}
