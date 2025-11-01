@@ -1,21 +1,33 @@
-#!/usr/bin/env python3
 import subprocess
 import shutil
 import sys
 import os
+import configparser
 
-# PROJECT_DIR points to the root of the project
+# -----------------------------
+# Load config
+# -----------------------------
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini")
+config = configparser.ConfigParser()
+config.read(CONFIG_PATH)
+
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PREMAKE_DIR = os.path.join(PROJECT_DIR, "premake")
+PREMAKE_DIR = os.path.join(PROJECT_DIR, config["paths"].get("premake_dir", "premake"))
 PREMAKE_EXEC = os.path.join(PREMAKE_DIR, "premake5")
 
+# -----------------------------
+# Check if Premake is installed
+# -----------------------------
 def is_premake_installed():
     return os.path.exists(PREMAKE_EXEC) and os.access(PREMAKE_EXEC, os.X_OK)
 
+# -----------------------------
+# Install Premake locally
+# -----------------------------
 def install_premake():
-    print("Premake not found locally. Installing into ./premake folder...")
+    print(f"Premake not found locally. Installing into {PREMAKE_DIR}...")
     
-    # Download premake binary (macOS)
+    # URL for macOS binary (adjust if needed)
     url = "https://github.com/premake/premake-core/releases/download/v5.0.0-beta2/premake-5.0.0-beta2-macosx.tar.gz"
     tar_file = os.path.join(PREMAKE_DIR, "premake.tar.gz")
 
@@ -35,6 +47,9 @@ def install_premake():
         print("Failed to install Premake. Please install manually.")
         sys.exit(1)
 
+# -----------------------------
+# Main
+# -----------------------------
 def main():
     if is_premake_installed():
         print(f"Premake is already installed locally at {PREMAKE_EXEC}")

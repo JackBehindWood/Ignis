@@ -167,18 +167,23 @@ namespace Ignis
         m_height = height;
     }
 
-    MetalPtr<CA::MetalDrawable> MetalViewport::get_drawable()
+    CA::MetalDrawable* MetalViewport::get_drawable()
     {
         if (!m_drawable)
         {
             m_drawable = m_metal_layer->nextDrawable();
+            m_drawable->retain();
         }
         return m_drawable;
     }
 
     void MetalViewport::release_drawable()
     {
-        m_drawable.reset();
+        if (m_drawable)
+        {
+            m_drawable->release();
+            m_drawable = nullptr;
+        }
     }
 
     GRIViewportPtr MetalGRI::create_viewport(const GRIViewportDesc& desc)
@@ -191,4 +196,27 @@ namespace Ignis
 		MetalViewport* native_viewport = resource_cast(viewport);
 		native_viewport->resize(width, height);
 	}
+
+    void MetalCommandContext::begin_drawing_viewport(GRIViewport* viewport, GRITexture2D* render_target)
+    {
+        MTL_AUTORELEASE_POOL;
+        MetalViewport* native_viewport = resource_cast(viewport);
+
+        if (render_target)
+        {
+            GRIRenderTargetView rtv(render_target);
+            set_render_targets(1, &rtv, nullptr);
+        }
+        else
+        {
+            GRIRenderTargetView rtv(nullptr);
+            set_render_targets(0, &rtv, nullptr);
+        }
+    }
+
+    void MetalCommandContext::end_drawing_viewport(GRIViewport* viewport)
+    {
+        MetalViewport* native_viewport = resource_cast(viewport);
+        native_viewport->release_drawable();
+    }
 } // namespace Ignis

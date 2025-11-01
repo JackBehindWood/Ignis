@@ -15,14 +15,13 @@
 
 namespace Ignis
 {
-    MetalGRI::MetalGRI() : m_device(nullptr)
+    MetalGRI::MetalGRI() : m_device(MetalDevice::create_device()), m_context(*m_device)
     {
     }
 
     void MetalGRI::init()
     {
-        // Initialize Metal device
-        m_device = MetalDevice::create_device();
+        MTL_AUTORELEASE_POOL;
 
         // Initialize GLFW for Metal
         IG_CORE_ASSERT(glfwInit(), "Failed to initialize GLFW");

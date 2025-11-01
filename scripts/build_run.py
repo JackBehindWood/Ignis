@@ -1,4 +1,15 @@
-#!/usr/bin/env python3
+from build import main as build_project
+from run import main as run_project
+
+def main():
+    build_project()
+    run_project()
+
+if __name__ == "__main__":
+    main()
+
+"""
+# !/usr/bin/env python3
 import subprocess
 import sys
 import os
@@ -87,3 +98,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+"""

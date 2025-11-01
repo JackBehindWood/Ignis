@@ -34,11 +34,5 @@ namespace Ignis
         {
             return &m_context;
         }
-
-        template <typename T>
-		static inline typename MetalResourceTraits<T>::ConcreteType* resource_cast(T* resource)
-		{
-			return static_cast<typename MetalResourceTraits<T>::ConcreteType*>(resource);
-		}
     };
 } // namespace Ignis

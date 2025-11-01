@@ -1,7 +1,5 @@
 #pragma once
 
-#include "MetalPtr.h"
-
 namespace MTL
 {
     class CommandQueue;
@@ -24,13 +22,13 @@ namespace Ignis
     {
     private:
         MetalDevice& m_device;
-        MetalPtr<MTL::CommandQueue> m_command_queue;
+        MTL::CommandQueue* m_command_queue;
     public:
         MetalCommandQueue(MetalDevice& device);
-        ~MetalCommandQueue() = default;
+        ~MetalCommandQueue();
         
         inline MetalDevice& get_device() {return m_device;}
-        inline MetalPtr<MTL::CommandQueue> get_queue() {return m_command_queue;}
+        inline MTL::CommandQueue* get_queue() {return m_command_queue;}
     };
 }
 

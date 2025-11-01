@@ -1,8 +1,7 @@
 #pragma once
 
 #include "Ignis/Rendering/GRI/GRIResource.h"
-
-#include "MetalPtr.h"
+#include "MetalAutoReleasePool.h"
 
 struct GLFWwindow;
 
@@ -24,7 +23,7 @@ namespace Ignis
         GLFWwindow* m_window;
         uint32_t m_width, m_height;
         CA::MetalLayer* m_metal_layer;
-        MetalPtr<CA::MetalDrawable> m_drawable;
+        CA::MetalDrawable* m_drawable;
 
         void setup_callbacks();
     public:
@@ -35,7 +34,7 @@ namespace Ignis
         virtual inline uint32_t get_width() const override { return m_width; };
         virtual inline uint32_t get_height() const override { return m_height; };
 
-        MetalPtr<CA::MetalDrawable> get_drawable();
+        CA::MetalDrawable* get_drawable();
         void release_drawable();
 
         virtual inline void* get_native_handle() const override { return static_cast<void*>(m_window); }
@@ -55,4 +54,10 @@ namespace Ignis
 	{
 		typedef MetalViewport ConcreteType;
 	};
+
+    template <typename T>
+    static inline typename MetalResourceTraits<T>::ConcreteType* resource_cast(T* resource)
+    {
+        return static_cast<typename MetalResourceTraits<T>::ConcreteType*>(resource);
+    }
 }

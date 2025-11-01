@@ -1,6 +1,5 @@
 #pragma once
 
-#include "MetalPtr.h"
 #include "MetalCommandQueue.h"
 
 namespace MTL
@@ -13,15 +12,14 @@ namespace Ignis
     class MetalDevice
     {
     private:
-        MetalPtr<MTL::Device> m_device;
+        MTL::Device* m_device;
         MetalCommandQueue* m_command_queues[static_cast<size_t>(MetalQueueType::_Count)];
 
     public:
         MetalDevice(MTL::Device* device);
         ~MetalDevice();
         
-        inline MetalPtr<MTL::Device> get() const { return m_device; }
-        inline MTL::Device* get_device() const { return m_device.get(); }
+        inline MTL::Device* get_device() const { return m_device; }
 
         inline MetalCommandQueue& get_queue(MetalQueueType type) 
         { 
