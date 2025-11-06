@@ -19,20 +19,31 @@ Built for macOS using **Metal** for high-performance GPU rendering.
 
 | Category | Technology |
 |-----------|-------------|
-| Language | C++17 |
+| Language | C++20 |
 | Graphics API | Metal |
 | UI | Dear ImGui |
-| Scripting | Python (via pybind11) |
+| Scripting | Python |
 | Architecture | Entity Component System (ECS) |
-| Build System | Premake / CMake |
+| Build System | Premake |
 | Platform | macOS (Metal backend) |
 
 ---
 
 ## 🗺️ Roadmap
 
+### ⚙️ Phase 0: Setup (Rendering Foundations)
+- [x] Window and Metal device initialization  
+- [ ] Command queue, swap chain, and render pass setup  
+- [ ] Shader compilation and pipeline creation  
+- [ ] Vertex and index buffer management  
+- [ ] Frame synchronization and double buffering  
+- [ ] Basic renderable quad/mesh abstraction  
+- [ ] Frame timing and performance overlay  
+
+---
+
+
 ### 🚀 Phase 1: Core Simulation (Foundations)
-- [ ] Project setup (window, Metal init, render loop)
 - [ ] Basic camera controls and input
 - [ ] Particle system (position, velocity, lifetime)
 - [ ] Simple explosion physics (radial impulse, decay)
