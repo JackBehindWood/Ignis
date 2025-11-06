@@ -202,6 +202,8 @@ namespace Ignis
         MTL_AUTORELEASE_POOL;
         MetalViewport* native_viewport = resource_cast(viewport);
 
+        m_state_cache.set_active_viewport(native_viewport);
+
         if (render_target)
         {
             GRIRenderTargetView rtv(render_target);

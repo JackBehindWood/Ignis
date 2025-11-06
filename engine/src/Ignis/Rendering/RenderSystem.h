@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GRI/GRI.h"
+#include "GRI/GRICommandList.h"
 #include "Ignis/Core/Log.h"
 
 namespace Ignis
@@ -9,7 +10,11 @@ namespace Ignis
     {
     private:
         inline static GRI* s_GRI = nullptr;
+        inline static GRICommandListExecutor s_cmd_list_executor;
     public:
+        //TODO: Remove
+        static inline void submit() { s_cmd_list_executor.submit(); }
+
         static void init(GRIRenderAPI api)
         {
             if (s_GRI)
@@ -20,6 +25,7 @@ namespace Ignis
             
             s_GRI = GRI::create(api);
             s_GRI->init();
+            get_command_list().initialise_context(s_GRI->get_context());
         }
 
         static void shutdown()
@@ -36,5 +42,6 @@ namespace Ignis
         }
 
         static inline GRI* get_gri() { return s_GRI; }
+        static inline GRICommandList& get_command_list() { return s_cmd_list_executor.get_command_list(); }
     };
 } // namespace Ignis

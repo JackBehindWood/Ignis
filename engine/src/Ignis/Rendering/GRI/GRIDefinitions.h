@@ -4,6 +4,7 @@ namespace Ignis
 {
     class GRI;
     class GRICommandContext;
+    class GRICommandListBase;
     class GRIResource;
     class GRIViewport;
     class GRITexture2D;

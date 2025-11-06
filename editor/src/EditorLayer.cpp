@@ -25,6 +25,13 @@ namespace Ignis
     {
         // Update logic here
         //IG_INFO("EditorLayer updated: {0} seconds", ts.get_seconds());
+        GRIViewport* viewport = Application::get().get_window().get_viewport();
+        GRICommandList& cmd_list = RenderSystem::get_command_list();
+
+        cmd_list.begin_drawing_viewport(viewport, nullptr);
+        cmd_list.end_drawing_viewport(viewport);
+
+        RenderSystem::submit();
     }
 
     void EditorLayer::event(Event& event)
