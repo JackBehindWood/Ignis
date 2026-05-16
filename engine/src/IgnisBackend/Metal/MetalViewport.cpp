@@ -135,15 +135,47 @@ namespace Ignis
         });
     }
 
-    MetalViewport::MetalViewport(MetalDevice* device, const GRIViewportDesc& desc) : 
-    m_width(desc.width), m_height(desc.height), m_metal_layer(nullptr), m_device(*device), m_window(nullptr), m_drawable(nullptr)
+    void MetalViewport::create_backbuffers(uint32_t width, uint32_t height)
     {
+        destroy_backbuffers();
+
+        GRITexture2DDesc desc;
+        desc.width = width;
+        desc.height = height;
+        desc.num_mip_levels = 1;
+
+        for (uint32_t i = 0; i < 2; i++)
+        {
+            m_backbuffers[i] = new MetalTexture2D(&m_device, desc); //TODO: m_device is a reference, needs to be passed as a pointer
+        }
+    }
+
+    void MetalViewport::destroy_backbuffers()
+    {
+        for (uint32_t i = 0; i < 2; i++)
+        {
+            if (m_backbuffers[i])
+            {
+                delete m_backbuffers[i];
+                m_backbuffers[i] = nullptr;
+            }
+        }
+    }
+
+    MetalViewport::MetalViewport(MetalDevice* device, const GRIViewportDesc& desc) : 
+    m_width(desc.width), m_height(desc.height), m_metal_layer(nullptr), m_device(*device), m_window(nullptr), m_drawable(nullptr), m_current_backbuffer_index(0)
+    {
+        m_backbuffers[0] = nullptr;
+        m_backbuffers[1] = nullptr;
+
         m_window = glfwCreateWindow(m_width, m_height, desc.title, nullptr, nullptr);
     
         m_metal_layer = CA::MetalLayer::layer();
         m_metal_layer->setDevice(m_device.get_device());
         m_metal_layer->setPixelFormat(MTL::PixelFormat::PixelFormatBGRA8Unorm); //TODO: Add support for other pixel formats
-        
+        m_metal_layer->setFramebufferOnly(true);
+        m_metal_layer->setDrawableSize(CGSize((CGFloat)m_width, (CGFloat)m_height));
+
         wNSWindow* nswindow = reinterpret_cast<wNSWindow*>(glfwGetCocoaWindow(m_window));
         
         wNSView* nsview = nswindow->content_view();
@@ -152,6 +184,7 @@ namespace Ignis
         nsview->set_opaque(true);
 
         setup_callbacks();
+        create_backbuffers(m_width, m_height);
     }
 
     MetalViewport::~MetalViewport()
@@ -159,12 +192,31 @@ namespace Ignis
         glfwDestroyWindow(m_window);
 
         release_drawable();
+
+        destroy_backbuffers();
     }
 
     void MetalViewport::resize(uint32_t width, uint32_t height)
     {
+        if (width == 0 || height == 0)
+        {
+            return; // Avoid invalid sizes
+        }
+
         m_width = width;
         m_height = height;
+
+        // Update Metal layer drawable size
+        if (m_metal_layer)
+        {
+            m_metal_layer->setDrawableSize(CGSize((CGFloat)width, (CGFloat)height));
+        }
+
+        // Recreate engine-managed backbuffers
+        create_backbuffers(width, height);
+
+        // Release any previously acquired drawable (its size is now outdated)
+        release_drawable();
     }
 
     CA::MetalDrawable* MetalViewport::get_drawable()
@@ -202,8 +254,6 @@ namespace Ignis
         MTL_AUTORELEASE_POOL;
         MetalViewport* native_viewport = resource_cast(viewport);
 
-        m_state_cache.set_active_viewport(native_viewport);
-
         if (render_target)
         {
             GRIRenderTargetView rtv(render_target);
@@ -211,8 +261,8 @@ namespace Ignis
         }
         else
         {
-            GRIRenderTargetView rtv(nullptr);
-            set_render_targets(0, &rtv, nullptr);
+            GRIRenderTargetView rtv(native_viewport->get_current_backbuffer());
+            set_render_targets(1, &rtv, nullptr);
         }
     }
 
@@ -220,5 +270,7 @@ namespace Ignis
     {
         MetalViewport* native_viewport = resource_cast(viewport);
         native_viewport->release_drawable();
+
+        native_viewport->swap_buffers();
     }
 } // namespace Ignis

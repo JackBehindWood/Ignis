@@ -17,7 +17,9 @@ namespace Ignis
         virtual GRIRenderAPI get_api() const = 0;
         virtual GRICommandContext* get_context() = 0;
 
+        virtual GRITexture2DPtr create_texture2d(const GRITexture2DDesc& desc) = 0;
         virtual GRIViewportPtr create_viewport(const GRIViewportDesc& desc) = 0;
+
         virtual void resize_viewport(GRIViewport* viewport, uint32_t width, uint32_t height) = 0;
     };
     

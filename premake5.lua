@@ -1,11 +1,14 @@
 workspace "Ignis"
    configurations { "Debug", "Release", "Distribution" }
    architecture "ARM64"
-   flags { "MultiProcessorCompile"}
+   multiprocessorcompile "on"
    startproject "IgnisEditor"
 
-outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
+if _ACTION == "export-compile-commands" then
+    require "export-compile-commands"
+end
 
+outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
 -- Include directories
 include_dirs = {}

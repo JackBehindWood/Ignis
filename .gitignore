@@ -1,8 +1,21 @@
-/build
-/premake
-/.vscode
-/bin-int
-/bin
-Makefile
+# Build output
+bin/
+bin-int/
+
+# Premake
+premake/
+
+# IDE
+.vscode/
+
+# Logs
 *.log
-Ignis.log
+
+# Python
+__pycache__/
+
+# Makefile
+Makefile
+
+# Mac
+.DS_Store

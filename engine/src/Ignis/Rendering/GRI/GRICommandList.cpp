@@ -29,8 +29,6 @@ namespace Ignis
 		IG_CORE_ASSERT(!is_executing(), "Command List is already executing");
 		m_executing = true;
 
-		IG_CORE_INFO("{0} commands in command list", m_num_commands);
-
 		GRICommandListIterator iter(*this);
 		while (iter.has_commands_left())
 		{

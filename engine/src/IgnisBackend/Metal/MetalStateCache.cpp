@@ -7,12 +7,11 @@
 
 namespace Ignis
 {
-    MetalStateCache::MetalStateCache(MetalDevice& device) : m_device(device), m_active_viewport(nullptr), m_render_pass_descriptor(nullptr) {}
+    MetalStateCache::MetalStateCache(MetalDevice& device) : m_device(device), m_render_pass_descriptor(nullptr) {}
     MetalStateCache::~MetalStateCache() {}
 
     void MetalStateCache::reset()
     {
-        m_active_viewport = nullptr;
         if (m_render_pass_descriptor)
         {
             MetalRenderPassDescriptorPool::get().release_descriptor(m_render_pass_descriptor);
@@ -34,15 +33,16 @@ namespace Ignis
 
         MTL::ClearColor colour = MTL::ClearColor::Make(1, 0, 0, 1);
 
-        CA::MetalDrawable* drawable = m_active_viewport->get_drawable();
 
-        for (uint32_t i = 0; i < max_simultaneous_render_targets; i++)
+
+        for (uint32_t i = 0; i < info.get_num_colour_targets(); i++)
         {
+            MTL::Texture* texture = (MTL::Texture*)info.colour_targets[i].render_target->get_native_handle();
             MTL::RenderPassColorAttachmentDescriptor* colour_attachment = m_render_pass_descriptor->colorAttachments()->object(i);
             colour_attachment->setClearColor(colour);
             colour_attachment->setLoadAction(MTL::LoadActionClear);
             colour_attachment->setStoreAction(MTL::StoreActionStore);
-            colour_attachment->setTexture(drawable->texture());
+            colour_attachment->setTexture(texture);
         }
     }
 

@@ -52,9 +52,72 @@ namespace Ignis
 	class GRIRenderPassInfo
 	{
 	public:
+		struct ColourEntry
+		{
+			GRITexture2D* render_target = nullptr;
+			uint32_t mip_index = 0;
+			uint32_t array_slice_index = -1;
+		};
+
+		struct DepthEntry
+		{
+			GRITexture2D* depth_stencil_target = nullptr;
+		};
+
+		ColourEntry colour_targets[max_simultaneous_render_targets];
+		DepthEntry depth_stencil_target;
+
 		GRIRenderPassInfo() = default;
 		GRIRenderPassInfo(const GRIRenderPassInfo&) = default;
 		GRIRenderPassInfo& operator=(const GRIRenderPassInfo&) = default;
+
+		GRIRenderPassInfo(GRITexture2D* colour, uint32_t mip_index = 0, uint32_t array_slice_index = -1)
+		{
+			colour_targets[0].render_target = colour;
+			colour_targets[0].mip_index = mip_index;
+			colour_targets[0].array_slice_index = array_slice_index;
+		}
+
+		GRIRenderPassInfo(GRITexture2D* colour, uint32_t mip_index = 0, uint32_t array_slice_index = -1, GRITexture2D* depth_stencil = nullptr)
+		{
+			colour_targets[0].render_target = colour;
+			colour_targets[0].mip_index = mip_index;
+			colour_targets[0].array_slice_index = array_slice_index;
+
+			depth_stencil_target.depth_stencil_target = depth_stencil;
+		}
+
+		inline int32_t get_num_colour_targets() const 
+		{ 
+			int32_t num_targets = 0;
+			for (; num_targets < max_simultaneous_render_targets; num_targets++)
+			{
+				const ColourEntry& entry = colour_targets[num_targets];
+				if (!entry.render_target)
+				{
+					break;
+				}
+			}
+			return num_targets;
+		}
+	};
+
+	struct GRITexture2DDesc
+	{
+		uint32_t width = 0;
+		uint32_t height = 0;
+		uint32_t num_mip_levels = 1;
+	};
+
+	class GRITexture2D
+	{
+	public:
+		virtual ~GRITexture2D() = default;
+		virtual uint32_t get_width() const = 0;
+		virtual uint32_t get_height() const = 0;
+		virtual uint32_t get_mip_count() const = 0;
+
+		virtual void* get_native_handle() const = 0;
 	};
 
     struct GRIViewportDesc

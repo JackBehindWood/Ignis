@@ -27,6 +27,14 @@ namespace  Ignis
     void MetalCommandContext::set_render_targets_and_clear(const GRIRenderTargetsInfo& info) 
     {
         GRIRenderPassInfo pass_info;
+
+        for (uint32_t i = 0; i < info.num_targets; i++)
+        {
+            pass_info.colour_targets[i].render_target = info.colour_targets[i].texture;
+            pass_info.colour_targets[i].mip_index = info.colour_targets[i].mip_index;
+            pass_info.colour_targets[i].array_slice_index = info.colour_targets[i].array_slice_index;
+        }
+
         m_state_cache.set_render_pass_info(pass_info);
     }
 } // namespace  Ignes

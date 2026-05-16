@@ -13,15 +13,12 @@ namespace Ignis
     {
     private:
         MetalDevice& m_device;
-        MetalViewport* m_active_viewport;
         MTL::RenderPassDescriptor* m_render_pass_descriptor;
     public:
         MetalStateCache(MetalDevice& device);
         ~MetalStateCache();
 
         void reset();
-        void set_active_viewport(MetalViewport* viewport) { m_active_viewport = viewport; }
-
         void set_render_pass_info(const GRIRenderPassInfo& info);
     };
 
