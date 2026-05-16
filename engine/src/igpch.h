@@ -2,14 +2,14 @@
 
 #include <Ignis/Core/PlatformDetection.h>
 
-#include <Ignis/Foundation/Memory.h>
-
 #include <stdint.h>
 #include <iostream>
 #include <utility>
 #include <algorithm>
 #include <functional>
 
+#include <Ignis/Foundation/Filesystem.h>
+#include <Ignis/Foundation/Memory.h>
 #include <Ignis/Foundation/String.h>
 #include <Ignis/Foundation/Vector.h>
 

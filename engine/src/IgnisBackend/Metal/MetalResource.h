@@ -3,17 +3,14 @@
 #include "Ignis/Rendering/GRI/GRIResource.h"
 #include "MetalAutoReleasePool.h"
 
+#include <Metal/Metal.hpp>
+
 struct GLFWwindow;
 
-namespace CA 
-{ 
-    class MetalLayer; 
-    class MetalDrawable;
-}
-
-namespace MTL
+namespace CA
 {
-    class Texture;
+    class MetalLayer;
+    class MetalDrawable;
 }
 
 namespace Ignis
@@ -45,6 +42,7 @@ namespace Ignis
     private:
         MetalDevice& m_device;
         MetalTexture2D* m_backbuffers[2];
+        MetalTexture2D* m_depth_buffer;
         uint32_t m_current_backbuffer_index;
         uint32_t m_width, m_height;
 
@@ -62,6 +60,7 @@ namespace Ignis
         inline void swap_buffers() { m_current_backbuffer_index = 1 - m_current_backbuffer_index; }
         inline MetalTexture2D* get_backbuffer(uint32_t index) { return m_backbuffers[index]; }
         inline MetalTexture2D* get_current_backbuffer() { return m_backbuffers[m_current_backbuffer_index]; }
+        inline MetalTexture2D* get_depth_buffer() { return m_depth_buffer; }
 
         void resize(uint32_t width, uint32_t height);
         virtual inline uint32_t get_width() const override { return m_width; };
@@ -75,6 +74,56 @@ namespace Ignis
         inline MetalDevice& get_device() {return m_device;}
         inline GLFWwindow* get_window() {return m_window;}
         inline CA::MetalLayer* get_metal_layer() {return m_metal_layer; }
+    };
+
+    // ---------- Metal buffers ----------
+
+    class MetalBuffer : public GRIBuffer
+    {
+    private:
+        MTL::Buffer* m_buffer;
+        uint32_t     m_size;
+    public:
+        MetalBuffer(MTL::Buffer* buffer, uint32_t size);
+        ~MetalBuffer() override;
+        uint32_t     get_size()   const override { return m_size; }
+        MTL::Buffer* get_buffer() const          { return m_buffer; }
+    };
+
+    // ---------- Metal shaders ----------
+
+    class MetalVertexShader : public GRIVertexShader
+    {
+    private:
+        MTL::Function* m_function;
+    public:
+        MetalVertexShader(MTL::Function* function);
+        ~MetalVertexShader() override;
+        inline MTL::Function* get_function() const { return m_function; }
+    };
+
+    class MetalPixelShader : public GRIPixelShader
+    {
+    private:
+        MTL::Function* m_function;
+    public:
+        MetalPixelShader(MTL::Function* function);
+        ~MetalPixelShader() override;
+        inline MTL::Function* get_function() const { return m_function; }
+    };
+
+    class MetalPipelineState : public GRIPipelineState
+    {
+    private:
+        MTL::RenderPipelineState* m_pipeline_state;
+        MTL::DepthStencilState*   m_depth_stencil_state;
+        MTL::PrimitiveType        m_primitive_type;
+    public:
+        MetalPipelineState(MTL::RenderPipelineState* pipeline_state, MTL::DepthStencilState* depth_stencil_state, MTL::PrimitiveType primitive_type);
+        ~MetalPipelineState() override;
+        inline MTL::RenderPipelineState* get_pipeline_state()      const { return m_pipeline_state; }
+        inline MTL::DepthStencilState*   get_depth_stencil_state() const { return m_depth_stencil_state; }
+        inline MTL::PrimitiveType        get_primitive_type()       const { return m_primitive_type; }
     };
 
     template<class T>
@@ -93,6 +142,30 @@ namespace Ignis
 	{
 		typedef MetalViewport ConcreteType;
 	};
+
+    template<>
+    struct MetalResourceTraits<GRIBuffer>
+    {
+        typedef MetalBuffer ConcreteType;
+    };
+
+    template<>
+    struct MetalResourceTraits<GRIVertexShader>
+    {
+        typedef MetalVertexShader ConcreteType;
+    };
+
+    template<>
+    struct MetalResourceTraits<GRIPixelShader>
+    {
+        typedef MetalPixelShader ConcreteType;
+    };
+
+    template<>
+    struct MetalResourceTraits<GRIPipelineState>
+    {
+        typedef MetalPipelineState ConcreteType;
+    };
 
     template <typename T>
     static inline typename MetalResourceTraits<T>::ConcreteType* resource_cast(T* resource)

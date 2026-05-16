@@ -24,8 +24,10 @@ namespace Ignis
 
     struct ApplicationSpecification
     {
-        String name = "Ignis Application";
+        String name = "Ignis";
         String working_directory;
+        uint32_t width = 1280;
+        uint32_t height = 720;
         ApplicationCommandLineArgs command_line_args;
     };
 
@@ -35,11 +37,11 @@ namespace Ignis
         static Application* s_instance;
 		friend int ::main(int argc, char** argv);
 
-        ApplicationSpecification m_specification;
         bool m_running = true;
-        bool m_minimised = false;
         LayerStack m_layer_stack;
         float m_last_frame_time;
+
+        Filesystem::path m_workinkg_directory;
 
         Window m_window;
 
@@ -64,12 +66,15 @@ namespace Ignis
             return true;
         }
 
-        bool window_resize(WindowResizeEvent& e);
+        inline bool window_resize(WindowResizeEvent& e)
+        {
+            m_window.resize(e.get_width(), e.get_height());
+            return false;
+        }
 
         static inline Application& get() { return *s_instance; }
 
         inline Window& get_window() { return m_window; }
-		inline const ApplicationSpecification& get_specification() const { return m_specification; }
     };
 
     // To be defined in CLIENT

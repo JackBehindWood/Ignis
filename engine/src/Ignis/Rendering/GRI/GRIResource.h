@@ -4,6 +4,18 @@
 
 namespace Ignis
 {
+	class GRIResource : public RefCounted
+    {
+    public:
+        explicit GRIResource(GRIResourceType type) : m_type(type) {}
+        virtual ~GRIResource() = default;
+
+        GRIResourceType get_type() const { return m_type; }
+
+    private:
+        GRIResourceType m_type;
+    };
+
 	class GRIRenderTargetView
 	{
 	public:
@@ -54,14 +66,20 @@ namespace Ignis
 	public:
 		struct ColourEntry
 		{
-			GRITexture2D* render_target = nullptr;
-			uint32_t mip_index = 0;
-			uint32_t array_slice_index = -1;
+			GRITexture2D*  render_target     = nullptr;
+			uint32_t       mip_index         = 0;
+			uint32_t       array_slice_index = -1;
+			GRILoadAction  load_action       = GRILoadAction::Clear;
+			GRIStoreAction store_action      = GRIStoreAction::Store;
+			GRIClearValue  clear_value;
 		};
 
 		struct DepthEntry
 		{
-			GRITexture2D* depth_stencil_target = nullptr;
+			GRITexture2D*  depth_stencil_target = nullptr;
+			GRILoadAction  load_action          = GRILoadAction::Clear;
+			GRIStoreAction store_action         = GRIStoreAction::DontCare;
+			float          clear_depth          = 1.0f;
 		};
 
 		ColourEntry colour_targets[max_simultaneous_render_targets];
@@ -104,20 +122,115 @@ namespace Ignis
 
 	struct GRITexture2DDesc
 	{
-		uint32_t width = 0;
-		uint32_t height = 0;
-		uint32_t num_mip_levels = 1;
+		uint32_t       width          = 0;
+		uint32_t       height         = 0;
+		uint32_t       num_mip_levels = 1;
+		GRIPixelFormat format         = GRIPixelFormat::BGRA8Unorm;
 	};
 
-	class GRITexture2D
+	class GRITexture2D : public GRIResource
 	{
 	public:
+	    GRITexture2D() : GRIResource(GRIResourceType::Texture) {}
+
 		virtual ~GRITexture2D() = default;
 		virtual uint32_t get_width() const = 0;
 		virtual uint32_t get_height() const = 0;
 		virtual uint32_t get_mip_count() const = 0;
 
 		virtual void* get_native_handle() const = 0;
+	};
+
+	// TODO: check if a future shader compiler stage can add pre-compiled bytecode paths here.
+	struct GRIShaderDesc
+	{
+		const char* source      = nullptr;
+		const char* entry_point = nullptr;
+		GRIShaderStage stage    = GRIShaderStage::Vertex;
+	};
+
+	class GRIVertexShader : public GRIResource
+	{
+	public:
+		GRIVertexShader() : GRIResource(GRIResourceType::Shader) {}
+		virtual ~GRIVertexShader() = default;
+	};
+
+	class GRIPixelShader : public GRIResource
+	{
+	public:
+		GRIPixelShader() : GRIResource(GRIResourceType::Shader) {}
+		virtual ~GRIPixelShader() = default;
+	};
+
+	// ---------- Vertex layout ----------
+
+	// ---------- Buffers ----------
+
+	struct GRIBufferDesc
+	{
+		uint32_t       size  = 0;
+		GRIBufferUsage usage = GRIBufferUsage::VertexBuffer;
+	};
+
+	class GRIBuffer : public GRIResource
+	{
+	public:
+		GRIBuffer() : GRIResource(GRIResourceType::Buffer) {}
+		virtual ~GRIBuffer() = default;
+		virtual uint32_t get_size() const = 0;
+	};
+
+	// ---------- Vertex layout ----------
+
+	struct GRIVertexElement
+	{
+		GRIVertexElementSemantic semantic     = GRIVertexElementSemantic::Position;
+		GRIVertexElementFormat   format       = GRIVertexElementFormat::Float3;
+		uint32_t                 offset       = 0;
+		uint32_t                 buffer_index = 0;
+	};
+
+	// One entry per bound vertex buffer — carries the stride that backends need
+	// when building their native vertex descriptor (MTLVertexDescriptor, VkVertexInputBindingDescription, etc.)
+	struct GRIVertexBufferBinding
+	{
+		uint32_t buffer_index = 0;
+		uint32_t stride       = 0;
+	};
+
+	// Pass nullptr in GRIPipelineStateDesc when the shader has no vertex inputs (e.g. hardcoded positions).
+	class GRIVertexDeclaration : public GRIResource
+	{
+	public:
+		static constexpr uint32_t max_elements = 16;
+		static constexpr uint32_t max_bindings = 8;
+
+		GRIVertexElement       elements[max_elements];
+		uint32_t               num_elements = 0;
+
+		GRIVertexBufferBinding bindings[max_bindings];
+		uint32_t               num_bindings = 0;
+
+		GRIVertexDeclaration() : GRIResource(GRIResourceType::VertexDeclaration) {}
+		virtual ~GRIVertexDeclaration() = default;
+	};
+
+	struct GRIPipelineStateDesc
+	{
+		GRIVertexShader*      vertex_shader       = nullptr;
+		GRIPixelShader*       pixel_shader        = nullptr;
+		GRIVertexDeclaration* vertex_declaration  = nullptr;
+		GRIPixelFormat        render_target_format = GRIPixelFormat::RGBA8Unorm;
+		GRIPixelFormat        depth_stencil_format = GRIPixelFormat::Unknown; // Unknown = no depth
+		GRIPrimitiveTopology  primitive_topology  = GRIPrimitiveTopology::TriangleList;
+	};
+
+	class GRIPipelineState : public GRIResource
+	{
+	public:
+		GRIPipelineState() : GRIResource(GRIResourceType::Pipeline) {}
+		virtual ~GRIPipelineState() = default;
 	};
 
     struct GRIViewportDesc
@@ -128,9 +241,11 @@ namespace Ignis
         const char* title = "GRIViewport";
     };
 
-    class GRIViewport
+    class GRIViewport : public GRIResource
     {
     public:
+	    GRIViewport() : GRIResource(GRIResourceType::Viewport) {}
+
         virtual ~GRIViewport() = default;
         virtual uint32_t get_width() const = 0;
         virtual uint32_t get_height() const = 0;

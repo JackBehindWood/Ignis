@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Ignis/Core/Base.h"
+#include <memory.h>
 
 // This ignores all warnings raised inside External headers
 #pragma warning(push, 0)
@@ -16,11 +17,11 @@ namespace Ignis
 	public:
 		static void init(bool log_to_file = true);
 
-		static SharedPtr<spdlog::logger>& get_core_logger() { return s_core_logger; }
-		static SharedPtr<spdlog::logger>& get_client_logger() { return s_client_logger; }
+		static std::shared_ptr<spdlog::logger>& get_core_logger() { return s_core_logger; }
+		static std::shared_ptr<spdlog::logger>& get_client_logger() { return s_client_logger; }
 	private:
-		static SharedPtr<spdlog::logger> s_core_logger;
-		static SharedPtr<spdlog::logger> s_client_logger;
+		static std::shared_ptr<spdlog::logger> s_core_logger;
+		static std::shared_ptr<spdlog::logger> s_client_logger;
 	};
 
 }

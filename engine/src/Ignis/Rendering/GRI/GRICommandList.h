@@ -2,6 +2,7 @@
 
 #include <Ignis/Foundation/MemStack.h>
 #include "GRIDefinitions.h"
+#include "GRIResource.h"
 
 namespace Ignis
 {
@@ -124,12 +125,93 @@ namespace Ignis
 		void execute(GRICommandListBase & cmd_list);
 	};
 
-	GRICOMMAND_MACRO(GRICommandEndDrawingViewport)
+	GRICOMMAND_MACRO(GRICommandBeginFrame)
 	{
-		GRIViewport* viewport;
-		GRICommandEndDrawingViewport(GRIViewport * viewport) : viewport(viewport) {}
+		GRICommandBeginFrame() {}
 
 		void execute(GRICommandListBase & cmd_list);
+	};
+
+	GRICOMMAND_MACRO(GRICommandEndFrame)
+	{
+		GRICommandEndFrame() {}
+
+		void execute(GRICommandListBase & cmd_list);
+	};
+
+	GRICOMMAND_MACRO(GRICommandBeginRenderPass)
+	{
+		GRIRenderPassInfo info;
+		GRICommandBeginRenderPass(const GRIRenderPassInfo& info) : info(info) {}
+		void execute(GRICommandListBase& cmd_list);
+	};
+
+	GRICOMMAND_MACRO(GRICommandEndRenderPass)
+	{
+		GRICommandEndRenderPass() {}
+		void execute(GRICommandListBase& cmd_list);
+	};
+
+	GRICOMMAND_MACRO(GRICommandSetVertexBuffer)
+	{
+		GRIBuffer* buffer;
+		uint32_t   offset;
+		uint32_t   buffer_index;
+		GRICommandSetVertexBuffer(GRIBuffer* buffer, uint32_t offset, uint32_t buffer_index)
+			: buffer(buffer), offset(offset), buffer_index(buffer_index) {}
+
+		void execute(GRICommandListBase& cmd_list);
+	};
+
+	GRICOMMAND_MACRO(GRICommandSetIndexBuffer)
+	{
+		GRIBuffer*     buffer;
+		GRIIndexFormat format;
+		uint32_t       offset;
+		GRICommandSetIndexBuffer(GRIBuffer* buffer, GRIIndexFormat format, uint32_t offset)
+			: buffer(buffer), format(format), offset(offset) {}
+
+		void execute(GRICommandListBase& cmd_list);
+	};
+
+	GRICOMMAND_MACRO(GRICommandDrawIndexedPrimitive)
+	{
+		uint32_t index_count;
+		uint32_t first_index;
+		int32_t  vertex_offset;
+		GRICommandDrawIndexedPrimitive(uint32_t index_count, uint32_t first_index, int32_t vertex_offset)
+			: index_count(index_count), first_index(first_index), vertex_offset(vertex_offset) {}
+
+		void execute(GRICommandListBase& cmd_list);
+	};
+
+	GRICOMMAND_MACRO(GRICommandSetUniformBuffer)
+	{
+		GRIBuffer*     buffer;
+		uint32_t       slot;
+		GRIShaderStage stage;
+		uint32_t       offset;
+		GRICommandSetUniformBuffer(GRIBuffer* buffer, uint32_t slot, GRIShaderStage stage, uint32_t offset)
+			: buffer(buffer), slot(slot), stage(stage), offset(offset) {}
+
+		void execute(GRICommandListBase& cmd_list);
+	};
+
+	GRICOMMAND_MACRO(GRICommandSetGraphicsPipelineState)
+	{
+		GRIPipelineState* pipeline_state;
+		GRICommandSetGraphicsPipelineState(GRIPipelineState* pipeline_state) : pipeline_state(pipeline_state) {}
+
+		void execute(GRICommandListBase& cmd_list);
+	};
+
+	GRICOMMAND_MACRO(GRICommandDrawPrimitive)
+	{
+		uint32_t vertex_count;
+		uint32_t first_vertex;
+		GRICommandDrawPrimitive(uint32_t vertex_count, uint32_t first_vertex) : vertex_count(vertex_count), first_vertex(first_vertex) {}
+
+		void execute(GRICommandListBase& cmd_list);
 	};
 
 	class GRICommandList : public GRICommandListBase
@@ -154,14 +236,60 @@ namespace Ignis
 			ALLOC_COMMAND(GRILambdaCommand<GRICommandList, LAMBDA>)(std::forward<LAMBDA>(lambda));
 		}
 
+		inline void begin_frame()
+		{
+			ALLOC_COMMAND(GRICommandBeginFrame)();
+		}
+
+		inline void end_frame()
+		{
+			ALLOC_COMMAND(GRICommandEndFrame)();
+		}
+
+
 		inline void begin_drawing_viewport(GRIViewport* viewport, GRITexture2D* render_target)
 		{
 			ALLOC_COMMAND(GRICommandBeginDrawingViewport)(viewport, render_target);
 		}
 
-		inline void end_drawing_viewport(GRIViewport* viewport)
+		inline void begin_render_pass(const GRIRenderPassInfo& info = GRIRenderPassInfo{})
 		{
-			ALLOC_COMMAND(GRICommandEndDrawingViewport)(viewport);
+			ALLOC_COMMAND(GRICommandBeginRenderPass)(info);
+		}
+
+		inline void end_render_pass()
+		{
+			ALLOC_COMMAND(GRICommandEndRenderPass)();
+		}
+
+		inline void set_vertex_buffer(GRIBuffer* buffer, uint32_t offset = 0, uint32_t buffer_index = 0)
+		{
+			ALLOC_COMMAND(GRICommandSetVertexBuffer)(buffer, offset, buffer_index);
+		}
+
+		inline void set_index_buffer(GRIBuffer* buffer, GRIIndexFormat format = GRIIndexFormat::Uint16, uint32_t offset = 0)
+		{
+			ALLOC_COMMAND(GRICommandSetIndexBuffer)(buffer, format, offset);
+		}
+
+		inline void set_uniform_buffer(GRIBuffer* buffer, uint32_t slot, GRIShaderStage stage, uint32_t offset = 0)
+		{
+			ALLOC_COMMAND(GRICommandSetUniformBuffer)(buffer, slot, stage, offset);
+		}
+
+		inline void set_graphics_pipeline_state(GRIPipelineState* pipeline_state)
+		{
+			ALLOC_COMMAND(GRICommandSetGraphicsPipelineState)(pipeline_state);
+		}
+
+		inline void draw_primitives(uint32_t vertex_count, uint32_t first_vertex = 0)
+		{
+			ALLOC_COMMAND(GRICommandDrawPrimitive)(vertex_count, first_vertex);
+		}
+
+		inline void draw_indexed_primitives(uint32_t index_count, uint32_t first_index = 0, int32_t vertex_offset = 0)
+		{
+			ALLOC_COMMAND(GRICommandDrawIndexedPrimitive)(index_count, first_index, vertex_offset);
 		}
 	};
 

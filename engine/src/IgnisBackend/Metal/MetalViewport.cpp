@@ -10,6 +10,7 @@
 #include "Ignis/Events/MouseEvent.h"
 
 #include "MetalDevice.h"
+#include "MetalCommandBuffer.h"
 
 #include "wrapper/wNSWindow.hpp"
 
@@ -139,15 +140,22 @@ namespace Ignis
     {
         destroy_backbuffers();
 
-        GRITexture2DDesc desc;
-        desc.width = width;
-        desc.height = height;
-        desc.num_mip_levels = 1;
+        GRITexture2DDesc colour_desc;
+        colour_desc.width          = width;
+        colour_desc.height         = height;
+        colour_desc.num_mip_levels = 1;
+        colour_desc.format         = GRIPixelFormat::BGRA8Unorm;
 
         for (uint32_t i = 0; i < 2; i++)
-        {
-            m_backbuffers[i] = new MetalTexture2D(&m_device, desc); //TODO: m_device is a reference, needs to be passed as a pointer
-        }
+            m_backbuffers[i] = new MetalTexture2D(&m_device, colour_desc);
+
+        GRITexture2DDesc depth_desc;
+        depth_desc.width          = width;
+        depth_desc.height         = height;
+        depth_desc.num_mip_levels = 1;
+        depth_desc.format         = GRIPixelFormat::Depth32Float;
+
+        m_depth_buffer = new MetalTexture2D(&m_device, depth_desc);
     }
 
     void MetalViewport::destroy_backbuffers()
@@ -160,10 +168,16 @@ namespace Ignis
                 m_backbuffers[i] = nullptr;
             }
         }
+
+        if (m_depth_buffer)
+        {
+            delete m_depth_buffer;
+            m_depth_buffer = nullptr;
+        }
     }
 
-    MetalViewport::MetalViewport(MetalDevice* device, const GRIViewportDesc& desc) : 
-    m_width(desc.width), m_height(desc.height), m_metal_layer(nullptr), m_device(*device), m_window(nullptr), m_drawable(nullptr), m_current_backbuffer_index(0)
+    MetalViewport::MetalViewport(MetalDevice* device, const GRIViewportDesc& desc) :
+    m_width(desc.width), m_height(desc.height), m_metal_layer(nullptr), m_device(*device), m_window(nullptr), m_drawable(nullptr), m_current_backbuffer_index(0), m_depth_buffer(nullptr)
     {
         m_backbuffers[0] = nullptr;
         m_backbuffers[1] = nullptr;
@@ -251,26 +265,11 @@ namespace Ignis
 
     void MetalCommandContext::begin_drawing_viewport(GRIViewport* viewport, GRITexture2D* render_target)
     {
-        MTL_AUTORELEASE_POOL;
-        MetalViewport* native_viewport = resource_cast(viewport);
+        m_active_viewport = resource_cast(viewport);
 
-        if (render_target)
-        {
-            GRIRenderTargetView rtv(render_target);
-            set_render_targets(1, &rtv, nullptr);
-        }
-        else
-        {
-            GRIRenderTargetView rtv(native_viewport->get_current_backbuffer());
-            set_render_targets(1, &rtv, nullptr);
-        }
-    }
-
-    void MetalCommandContext::end_drawing_viewport(GRIViewport* viewport)
-    {
-        MetalViewport* native_viewport = resource_cast(viewport);
-        native_viewport->release_drawable();
-
-        native_viewport->swap_buffers();
+        GRITexture2D* target = render_target ? render_target : m_active_viewport->get_current_backbuffer();
+        GRIRenderTargetView rtv(target);
+        GRIDepthRenderTargetView depth_rtv(m_active_viewport->get_depth_buffer());
+        set_render_targets(1, &rtv, &depth_rtv);
     }
 } // namespace Ignis

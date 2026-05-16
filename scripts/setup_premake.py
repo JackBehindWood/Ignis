@@ -7,7 +7,6 @@ import argparse
 from config import get_cfg
 from plugin import plugins
 
-
 # ---------------------------------------------------------------------------
 # Preflight checks
 # ---------------------------------------------------------------------------

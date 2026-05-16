@@ -2,7 +2,7 @@
 
 #include <Ignis.h>
 
-namespace Ignis 
+namespace Ignis
 {
     class EditorLayer : public Layer
 	{
@@ -15,5 +15,13 @@ namespace Ignis
 		virtual void event(Event& event) override;
 
 		void update(Timestep ts) override;
+
+    private:
+        GRIVertexShaderPtr  m_vertex_shader;
+        GRIPixelShaderPtr   m_pixel_shader;
+        GRIPipelineStatePtr m_pipeline_state;
+        GRIBufferPtr        m_vertex_buffer;
+		GRIBufferPtr		m_index_buffer;
+        GRIBufferPtr        m_uniform_buffer;
     };
 }

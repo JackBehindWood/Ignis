@@ -11,25 +11,27 @@ namespace Ignis
     Application* Application::s_instance = nullptr;
 
     Application::Application(const ApplicationSpecification& specification)
-        : m_specification(specification), m_last_frame_time(0.0f)
+        : m_last_frame_time(0.0f)
     {
         IG_CORE_ASSERT(!s_instance, "Application already exists!");
         s_instance = this;
 
-        if (m_specification.working_directory.empty())
+        Filesystem::path working_directory = specification.working_directory;
+        if (working_directory.empty())
         {
-            m_specification.working_directory = std::filesystem::current_path().string();
+            working_directory = Filesystem::current_path();
         }
-        std::filesystem::current_path(m_specification.working_directory);
+        Filesystem::current_path(working_directory);
 
         RenderSystem::init(GRIRenderAPI::Metal);
 
-        m_window.init("Ignis",1280, 720);
+        m_window.init(specification.name.c_str(), specification.width, specification.height);
     }
 
     Application::~Application()
     {
         RenderSystem::shutdown();
+        s_instance = nullptr;
     }
 
     void Application::event(Event& e)
@@ -48,20 +50,6 @@ namespace Ignis
 		}
     }
 
-    bool Application::window_resize(WindowResizeEvent& e)
-    {
-        if (e.get_width() == 0 || e.get_height() == 0)
-		{
-			m_minimised = true;
-			return false;
-		}
-
-		m_minimised = false;
-		RenderSystem::get_gri()->resize_viewport(e.get_viewport(), e.get_width(), e.get_height());
-
-		return false;
-    }
-
     void Application::push_layer(Layer* layer)
     {
         m_layer_stack.push_layer(layer);
@@ -76,13 +64,14 @@ namespace Ignis
 
     void Application::run()
     {
+        m_last_frame_time = Platform::get_time();
         while (m_running)
         {
             float time = Platform::get_time();
 			Timestep timestep = time - m_last_frame_time;
 			m_last_frame_time = time;
             // Main application loop
-            if (!m_minimised)
+            if (!m_window.is_minimised())
             {
                 for (Layer* layer : m_layer_stack)
                 {

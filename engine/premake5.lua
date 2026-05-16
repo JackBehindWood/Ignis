@@ -40,6 +40,10 @@ project "IgnisEngine"
 
       externalincludedirs { "%{include_dirs.metal}" }
 
+      includedirs 
+      {
+         "%{include_dirs.metal}",
+      }
 
       links
       {

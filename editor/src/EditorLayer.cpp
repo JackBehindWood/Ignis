@@ -1,8 +1,70 @@
 #include "igpch.h"
 #include "EditorLayer.h"
 
-namespace Ignis 
+namespace Ignis
 {
+    struct Vertex
+    {
+        float position[3];
+        float color[4];
+    };
+
+    static const Vertex k_triangle_vertices[3] =
+    {
+        {{ 0.0f,  0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+        {{-0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
+        {{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+    };
+
+    static const uint16_t k_indices[3] = { 0, 1, 2 };
+
+    struct SceneUniforms
+    {
+        float transform[16];
+    };
+
+    static SceneUniforms make_identity_uniforms()
+    {
+        SceneUniforms u{};
+        u.transform[0]  = 1.0f;
+        u.transform[5]  = 1.0f;
+        u.transform[10] = 1.0f;
+        u.transform[15] = 1.0f;
+        return u;
+    }
+
+    static const char* k_triangle_shader = R"(
+        #include <metal_stdlib>
+        using namespace metal;
+
+        struct SceneUniforms {
+            float4x4 transform;
+        };
+
+        struct VertexIn {
+            float3 position [[attribute(0)]];
+            float4 color    [[attribute(1)]];
+        };
+
+        struct VertexOut {
+            float4 position [[position]];
+            float4 color;
+        };
+
+        vertex VertexOut vertex_main(VertexIn in [[stage_in]],
+                                     constant SceneUniforms& uniforms [[buffer(1)]])
+        {
+            VertexOut out;
+            out.position = uniforms.transform * float4(in.position, 1.0);
+            out.color    = in.color;
+            return out;
+        }
+
+        fragment float4 fragment_main(VertexOut in [[stage_in]])
+        {
+            return in.color;
+        }
+    )";
 
     EditorLayer::EditorLayer()
         : Layer("EditorLayer")
@@ -11,31 +73,96 @@ namespace Ignis
 
     void EditorLayer::attach()
     {
-        // Initialization code here
         IG_INFO("EditorLayer attached");
+
+        GRI* gri = RenderSystem::get_gri();
+
+        GRIShaderDesc vs_desc;
+        vs_desc.source      = k_triangle_shader;
+        vs_desc.entry_point = "vertex_main";
+        vs_desc.stage       = GRIShaderStage::Vertex;
+        m_vertex_shader = gri->create_vertex_shader(vs_desc);
+
+        GRIShaderDesc ps_desc;
+        ps_desc.source      = k_triangle_shader;
+        ps_desc.entry_point = "fragment_main";
+        ps_desc.stage       = GRIShaderStage::Pixel;
+        m_pixel_shader = gri->create_pixel_shader(ps_desc);
+
+        // Vertex buffer
+        GRIBufferDesc vb_desc;
+        vb_desc.size  = sizeof(k_triangle_vertices);
+        vb_desc.usage = GRIBufferUsage::VertexBuffer;
+        m_vertex_buffer = gri->create_buffer(vb_desc, k_triangle_vertices);
+
+        // Index buffer
+        GRIBufferDesc ib_desc;
+        ib_desc.size = sizeof(k_indices);
+        ib_desc.usage = GRIBufferUsage::IndexBuffer;
+        m_index_buffer = gri->create_buffer(ib_desc, k_indices);
+
+        // Uniform buffer
+        SceneUniforms uniforms = make_identity_uniforms();
+        GRIBufferDesc ub_desc;
+        ub_desc.size  = sizeof(SceneUniforms);
+        ub_desc.usage = GRIBufferUsage::UniformBuffer;
+        m_uniform_buffer = gri->create_buffer(ub_desc, &uniforms);
+
+        // Vertex declaration: two attributes in one buffer, stride = sizeof(Vertex)
+        GRIVertexDeclaration vd;
+        vd.elements[0] = { GRIVertexElementSemantic::Position, GRIVertexElementFormat::Float3, offsetof(Vertex, position), 0 };
+        vd.elements[1] = { GRIVertexElementSemantic::Color,    GRIVertexElementFormat::Float4, offsetof(Vertex, color),    0 };
+        vd.num_elements = 2;
+        vd.bindings[0]  = { 0, sizeof(Vertex) };
+        vd.num_bindings = 1;
+
+        GRIPipelineStateDesc pso_desc;
+        pso_desc.vertex_shader        = m_vertex_shader.get();
+        pso_desc.pixel_shader         = m_pixel_shader.get();
+        pso_desc.vertex_declaration   = &vd;
+        pso_desc.render_target_format  = GRIPixelFormat::RGBA8Unorm;
+        pso_desc.depth_stencil_format  = GRIPixelFormat::Depth32Float;
+        pso_desc.primitive_topology    = GRIPrimitiveTopology::TriangleList;
+        m_pipeline_state = gri->create_graphics_pipeline_state(pso_desc);
     }
 
     void EditorLayer::detach()
     {
-        // Cleanup code here
         IG_INFO("EditorLayer detached");
+        m_pipeline_state  = nullptr;
+        m_uniform_buffer  = nullptr;
+        m_index_buffer    = nullptr;
+        m_vertex_buffer   = nullptr;
+        m_pixel_shader    = nullptr;
+        m_vertex_shader   = nullptr;
     }
 
     void EditorLayer::update(Timestep ts)
     {
-        // Update logic here
-        //IG_INFO("EditorLayer updated: {0} seconds", ts.get_seconds());
-        GRIViewport* viewport = Application::get().get_window().get_viewport();
-        GRICommandList& cmd_list = RenderSystem::get_command_list();
+        GRIViewport* viewport     = Application::get().get_window().get_viewport();
+        GRICommandList& cmd_list  = RenderSystem::get_command_list();
 
+        cmd_list.begin_frame();
         cmd_list.begin_drawing_viewport(viewport, nullptr);
-        cmd_list.end_drawing_viewport(viewport);
 
+        GRIRenderPassInfo rp;
+        rp.colour_targets[0].clear_value = { 0.1f, 0.1f, 0.1f, 1.0f };
+        cmd_list.begin_render_pass(rp);
+
+        cmd_list.set_graphics_pipeline_state(m_pipeline_state.get());
+        cmd_list.set_vertex_buffer(m_vertex_buffer.get());
+        cmd_list.set_index_buffer(m_index_buffer.get());
+        cmd_list.set_uniform_buffer(m_uniform_buffer.get(), 1, GRIShaderStage::Vertex);
+        //cmd_list.draw_primitives(3);
+        cmd_list.draw_indexed_primitives(3);
+
+        cmd_list.end_render_pass();
+
+        cmd_list.end_frame();
         RenderSystem::submit();
     }
 
     void EditorLayer::event(Event& event)
     {
-        // Event handling code here
     }
 }
