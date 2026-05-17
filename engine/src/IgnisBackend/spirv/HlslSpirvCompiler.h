@@ -1,6 +1,8 @@
 #pragma once
-
 #include "Ignis/Rendering/SourceCompiler.h"
+
+//TODO: make HlslPrivCompiler inherit from SpirvCompiler and make SpirvCompiler inherit from SourceCompiler!
+
 
 namespace Ignis
 {
