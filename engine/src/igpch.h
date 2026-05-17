@@ -9,6 +9,7 @@
 #include <functional>
 
 #include <Ignis/Foundation/Filesystem.h>
+#include <Ignis/Foundation/BinaryStream.h>
 #include <Ignis/Foundation/Memory.h>
 #include <Ignis/Foundation/String.h>
 #include <Ignis/Foundation/Vector.h>
@@ -23,4 +24,3 @@
 
 #include "Ignis/Core/Base.h"
 #include "Ignis/Core/Log.h"
-

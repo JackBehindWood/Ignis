@@ -14,8 +14,8 @@ def cmd_init(args):
 
 def cmd_setup(args):
     _require_config()
-    from setup_premake import main as setup_premake
-    setup_premake(update=args.update)
+    from setup import main as setup_project
+    setup_project(update=args.update)
 
 
 def cmd_build(args):

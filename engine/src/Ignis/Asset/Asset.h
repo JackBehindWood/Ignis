@@ -23,6 +23,7 @@ namespace Ignis
         AssetType   Type            = AssetType::None;
         Path        source_path;    // raw source asset  (e.g. resources/assets/textures/rock.png)
         Path        compiled_path;  // cooked binary     (e.g. resources/cache/<uuid>.igasset)
+        bool        cache_compiled  = false; // write .igasset to disk only if true
 
         bool        is_valid() const { return static_cast<uint64_t>(ID) != UUID::s_invalid; }
     };

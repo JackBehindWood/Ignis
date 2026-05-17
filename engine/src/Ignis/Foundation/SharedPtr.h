@@ -100,6 +100,14 @@ namespace Ignis
         return SharedPtr<T>(new T(static_cast<Args&&>(args)...));
     }
 
+    // Checked downcast: SharedPtr<Base> → SharedPtr<Derived>.
+    // Mirrors std::static_pointer_cast — use only when the stored type is known to be T.
+    template<typename T, typename U>
+    constexpr SharedPtr<T> static_pointer_cast(const SharedPtr<U>& other)
+    {
+        return SharedPtr<T>(static_cast<T*>(other.get()));
+    }
+
     template<typename T>
     using WeakPtr = T*;
 }

@@ -21,7 +21,7 @@ namespace Ignis
 
     private:
         UnorderedMap<uint64_t, AssetMetadata> m_registry;
-        UnorderedMap<String, uint64_t>        m_source_index; // source_path.string() → ID
+        UnorderedMap<String, uint64_t>        m_source_index;
     };
 
 } // namespace Ignis

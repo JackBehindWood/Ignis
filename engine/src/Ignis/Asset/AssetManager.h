@@ -19,7 +19,9 @@ namespace Ignis
         }
 
         // Import a raw source file into the registry and return its AssetID.
-        AssetID import(const Path& source_path, AssetType type);
+        // Set cache_compiled = true to allow the compiler to write a .igasset to disk.
+        // EditorAssetManager passes true for all assets under resources/assets/.
+        AssetID import(const Path& source_path, AssetType type, bool cache_compiled = false);
 
         // Load (or return cached) asset by ID.
         SharedPtr<Asset> load(AssetID id);
@@ -27,7 +29,7 @@ namespace Ignis
         template<typename T>
         SharedPtr<T> load_as(AssetID id)
         {
-            return SharedPtr<T>(load(id));
+            return static_pointer_cast<T>(load(id));
         }
 
         // Evict from cache and reload from compiled binary.
@@ -35,6 +37,10 @@ namespace Ignis
 
         // Recompile + reload every registered asset (e.g. bound to a hotkey in the editor).
         void reload_all();
+
+        // Remove registry entries whose source no longer exists, and delete orphaned .igasset files.
+        // Call on startup after set_compiled_root() to keep the cache consistent.
+        void prune_cache();
 
         AssetRegistry& registry() { return m_registry; }
 

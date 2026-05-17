@@ -141,12 +141,14 @@ namespace Ignis
 		virtual void* get_native_handle() const = 0;
 	};
 
-	// TODO: check if a future shader compiler stage can add pre-compiled bytecode paths here.
+	// SPIR-V words produced by ShaderCompiler. Each backend translates to its native format.
+	// spirv_size is the word count (bytes = spirv_size * 4).
 	struct GRIShaderDesc
 	{
-		const char* source      = nullptr;
-		const char* entry_point = nullptr;
-		GRIShaderStage stage    = GRIShaderStage::Vertex;
+		const uint32_t* spirv       = nullptr;
+		uint32_t        spirv_size  = 0;
+		const char*     entry_point = nullptr;
+		GRIShaderStage  stage       = GRIShaderStage::Vertex;
 	};
 
 	class GRIVertexShader : public GRIResource

@@ -15,19 +15,21 @@ project "IgnisEngine"
       "src/**.cpp" 
    }
 
-   includedirs 
-   { 
-      "src", 
+   includedirs
+   {
+      "src",
       "vendor",
 
       "%{include_dirs.spdlog}",
       "%{include_dirs.GLFW}",
-
+      "%{include_dirs.SPIRV_Cross}",
+      "%{include_dirs.DXC}",
    }
 
    links
    {
       "GLFW",
+      "SPIRV-Cross",
    }
 
    defines
@@ -40,10 +42,12 @@ project "IgnisEngine"
 
       externalincludedirs { "%{include_dirs.metal}" }
 
-      includedirs 
+      includedirs
       {
          "%{include_dirs.metal}",
       }
+
+      libdirs { "%{wks.location}/engine/vendor/dxc/lib" }
 
       links
       {
@@ -52,6 +56,7 @@ project "IgnisEngine"
          "QuartzCore.framework",
          "AppKit.framework",
          "IoKit.framework",
+         "dxcompiler",
       }
       
       files { "src/IgnisBackend/**.mm" }  -- ensure these are included

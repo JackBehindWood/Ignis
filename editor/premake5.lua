@@ -25,7 +25,7 @@ project "IgnisEditor"
         "vendor",
     }
 
-    links { "IgnisEngine", "GLFW" }
+    links { "IgnisEngine", "GLFW", "SPIRV-Cross" }
 
     defines
     {
@@ -37,6 +37,9 @@ project "IgnisEditor"
 
         externalincludedirs { "%{include_dirs.metal}" }
 
+        libdirs { "%{wks.location}/engine/vendor/dxc/lib" }
+
+        linkoptions { "-rpath @executable_path/../../../engine/vendor/dxc/lib" }
 
         links
         {
@@ -45,6 +48,7 @@ project "IgnisEditor"
             "QuartzCore.framework",
             "AppKit.framework",
             "IoKit.framework",
+            "dxcompiler",
         }
 
     filter "configurations:Debug"

@@ -19,3 +19,10 @@ Makefile
 
 # Mac
 .DS_Store
+
+# DXC pre-built binaries (downloaded by setup_dxc.py)
+engine/vendor/dxc/
+
+
+# Compiled assets
+*.igasset

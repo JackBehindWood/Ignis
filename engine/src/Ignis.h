@@ -2,6 +2,7 @@
 
 // Foundation
 #include "Ignis/Foundation/Filesystem.h"
+#include <Ignis/Foundation/BinaryStream.h>
 #include "Ignis/Foundation/Memory.h"
 #include "Ignis/Foundation/RefCounted.h"
 #include "Ignis/Foundation/SharedPtr.h"
@@ -33,6 +34,7 @@
 #include "Ignis/Rendering/GRI/GRI.h"
 #include "Ignis/Rendering/GRI/GRIDefinitions.h"
 #include "Ignis/Rendering/GRI/GRIResource.h"
+#include "Ignis/Rendering/Shader.h"
 
 // Events
 #include "Ignis/Events/Event.h"

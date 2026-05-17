@@ -14,11 +14,12 @@ namespace Ignis
 		virtual void detach() override;
 		virtual void event(Event& event) override;
 
+		bool key_pressed(KeyPressedEvent& e);
+
 		void update(Timestep ts) override;
 
     private:
-        GRIVertexShaderPtr  m_vertex_shader;
-        GRIPixelShaderPtr   m_pixel_shader;
+        SharedPtr<Shader>   m_shader;
         GRIPipelineStatePtr m_pipeline_state;
         GRIBufferPtr        m_vertex_buffer;
 		GRIBufferPtr		m_index_buffer;
