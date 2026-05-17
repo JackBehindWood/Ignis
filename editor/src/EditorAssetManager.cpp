@@ -1,0 +1,60 @@
+#include "EditorAssetManager.h"
+
+namespace Ignis
+{
+
+    // Sub-directories per asset type — single source of truth for the layout.
+    static Path subdir_for(AssetType type)
+    {
+        switch (type)
+        {
+            case AssetType::Texture2D: return "textures";
+            case AssetType::Shader:    return "shaders";
+            default:                   return "";
+        }
+    }
+
+    EditorAssetManager::EditorAssetManager()
+    {
+        // Default root: <working_directory>/resources
+        // Override with set_root() once the project system knows the project path.
+        set_root(Filesystem::current_path() / "resources");
+    }
+
+    void EditorAssetManager::set_root(const Path& root)
+    {
+        m_root = root;
+        AssetManager::get().set_compiled_root(cache_dir());
+    }
+
+    AssetID EditorAssetManager::import_texture(const Path& filename)
+    {
+        return import(Path("assets/textures") / filename, AssetType::Texture2D);
+    }
+
+    AssetID EditorAssetManager::import_shader(const Path& filename)
+    {
+        return import(Path("assets/shaders") / filename, AssetType::Shader);
+    }
+
+    AssetID EditorAssetManager::import(const Path& relative_path, AssetType type)
+    {
+        Path source = m_root / relative_path;
+
+        if (!Filesystem::exists(source))
+        {
+            IG_ERROR("EditorAssetManager: source file not found: {0}", source.string());
+            return AssetID(UUID::s_invalid);
+        }
+
+        // Ensure the cache directory exists before the compiler writes into it.
+        Path cache = cache_dir();
+        if (!Filesystem::exists(cache))
+        {
+            Filesystem::create_directories(cache);
+        }
+
+        return AssetManager::get().import(source, type);
+    }
+
+} // namespace Ignis

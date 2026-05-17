@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Ignis/Core/Base.h"
-#include <memory.h>
+#include <memory>
 
 // This ignores all warnings raised inside External headers
 #pragma warning(push, 0)

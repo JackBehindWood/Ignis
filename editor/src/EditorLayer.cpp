@@ -1,5 +1,6 @@
-#include "igpch.h"
+#include "edpch.h"
 #include "EditorLayer.h"
+#include "EditorAssetManager.h"
 
 namespace Ignis
 {
@@ -164,5 +165,16 @@ namespace Ignis
 
     void EditorLayer::event(Event& event)
     {
+        EventDispatcher dispatcher(event);
+        dispatcher.dispatch<KeyPressedEvent>([](KeyPressedEvent& e) -> bool
+        {
+            if (e.get_key_code() == Key::F5)
+            {
+                IG_INFO("Recompiling assets...");
+                EditorAssetManager::get().reload_all();
+                return true;
+            }
+            return false;
+        });
     }
 }

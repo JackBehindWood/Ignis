@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Ignis/Foundation/Memory.h>
+
 namespace Ignis
 {
     class GRI;

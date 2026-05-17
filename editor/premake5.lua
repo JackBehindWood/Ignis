@@ -6,9 +6,12 @@ project "IgnisEditor"
     targetdir ("%{wks.location}/bin/" .. outputdir .. "/%{prj.name}")
     objdir ("%{wks.location}/bin-int/" .. outputdir .. "/%{prj.name}")
 
-    files 
+    pchheader "edpch.h"
+    pchsource "src/edpch.cpp"
+
+    files
     {
-        "src/**.h", 
+        "src/**.h",
         "src/**.cpp"
     }
 

@@ -12,6 +12,7 @@
 #include <Ignis/Foundation/Memory.h>
 #include <Ignis/Foundation/String.h>
 #include <Ignis/Foundation/Vector.h>
+#include <Ignis/Foundation/UnordererMap.h>
 
 #include <sstream>
 #include <array>

@@ -1,5 +1,4 @@
-#include "igpch.h"
-#include <Ignis.h>
+#include "edpch.h"
 #include <Ignis/Core/EntryPoint.h>
 
 #include "EditorLayer.h"
