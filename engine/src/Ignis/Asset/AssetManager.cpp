@@ -2,9 +2,8 @@
 #include "AssetManager.h"
 
 #include "Ignis/Rendering/ShaderLoader.h"
+#include "Ignis/Rendering/ShaderCache.h"
 #include "Ignis/Asset/AssetShaderCompiler.h"
-#include "Ignis/Rendering/ShaderTarget.h"
-#include "Ignis/Rendering/RenderSystem.h"
 
 namespace Ignis
 {
@@ -19,30 +18,12 @@ namespace Ignis
         }
     }
 
-    static AssetShaderCompiler* make_shader_compiler()
-    {
-        const GRI* gri = RenderSystem::get_gri();
-        IG_CORE_ASSERT(gri, "GRI must be initialised before the shader compiler is first used");
-
-        switch (gri->get_api())
-        {
-            case GRIRenderAPI::Metal:   return new AssetShaderCompiler(ShaderTarget::Metal_MSL);
-            case GRIRenderAPI::Vulkan:
-            case GRIRenderAPI::DirectX12:
-            default:                    return new AssetShaderCompiler(ShaderTarget::Vulkan_SPIRV);
-        }
-    }
-
     AssetCompiler* AssetManager::get_compiler(AssetType type)
     {
         switch (type)
         {
             // case AssetType::Texture2D: { static Texture2DCompiler s; return &s; }
-            case AssetType::Shader:
-            {
-                static AssetShaderCompiler* s = make_shader_compiler();
-                return s;
-            }
+            case AssetType::Shader: { static AssetShaderCompiler s; return &s; }
             default: return nullptr;
         }
     }
@@ -109,7 +90,11 @@ namespace Ignis
         for (AssetID id : dead)
         {
             if (const AssetMetadata* meta = m_registry.get(id))
-                Filesystem::remove(meta->compiled_path); // no-op if already gone
+            {
+                if (meta->Type == AssetType::Shader)
+                    ShaderCache::get().remove(meta->source_path);
+                Filesystem::remove(meta->compiled_path);
+            }
             m_registry.remove(id);
             m_loaded_assets.erase(static_cast<uint64_t>(id));
         }
@@ -162,15 +147,11 @@ namespace Ignis
     {
         const AssetMetadata* metadata = m_registry.get(id);
         if (!metadata || !metadata->is_valid())
-        {
             return;
-        }
 
         AssetCompiler* compiler = get_compiler(metadata->Type);
         if (compiler)
-        {
             compiler->compile(*metadata);
-        }
 
         m_loaded_assets.erase(static_cast<uint64_t>(id));
     }
@@ -181,9 +162,7 @@ namespace Ignis
         {
             AssetCompiler* compiler = get_compiler(metadata.Type);
             if (compiler)
-            {
                 compiler->compile(metadata);
-            }
         }
         m_loaded_assets.clear();
     }

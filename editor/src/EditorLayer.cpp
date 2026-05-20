@@ -1,6 +1,7 @@
 #include "edpch.h"
 #include "EditorLayer.h"
 #include "EditorAssetManager.h"
+#include "Ignis/Rendering/ShaderCache.h"
 
 namespace Ignis
 {
@@ -45,6 +46,7 @@ namespace Ignis
 
         EditorAssetManager& assets = EditorAssetManager::get();
         assets.set_root(Filesystem::current_path() / "resources");
+        ShaderCache::get().set_cache_root(Filesystem::current_path() / "resources" / "cache" / "shaders");
 
         const AssetID shader_id = assets.import_shader("triangle.hlsl");
         m_shader = assets.load_shader(shader_id);
@@ -81,8 +83,8 @@ namespace Ignis
         vd.num_bindings = 1;
 
         GRIPipelineStateDesc pso_desc;
-        pso_desc.vertex_shader        = m_shader->get_render_shader().get_vertex_shader();
-        pso_desc.pixel_shader         = m_shader->get_render_shader().get_pixel_shader();
+        pso_desc.vertex_shader        = m_shader->get_render_shader()->get_vertex_shader();
+        pso_desc.pixel_shader         = m_shader->get_render_shader()->get_pixel_shader();
         pso_desc.vertex_declaration   = &vd;
         pso_desc.render_target_format = GRIPixelFormat::RGBA8Unorm;
         pso_desc.depth_stencil_format = GRIPixelFormat::Depth32Float;

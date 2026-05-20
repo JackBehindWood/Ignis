@@ -1,19 +1,15 @@
 #pragma once
 
 #include "AssetCompiler.h"
-#include "Ignis/Rendering/ShaderCompiler.h"
 
 namespace Ignis
 {
+    // Writes a lightweight IGAS v1 recipe (.igasset) containing the source path and
+    // entry points. Bytecode compilation is deferred to ShaderCache::get_or_compile().
     class AssetShaderCompiler : public AssetCompiler
     {
     public:
-        explicit AssetShaderCompiler(ShaderTarget target);
         bool compile(const AssetMetadata& metadata) override;
-
-    private:
-        ShaderTarget   m_target;
-        ShaderCompiler m_compiler;
     };
 
 } // namespace Ignis

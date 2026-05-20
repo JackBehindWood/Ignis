@@ -1,11 +1,15 @@
 #pragma once
 #include "RefCounted.h"
 
+#include "TypeTraits.h"
+
 namespace Ignis
 {
     template<typename T>
     class SharedPtr
     {
+        static_assert(IsBaseOf<RefCounted, T>, "Template type T must derive from Ignis::RefCounted");
+
         template<typename U> friend class SharedPtr;
     public:
         constexpr SharedPtr() = default;

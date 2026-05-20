@@ -1,6 +1,7 @@
 #pragma once
 
 // Foundation
+#include "Ignis/Foundation/TypeTraits.h"
 #include "Ignis/Foundation/Filesystem.h"
 #include <Ignis/Foundation/BinaryStream.h>
 #include "Ignis/Foundation/Memory.h"

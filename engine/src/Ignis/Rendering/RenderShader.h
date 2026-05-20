@@ -5,7 +5,7 @@
 
 namespace Ignis
 {
-    class RenderShader
+    class RenderShader : public RefCounted
     {
     public:
         RenderShader(GRIVertexShaderPtr vs, GRIPixelShaderPtr ps,

@@ -2,7 +2,6 @@
 
 #include "GRI/GRI.h"
 #include "GRI/GRICommandList.h"
-#include "Ignis/Core/Log.h"
 
 namespace Ignis
 {
