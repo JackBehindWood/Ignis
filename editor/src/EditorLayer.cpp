@@ -44,10 +44,9 @@ namespace Ignis
         IG_INFO("EditorLayer attached");
 
         EditorAssetManager& assets = EditorAssetManager::get();
-        assets.set_root(Filesystem::current_path() / "editor" / "resources");
+        assets.set_root(Filesystem::current_path() / "resources");
 
         const AssetID shader_id = assets.import_shader("triangle.hlsl");
-        AssetManager::get().reload(shader_id);
         m_shader = assets.load_shader(shader_id);
 
         IG_CORE_ASSERT(m_shader, "Failed to compile/load triangle shader");
@@ -82,8 +81,8 @@ namespace Ignis
         vd.num_bindings = 1;
 
         GRIPipelineStateDesc pso_desc;
-        pso_desc.vertex_shader        = m_shader->get_vertex_shader();
-        pso_desc.pixel_shader         = m_shader->get_pixel_shader();
+        pso_desc.vertex_shader        = m_shader->get_render_shader().get_vertex_shader();
+        pso_desc.pixel_shader         = m_shader->get_render_shader().get_pixel_shader();
         pso_desc.vertex_declaration   = &vd;
         pso_desc.render_target_format = GRIPixelFormat::RGBA8Unorm;
         pso_desc.depth_stencil_format = GRIPixelFormat::Depth32Float;

@@ -49,11 +49,13 @@ namespace Ignis
         void set_compiled_root(const Path& dir) { m_compiled_root = dir; }
         const Path& compiled_root() const { return m_compiled_root; }
 
+        // Exposed so asset loaders can trigger on-demand cooking when a .igasset is missing.
+        static AssetCompiler* get_compiler(AssetType type);
+
     private:
         AssetManager() : m_compiled_root("cache") {}
 
-        static AssetLoader*   get_loader(AssetType type);
-        static AssetCompiler* get_compiler(AssetType type);
+        static AssetLoader* get_loader(AssetType type);
 
         Path                                     m_compiled_root;
         AssetRegistry                            m_registry;

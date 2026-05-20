@@ -1,11 +1,10 @@
 #include "igpch.h"
 #include "MetalResource.h"
-
 #include "MetalGRI.h"
 
-#include <Metal/Metal.hpp>
+#include "MetalShaderLibrary.h"
 
-#include "IgnisBackend/spirv/MslSpirvCompiler.h"
+#include <Metal/Metal.hpp>
 
 
 namespace Ignis
@@ -47,66 +46,32 @@ namespace Ignis
             }
         }
 
-        // Compile MSL source and return the named function. Library is released after extraction.
-        static MTL::Function* compile_metal_function(MTL::Device* device, const char* source, const char* entry_point)
-        {
-            NS::Error* error = nullptr;
-            NS::String* ns_source = NS::String::string(source, NS::StringEncoding::UTF8StringEncoding);
-            MTL::CompileOptions* options = MTL::CompileOptions::alloc()->init();
-
-            MTL::Library* library = device->newLibrary(ns_source, options, &error);
-            options->release();
-
-            if (!library)
-            {
-                IG_CORE_ERROR("Metal shader compile error: {}", error->localizedDescription()->utf8String());
-                return nullptr;
-            }
-
-            NS::String* ns_entry = NS::String::string(entry_point, NS::StringEncoding::UTF8StringEncoding);
-            MTL::Function* function = library->newFunction(ns_entry);
-            library->release();
-
-            if (!function)
-            {
-                IG_CORE_ERROR("Metal: entry point '{}' not found in shader", entry_point);
-            }
-
-            return function;
-        }
-
-        static MTL::Function* create_shader(const GRIShaderDesc& desc, MetalDevice* device)
-        {
-            MTL_AUTORELEASE_POOL;
-            IG_CORE_ASSERT(desc.spirv && desc.spirv_size > 0 && desc.entry_point, "GRIShaderDesc must have SPIR-V and entry_point");
-
-            MslSpirvCompiler spirv_compiler;
-            const String msl = spirv_compiler.compile(desc.spirv, desc.spirv_size, desc.stage);
-            if (msl.empty())
-                return nullptr;
-
-            return Utils::compile_metal_function(device->get_device(), msl.c_str(), desc.entry_point);
-        }
     }
 
     GRIVertexShaderPtr MetalGRI::create_vertex_shader(const GRIShaderDesc& desc)
     {
-        MTL::Function* fn = Utils::create_shader(desc, m_device);
-        if (!fn) 
-        {
+        IG_CORE_ASSERT(desc.bytecode_data && desc.bytecode_size && desc.entry_point,
+                       "GRIShaderDesc requires bytecode and entry point");
+
+        MTL::Function* fn = MetalShaderLibrary::get().load_hardware_function(
+            desc.bytecode_data, desc.bytecode_size, desc.entry_point);
+
+        if (!fn)
             return nullptr;
-        }
 
         return create_shared<MetalVertexShader>(fn);
     }
 
     GRIPixelShaderPtr MetalGRI::create_pixel_shader(const GRIShaderDesc& desc)
     {
-        MTL::Function* fn = Utils::create_shader(desc, m_device);
-        if (!fn) 
-        {
+        IG_CORE_ASSERT(desc.bytecode_data && desc.bytecode_size && desc.entry_point,
+                       "GRIShaderDesc requires bytecode and entry point");
+
+        MTL::Function* fn = MetalShaderLibrary::get().load_hardware_function(
+            desc.bytecode_data, desc.bytecode_size, desc.entry_point);
+
+        if (!fn)
             return nullptr;
-        }
 
         return create_shared<MetalPixelShader>(fn);
     }
@@ -178,9 +143,7 @@ namespace Ignis
     MetalVertexShader::~MetalVertexShader()
     {
         if (m_function)
-        {
             m_function->release();
-        }
     }
 
     MetalPixelShader::MetalPixelShader(MTL::Function* function)
@@ -190,12 +153,12 @@ namespace Ignis
     MetalPixelShader::~MetalPixelShader()
     {
         if (m_function)
-        {
             m_function->release();
-        }
     }
 
-    MetalPipelineState::MetalPipelineState(MTL::RenderPipelineState* pipeline_state, MTL::DepthStencilState* depth_stencil_state, MTL::PrimitiveType primitive_type)
+    MetalPipelineState::MetalPipelineState(MTL::RenderPipelineState* pipeline_state,
+                                           MTL::DepthStencilState*   depth_stencil_state,
+                                           MTL::PrimitiveType         primitive_type)
         : m_pipeline_state(pipeline_state)
         , m_depth_stencil_state(depth_stencil_state)
         , m_primitive_type(primitive_type)

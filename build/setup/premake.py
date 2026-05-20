@@ -1,26 +1,21 @@
-import subprocess
-import sys
 import os
 import shutil
 import argparse
 
-from config import get_cfg
-from plugin import plugins
+from ..core.config import get_cfg
+from ..core.utils import require_tool, run_command
+
 
 # ---------------------------------------------------------------------------
 # Preflight checks
 # ---------------------------------------------------------------------------
 
-def _require_tool(name: str):
-    if shutil.which(name) is None:
-        print(f"Required tool not found: '{name}'. Please install it and try again.")
-        sys.exit(1)
-
 def preflight():
-    _require_tool("git")
+    require_tool("git")
     if get_cfg().os_name != "windows":
-        _require_tool("curl")
-        _require_tool("tar")
+        require_tool("curl")
+        require_tool("tar")
+
 
 # ---------------------------------------------------------------------------
 # Premake install/update
@@ -37,16 +32,12 @@ def install_premake():
     print(f"Installing premake {get_cfg().premake_version} for {get_cfg().os_name}...")
     os.makedirs(get_cfg().premake_dir, exist_ok=True)
 
-    try:
-        subprocess.check_call(["curl", "-L", url, "-o", tar_file])
-        subprocess.check_call(["tar", "-xzf", tar_file, "-C", get_cfg().premake_dir])
-        os.remove(tar_file)
-        if get_cfg().os_name != "windows":
-            os.chmod(get_cfg().premake_exec, 0o755)
-        print(f"Premake {get_cfg().premake_version} installed at {get_cfg().premake_exec}")
-    except subprocess.CalledProcessError:
-        print("Failed to install premake.")
-        sys.exit(1)
+    run_command(["curl", "-L", url, "-o", tar_file])
+    run_command(["tar", "-xzf", tar_file, "-C", get_cfg().premake_dir])
+    os.remove(tar_file)
+    if get_cfg().os_name != "windows":
+        os.chmod(get_cfg().premake_exec, 0o755)
+    print(f"Premake {get_cfg().premake_version} installed at {get_cfg().premake_exec}")
 
 def update_premake():
     print(f"Updating premake to {get_cfg().premake_version}...")
@@ -55,6 +46,7 @@ def update_premake():
     install_premake()
 
 def main(update=False):
+    from ..plugins import plugins
     preflight()
     if update:
         update_premake()
@@ -65,9 +57,3 @@ def main(update=False):
     else:
         print(f"Premake already installed at {get_cfg().premake_exec}")
         plugins.install_all()
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--update", action="store_true")
-    args = parser.parse_args()
-    main(update=args.update)

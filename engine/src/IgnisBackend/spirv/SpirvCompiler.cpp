@@ -3,37 +3,30 @@
 
 #include <spirv_cross.hpp>
 
+#include "IgnisBackend/spirv/HlslSpirvCompiler.h"
+
+#ifdef IG_PLATFORM_MACOS
+    #include "IgnisBackend/spirv/MslSpirvCompiler.h"
+#endif
+
 namespace Ignis
 {
-
     namespace Utils
     {
-        static spv::ExecutionModel to_execution_model(GRIShaderStage stage)
-        {
-            switch (stage)
-            {
-                case GRIShaderStage::Vertex:  return spv::ExecutionModelVertex;
-                case GRIShaderStage::Pixel:   return spv::ExecutionModelFragment;
-                case GRIShaderStage::Compute: return spv::ExecutionModelGLCompute;
-                default:
-                    IG_CORE_ASSERT(false, "SpirvCompiler: unsupported shader stage");
-                    return spv::ExecutionModelVertex;
-            }
-        }
-
-        static void read_bindings(const spirv_cross::Compiler& compiler, const spirv_cross::SmallVector<spirv_cross::Resource>& src, Vector<SpirvBindingInfo>& dst)
+        static void read_bindings(const spirv_cross::Compiler& compiler,
+                                  const spirv_cross::SmallVector<spirv_cross::Resource>& src,
+                                  Vector<SpirvBindingInfo>& dst)
         {
             dst.reserve(src.size());
             for (const spirv_cross::Resource& r : src)
             {
-                dst.push_back({ r.name, compiler.get_decoration(r.id, spv::DecorationDescriptorSet), compiler.get_decoration(r.id, spv::DecorationBinding),});
+                dst.push_back({
+                    r.name,
+                    compiler.get_decoration(r.id, spv::DecorationDescriptorSet),
+                    compiler.get_decoration(r.id, spv::DecorationBinding),
+                });
             }
         }
-    }
-
-    String SpirvCompiler::compile(const uint32_t* spirv, uint32_t word_count, GRIShaderStage stage)
-    {
-        return compile_native(spirv, word_count, Utils::to_execution_model(stage));
     }
 
     SpirvReflection SpirvCompiler::reflect(const uint32_t* spirv, uint32_t word_count)
@@ -68,6 +61,25 @@ namespace Ignis
         }
 
         return out;
+    }
+
+    UniquePtr<SpirvCompiler> SpirvCompiler::create(ShaderTarget target)
+    {
+        switch (target)
+        {
+        case ShaderTarget::HLSL:
+            return create_unique<HlslSpirvCompiler>();
+#ifdef IG_PLATFORM_MACOS
+        case ShaderTarget::Metal_MSL:
+            return create_unique<MslSpirvCompiler>();
+#else
+        case ShaderTarget::Metal_MSL:
+            IG_CORE_ERROR("Metal SPIR-V compilation is only supported on macOS");
+            return nullptr;
+#endif
+        default:
+            return nullptr; //TODO: make sure this is possible with UniquePtr and SharedPtr;
+        }
     }
 
 } // namespace Ignis

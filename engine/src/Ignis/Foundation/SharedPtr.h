@@ -15,6 +15,8 @@ namespace Ignis
             if (m_ptr) m_ptr->add_ref();
         }
 
+        constexpr SharedPtr(std::nullptr_t) noexcept : m_ptr(nullptr) {}
+
         constexpr SharedPtr(const SharedPtr& other) : m_ptr(other.m_ptr)
         {
             if (m_ptr) m_ptr->add_ref();
@@ -72,6 +74,13 @@ namespace Ignis
         {
             if (m_ptr) m_ptr->release();
             m_ptr = other.release();
+            return *this;
+        }
+
+        constexpr SharedPtr& operator=(std::nullptr_t) noexcept
+        {
+            if (m_ptr) m_ptr->release();
+            m_ptr = nullptr;
             return *this;
         }
 

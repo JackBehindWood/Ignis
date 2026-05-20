@@ -54,9 +54,10 @@ public:
             return 0;
         }
 
-        std::streampos current = m_stream.tellg();
+        std::streampos current = m_stream.tellg(); // Save current pos
         m_stream.seekg(0, std::ios::end);
         std::streampos size = m_stream.tellg();
+        m_stream.seekg(current, std::ios::beg);    // Restore original pos
         
         return static_cast<size_t>(size);
     }

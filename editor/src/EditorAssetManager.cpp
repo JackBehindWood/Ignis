@@ -38,9 +38,9 @@ namespace Ignis
         return import(Path("assets/shaders") / filename, AssetType::Shader);
     }
 
-    SharedPtr<Shader> EditorAssetManager::load_shader(AssetID id)
+    SharedPtr<AssetShader> EditorAssetManager::load_shader(AssetID id)
     {
-        return AssetManager::get().load_as<Shader>(id);
+        return AssetManager::get().load_as<AssetShader>(id);
     }
 
     AssetID EditorAssetManager::import(const Path& relative_path, AssetType type)

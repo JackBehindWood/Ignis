@@ -34,7 +34,8 @@
 #include "Ignis/Rendering/GRI/GRI.h"
 #include "Ignis/Rendering/GRI/GRIDefinitions.h"
 #include "Ignis/Rendering/GRI/GRIResource.h"
-#include "Ignis/Rendering/Shader.h"
+#include "Ignis/Asset/AssetShader.h"
+#include "Ignis/Rendering/RenderShader.h"
 
 // Events
 #include "Ignis/Events/Event.h"

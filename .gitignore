@@ -26,3 +26,9 @@ engine/vendor/dxc/
 
 # Compiled assets
 *.igasset
+
+
+# Claude
+CLAUDE.md
+.claude/
+.claudeignore

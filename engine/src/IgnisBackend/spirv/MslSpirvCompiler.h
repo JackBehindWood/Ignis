@@ -1,5 +1,4 @@
 #pragma once
-
 #include "SpirvCompiler.h"
 
 namespace Ignis
@@ -10,10 +9,9 @@ struct MslCompileOptions
     enum class Platform : uint8_t { macOS, iOS };
 
     Platform platform    = Platform::macOS;
-    uint32_t msl_version = 20100; // MSL 2.1 — build with CompilerMSL::Options::make_msl_version()
+    uint32_t msl_version = 20100; // MSL 2.1
 };
 
-// SPIR-V → MSL cross-compiler using SPIRV-Cross.
 class MslSpirvCompiler : public SpirvCompiler
 {
 public:
@@ -21,7 +19,10 @@ public:
     explicit MslSpirvCompiler(MslCompileOptions options) : m_options(options) {}
 
 protected:
-    String compile_native(const uint32_t* spirv, uint32_t word_count, spv::ExecutionModel exec_model) override;
+    Vector<uint32_t> compile_to_target(const String&, const char*, spv::ExecutionModel) override { return {}; }
+    String           compile_from_target(const uint32_t* spirv, uint32_t word_count, spv::ExecutionModel exec_model) override;
+    Vector<uint8_t>  compile_to_backend(const uint32_t* spirv, uint32_t word_count, spv::ExecutionModel exec_model) override;
+    // compile_from_backend: metallib → SPIR-V not reversible; inherits default {}
 
 private:
     MslCompileOptions m_options;

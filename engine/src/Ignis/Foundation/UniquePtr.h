@@ -10,6 +10,7 @@ namespace Ignis
         constexpr UniquePtr() = default;
 
         constexpr explicit UniquePtr(T* ptr) : m_ptr(ptr) {}
+        constexpr UniquePtr(std::nullptr_t) noexcept : m_ptr(nullptr) {}
 
         constexpr UniquePtr(const UniquePtr&) = delete;
         constexpr UniquePtr& operator=(const UniquePtr&) = delete;
@@ -21,6 +22,8 @@ namespace Ignis
 
         template<typename U>
         constexpr UniquePtr(UniquePtr<U>&& other) noexcept : m_ptr(other.release()) {}
+
+        constexpr ~UniquePtr() { delete m_ptr; }
 
         constexpr UniquePtr& operator=(UniquePtr&& other) noexcept
         {
@@ -41,7 +44,12 @@ namespace Ignis
             return *this;
         }
 
-        constexpr ~UniquePtr() { delete m_ptr; }
+        constexpr UniquePtr& operator=(std::nullptr_t) noexcept
+        {
+            reset(); // Safely deletes existing pointer and clears it
+            return *this;
+        }
+
 
         constexpr T* operator->() const { return m_ptr; }
         constexpr T& operator*()  const { return *m_ptr; }

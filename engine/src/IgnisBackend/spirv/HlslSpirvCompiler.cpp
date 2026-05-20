@@ -9,20 +9,20 @@
 namespace Ignis
 {
 
-static const wchar_t* hlsl_target_profile(GRIShaderStage stage)
+static const wchar_t* hlsl_target_profile(spv::ExecutionModel exec_model)
 {
-    switch (stage)
+    switch (exec_model)
     {
-        case GRIShaderStage::Vertex:  return L"vs_6_0";
-        case GRIShaderStage::Pixel:   return L"ps_6_0";
-        case GRIShaderStage::Compute: return L"cs_6_0";
+        case spv::ExecutionModelVertex:    return L"vs_6_0";
+        case spv::ExecutionModelFragment:  return L"ps_6_0";
+        case spv::ExecutionModelGLCompute: return L"cs_6_0";
         default:
-            IG_CORE_ASSERT(false, "HlslSpirvCompiler: unsupported shader stage");
+            IG_CORE_ASSERT(false, "HlslSpirvCompiler: unsupported execution model");
             return L"vs_6_0";
     }
 }
 
-Vector<uint32_t> HlslSpirvCompiler::compile(const String& source, const char* entry_point, GRIShaderStage stage)
+Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, const char* entry_point, spv::ExecutionModel exec_model)
 {
     CComPtr<IDxcUtils>     dxc_utils;
     CComPtr<IDxcCompiler3> dxc_compiler;
@@ -38,13 +38,12 @@ Vector<uint32_t> HlslSpirvCompiler::compile(const String& source, const char* en
     CComPtr<IDxcBlobEncoding> source_blob;
     dxc_utils->CreateBlob(source.data(), static_cast<UINT32>(source.size()), DXC_CP_UTF8, &source_blob);
 
-    // DXC requires wide strings; entry point names are always ASCII so the conversion is safe.
     const std::wstring wide_entry(entry_point, entry_point + std::strlen(entry_point));
 
     LPCWSTR args[] = {
         L"-spirv",
         L"-fspv-target-env=vulkan1.1",
-        L"-T", hlsl_target_profile(stage),
+        L"-T", hlsl_target_profile(exec_model),
         L"-E", wide_entry.c_str(),
         L"-Zpc",
     };

@@ -1,17 +1,13 @@
 #pragma once
-#include "Ignis/Rendering/SourceCompiler.h"
-
-//TODO: make HlslPrivCompiler inherit from SpirvCompiler and make SpirvCompiler inherit from SourceCompiler!
-
+#include "SpirvCompiler.h"
 
 namespace Ignis
 {
-    // HLSL → SPIR-V compiler using DXC.
-    // Implements SourceCompiler so it can be injected into ShaderCompiler.
-    class HlslSpirvCompiler : public SourceCompiler
+    class HlslSpirvCompiler : public SpirvCompiler
     {
-    public:
-        Vector<uint32_t> compile(const String& source, const char* entry_point, GRIShaderStage stage) override;
+    protected:
+        Vector<uint32_t> compile_to_target(const String& source, const char* entry_point, spv::ExecutionModel exec_model) override;
+        String           compile_from_target(const uint32_t*, uint32_t, spv::ExecutionModel) override { return {}; }
     };
 
 } // namespace Ignis

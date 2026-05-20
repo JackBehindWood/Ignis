@@ -7,6 +7,7 @@
 #include <utility>
 #include <algorithm>
 #include <functional>
+#include <atomic>
 
 #include <Ignis/Foundation/Filesystem.h>
 #include <Ignis/Foundation/BinaryStream.h>
@@ -15,10 +16,9 @@
 #include <Ignis/Foundation/Vector.h>
 #include <Ignis/Foundation/UnordererMap.h>
 
-#include <sstream>
 #include <array>
-#include <unordered_map>
 #include <unordered_set>
+
 
 #include <chrono>
 

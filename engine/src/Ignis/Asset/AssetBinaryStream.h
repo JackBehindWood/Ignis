@@ -23,6 +23,7 @@ struct AssetBinaryWriter
     // Opens the output file and writes the .igasset header.
     // Returns a not-open writer when cache_compiled is false or the file can't be created.
     static AssetBinaryWriter open(const AssetMetadata& metadata, const AssetBlobHeader& header);
+    static AssetBinaryWriter open(const Path& path, const AssetBlobHeader& header);
 
     bool is_open() const { return m_writer.is_open(); }
     bool good()    const { return m_writer.good(); }
@@ -48,6 +49,7 @@ struct AssetBinaryReader
     // Opens the compiled file and validates the .igasset header.
     // Returns a not-open reader when the file is missing or the header is invalid.
     static AssetBinaryReader open(const AssetMetadata& metadata, const AssetBlobHeader& header);
+    static AssetBinaryReader open(const Path& path, const AssetBlobHeader& header);
 
     bool is_open() const { return m_reader.is_open(); }
     bool good()    const { return m_reader.good(); }

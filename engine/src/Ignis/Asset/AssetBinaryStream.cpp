@@ -30,6 +30,21 @@ AssetBinaryWriter AssetBinaryWriter::open(
     return result;
 }
 
+AssetBinaryWriter AssetBinaryWriter::open(const Path& path, const AssetBlobHeader& header)
+{
+    AssetBinaryWriter result;
+    Filesystem::create_directories(path.parent_path());
+    result.m_writer = BinaryWriter(path);
+    if (!result.m_writer.is_open())
+    {
+        IG_CORE_ERROR("AssetBinaryWriter: failed to open: {0}", path.string());
+        return result;
+    }
+    result.m_writer.write_bytes(header.magic, 4);
+    result.m_writer.write_u8(header.version);
+    return result;
+}
+
 // ---------------------------------------------------------------------------
 // AssetBinaryReader
 // ---------------------------------------------------------------------------
@@ -62,6 +77,32 @@ AssetBinaryReader AssetBinaryReader::open(
         IG_CORE_ERROR("AssetBinaryReader: version mismatch (expected {0}, got {1}) in {2}",
                       header.version, file_version, metadata.compiled_path.string());
         result.m_reader = BinaryReader(); // close
+        return result;
+    }
+
+    return result;
+}
+
+AssetBinaryReader AssetBinaryReader::open(const Path& path, const AssetBlobHeader& header)
+{
+    AssetBinaryReader result;
+    result.m_reader = BinaryReader(path);
+    if (!result.m_reader.is_open())
+        return result;
+
+    uint8_t file_magic[4];
+    result.m_reader.read_bytes(file_magic, 4);
+    if (file_magic[0] != header.magic[0] || file_magic[1] != header.magic[1] ||
+        file_magic[2] != header.magic[2] || file_magic[3] != header.magic[3])
+    {
+        result.m_reader = BinaryReader();
+        return result;
+    }
+
+    const uint8_t file_version = result.m_reader.read_u8();
+    if (file_version != header.version)
+    {
+        result.m_reader = BinaryReader();
         return result;
     }
 

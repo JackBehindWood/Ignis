@@ -1,72 +1,144 @@
 #include "igpch.h"
 #include "ShaderLoader.h"
-#include "Shader.h"
+#include "Ignis/Asset/AssetShader.h"
+#include "ShaderTarget.h"
+#include "ShaderReflection.h"
 
 #include "Ignis/Asset/AssetBinaryStream.h"
+#include "Ignis/Asset/AssetManager.h"
 #include "Ignis/Rendering/RenderSystem.h"
 
 namespace Ignis
 {
 
-static constexpr AssetBlobHeader k_header = {{'I', 'G', 'S', 'H'}, 2};
+static constexpr AssetBlobHeader k_header = {{'I', 'G', 'S', 'H'}, 7};
 
-SharedPtr<Asset> ShaderLoader::load(const AssetMetadata& metadata)
+static String read_str(AssetBinaryReader& r)
 {
-    AssetBinaryReader in = open_reader(metadata, k_header);
-    if (!in.is_open())
+    const uint32_t len = r.read_u32();
+    String s(len, '\0');
+    if (len > 0)
+        r.read_bytes(s.data(), len);
+    return s;
+}
+
+static ShaderReflection read_reflection(AssetBinaryReader& r)
+{
+    ShaderReflection refl;
+
+    auto read_bindings = [&](Vector<ShaderResourceBinding>& v) {
+        const uint32_t count = r.read_u32();
+        v.resize(count);
+        for (auto& b : v) { b.name = read_str(r); b.set = r.read_u32(); b.binding = r.read_u32(); }
+    };
+    read_bindings(refl.uniform_buffers);
+    read_bindings(refl.storage_buffers);
+    read_bindings(refl.separate_images);
+    read_bindings(refl.separate_samplers);
+
+    const uint32_t input_count = r.read_u32();
+    refl.stage_inputs.resize(input_count);
+    for (auto& i : refl.stage_inputs) { i.name = read_str(r); i.location = r.read_u32(); }
+
+    const uint32_t pc_count = r.read_u32();
+    refl.push_constants.resize(pc_count);
+    for (auto& p : refl.push_constants) { p.name = read_str(r); p.size = r.read_u32(); }
+
+    return refl;
+}
+
+struct StageData
+{
+    GRIShaderStage  stage;
+    String          entry_point;
+    Vector<uint8_t> bytecode;
+    ShaderReflection reflection;
+};
+
+static bool read_stage(AssetBinaryReader& r, StageData& out)
+{
+    out.stage       = static_cast<GRIShaderStage>(r.read_u8());
+    out.entry_point = read_str(r);
+    const uint32_t sz = r.read_u32();
+    out.bytecode.resize(sz);
+    r.read_bytes(out.bytecode.data(), sz);
+    out.reflection  = read_reflection(r);
+    return r.good();
+}
+
+// ---------------------------------------------------------------------------
+
+static SharedPtr<Asset> parse_and_create(const AssetMetadata& metadata)
+{
+    AssetBinaryReader r = AssetBinaryReader::open(metadata.compiled_path, k_header);
+    if (!r.is_open())
         return nullptr;
 
-    const uint8_t num_stages = in.read_u8();
+    r.read_u8(); // target — GRI is already selected at runtime
+    const uint8_t num_stages = r.read_u8();
 
-    Vector<uint32_t> vs_spv, ps_spv;
-
+    Vector<StageData> stages(num_stages);
     for (uint8_t i = 0; i < num_stages; ++i)
     {
-        const GRIShaderStage stage      = static_cast<GRIShaderStage>(in.read_u8());
-        const uint32_t       word_count = in.read_u32();
-
-        Vector<uint32_t> spv(word_count);
-        in.read_bytes(spv.data(), word_count * sizeof(uint32_t));
-
-        if      (stage == GRIShaderStage::Vertex) vs_spv = std::move(spv);
-        else if (stage == GRIShaderStage::Pixel)  ps_spv = std::move(spv);
-    }
-
-    if (vs_spv.empty() || ps_spv.empty())
-    {
-        IG_CORE_ERROR("ShaderLoader: missing stage data in {0}", metadata.compiled_path.string());
-        return nullptr;
+        if (!read_stage(r, stages[i]))
+            return nullptr;
     }
 
     GRI* gri = RenderSystem::get_gri();
     if (!gri)
+        return nullptr;
+
+    GRIVertexShaderPtr vs_shader;
+    GRIPixelShaderPtr  ps_shader;
+    ShaderReflection   vs_refl;
+    ShaderReflection   ps_refl;
+
+    for (auto& s : stages)
     {
-        IG_CORE_ERROR("ShaderLoader: GRI not initialized");
+        GRIShaderDesc desc;
+        desc.stage         = s.stage;
+        desc.entry_point   = s.entry_point.c_str();
+        desc.bytecode_data = s.bytecode.data();
+        desc.bytecode_size = s.bytecode.size();
+
+        if (s.stage == GRIShaderStage::Vertex)
+        {
+            vs_shader = gri->create_vertex_shader(desc);
+            vs_refl   = std::move(s.reflection);
+        }
+        else if (s.stage == GRIShaderStage::Pixel)
+        {
+            ps_shader = gri->create_pixel_shader(desc);
+            ps_refl   = std::move(s.reflection);
+        }
+    }
+
+    if (!vs_shader || !ps_shader)
+        return nullptr;
+
+    return create_shared<AssetShader>(metadata.ID,
+        RenderShader(std::move(vs_shader), std::move(ps_shader),
+                     std::move(vs_refl), std::move(ps_refl)));
+}
+
+SharedPtr<Asset> ShaderLoader::load(const AssetMetadata& metadata)
+{
+    SharedPtr<Asset> result = parse_and_create(metadata);
+    if (result)
+        return result;
+
+    AssetCompiler* compiler = AssetManager::get_compiler(AssetType::Shader);
+    if (!compiler || !compiler->compile(metadata))
+    {
+        IG_CORE_ERROR("ShaderLoader: cook failed for '{}'", metadata.source_path.string());
         return nullptr;
     }
 
-    GRIShaderDesc vs_desc;
-    vs_desc.spirv       = vs_spv.data();
-    vs_desc.spirv_size  = static_cast<uint32_t>(vs_spv.size());
-    vs_desc.entry_point = "VSMain";
-    vs_desc.stage       = GRIShaderStage::Vertex;
+    result = parse_and_create(metadata);
+    if (!result)
+        IG_CORE_ERROR("ShaderLoader: load failed after cook for '{}'", metadata.compiled_path.string());
 
-    GRIShaderDesc ps_desc;
-    ps_desc.spirv       = ps_spv.data();
-    ps_desc.spirv_size  = static_cast<uint32_t>(ps_spv.size());
-    ps_desc.entry_point = "PSMain";
-    ps_desc.stage       = GRIShaderStage::Pixel;
-
-    GRIVertexShaderPtr vs = gri->create_vertex_shader(vs_desc);
-    GRIPixelShaderPtr  ps = gri->create_pixel_shader(ps_desc);
-
-    if (!vs || !ps)
-    {
-        IG_CORE_ERROR("ShaderLoader: GRI failed to create shaders from {0}", metadata.compiled_path.string());
-        return nullptr;
-    }
-
-    return create_shared<Shader>(metadata.ID, std::move(vs), std::move(ps));
+    return result;
 }
 
 } // namespace Ignis

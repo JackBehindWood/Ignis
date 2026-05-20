@@ -6,7 +6,7 @@
 namespace Ignis
 {
 
-String MslSpirvCompiler::compile_native(const uint32_t* spirv, uint32_t word_count, spv::ExecutionModel exec_model)
+String MslSpirvCompiler::compile_from_target(const uint32_t* spirv, uint32_t word_count, spv::ExecutionModel exec_model)
 {
     spirv_cross::CompilerMSL msl(spirv, word_count);
 
@@ -41,6 +41,64 @@ String MslSpirvCompiler::compile_native(const uint32_t* spirv, uint32_t word_cou
         IG_CORE_ERROR("MslSpirvCompiler: SPIRV-Cross error: {}", e.what());
         return {};
     }
+}
+
+Vector<uint8_t> MslSpirvCompiler::compile_to_backend(const uint32_t* spirv, uint32_t word_count, spv::ExecutionModel exec_model)
+{
+    const String msl = compile_from_target(spirv, word_count, exec_model);
+    if (msl.empty())
+        return {};
+
+    const String uid        = to_string(reinterpret_cast<uintptr_t>(spirv));
+    const Path   metal_path = Path("/tmp") / ("ig_" + uid + ".metal");
+    const Path   air_path   = Path("/tmp") / ("ig_" + uid + ".air");
+    const Path   lib_path   = Path("/tmp") / ("ig_" + uid + ".metallib");
+
+    {
+        // Refactored to use BinaryWriter instead of std::ofstream
+        BinaryWriter writer(metal_path);
+        if (!writer.is_open())
+        {
+            IG_CORE_ERROR("MslSpirvCompiler: failed to write temp .metal file");
+            return {};
+        }
+        writer.write_bytes(msl.data(), msl.size());
+    }
+
+    const String metal_cmd = "xcrun -sdk macosx metal -c -o " + air_path.string() + " " + metal_path.string();
+    if (std::system(metal_cmd.c_str()) != 0)
+    {
+        IG_CORE_ERROR("MslSpirvCompiler: xcrun metal failed");
+        Filesystem::remove(metal_path);
+        return {};
+    }
+
+    const String lib_cmd = "xcrun -sdk macosx metallib -o " + lib_path.string() + " " + air_path.string();
+    if (std::system(lib_cmd.c_str()) != 0)
+    {
+        IG_CORE_ERROR("MslSpirvCompiler: xcrun metallib failed");
+        Filesystem::remove(metal_path);
+        Filesystem::remove(air_path);
+        return {};
+    }
+
+    Vector<uint8_t> bytes;
+    {
+        // Refactored to use BinaryReader instead of std::ifstream
+        BinaryReader reader(lib_path);
+        if (reader.is_open())
+        {
+            size_t size = reader.get_size();
+            bytes.resize(size);
+            reader.read_bytes(bytes.data(), size);
+        }
+    }
+
+    Filesystem::remove(metal_path);
+    Filesystem::remove(air_path);
+    Filesystem::remove(lib_path);
+
+    return bytes;
 }
 
 } // namespace Ignis

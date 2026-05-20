@@ -2,8 +2,9 @@
 #include "AssetManager.h"
 
 #include "Ignis/Rendering/ShaderLoader.h"
-#include "Ignis/Rendering/ShaderCompiler.h"
-#include "IgnisBackend/spirv/HlslSpirvCompiler.h"
+#include "Ignis/Asset/AssetShaderCompiler.h"
+#include "Ignis/Rendering/ShaderTarget.h"
+#include "Ignis/Rendering/RenderSystem.h"
 
 namespace Ignis
 {
@@ -18,12 +19,30 @@ namespace Ignis
         }
     }
 
+    static AssetShaderCompiler* make_shader_compiler()
+    {
+        const GRI* gri = RenderSystem::get_gri();
+        IG_CORE_ASSERT(gri, "GRI must be initialised before the shader compiler is first used");
+
+        switch (gri->get_api())
+        {
+            case GRIRenderAPI::Metal:   return new AssetShaderCompiler(ShaderTarget::Metal_MSL);
+            case GRIRenderAPI::Vulkan:
+            case GRIRenderAPI::DirectX12:
+            default:                    return new AssetShaderCompiler(ShaderTarget::Vulkan_SPIRV);
+        }
+    }
+
     AssetCompiler* AssetManager::get_compiler(AssetType type)
     {
         switch (type)
         {
             // case AssetType::Texture2D: { static Texture2DCompiler s; return &s; }
-            case AssetType::Shader: { static ShaderCompiler s(create_unique<HlslSpirvCompiler>()); return &s; }
+            case AssetType::Shader:
+            {
+                static AssetShaderCompiler* s = make_shader_compiler();
+                return s;
+            }
             default: return nullptr;
         }
     }
