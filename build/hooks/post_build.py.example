@@ -1,0 +1,47 @@
+"""
+Example post-build hook. Runs after compilation succeeds.
+
+To use: copy to post_build.py and customize the run() function.
+
+The `ctx` parameter provides:
+  - ctx.config: Config singleton (access paths, settings)
+  - ctx.configuration: current build config (Debug/Release/Distribution)
+  - ctx.project_dir: project root
+  - ctx.bin_dir: output directory (bin/)
+  - ctx.obj_dir: intermediate directory (bin-int/)
+  - ctx.verbose: verbose flag
+"""
+
+
+def run(ctx):
+    """Called after build_project() succeeds. Exit with error code to fail."""
+    import os
+    import subprocess
+
+    print(f"Post-build hook for {ctx.configuration} config")
+
+    # Example: Create distribution package
+    # import shutil
+    # dist_name = f"ignis-{ctx.configuration.lower()}.tar.gz"
+    # shutil.make_archive(dist_name, "gztar", ctx.bin_dir)
+    # print(f"Created {dist_name}")
+
+    # Example: Copy to deployment directory
+    # shutil.copy(
+    #     os.path.join(ctx.bin_dir, ctx.config.exec_name),
+    #     "/tmp/deploy/"
+    # )
+
+    # Example: Generate documentation
+    # subprocess.run(["doxygen", "Doxyfile"], check=True)
+
+    # Example: Print build summary
+    bin_size = 0
+    if os.path.exists(ctx.bin_dir):
+        for root, dirs, files in os.walk(ctx.bin_dir):
+            for file in files:
+                bin_size += os.path.getsize(os.path.join(root, file))
+    if bin_size > 0:
+        print(f"Build artifacts: {bin_size / 1024 / 1024:.1f} MB")
+
+    pass

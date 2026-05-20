@@ -8,7 +8,7 @@ namespace Ignis
     class MetalGRI : public GRI
     {
     private:
-        MetalDevice* m_device;
+        MetalDevice*        m_device;
         MetalCommandContext m_context;
     public:
         MetalGRI();

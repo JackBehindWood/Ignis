@@ -1,11 +1,15 @@
 #pragma once
 #include "RefCounted.h"
 
+#include "TypeTraits.h"
+
 namespace Ignis
 {
     template<typename T>
     class SharedPtr
     {
+        static_assert(IsBaseOf<RefCounted, T>, "Template type T must derive from Ignis::RefCounted");
+
         template<typename U> friend class SharedPtr;
     public:
         constexpr SharedPtr() = default;
@@ -14,6 +18,8 @@ namespace Ignis
         {
             if (m_ptr) m_ptr->add_ref();
         }
+
+        constexpr SharedPtr(std::nullptr_t) noexcept : m_ptr(nullptr) {}
 
         constexpr SharedPtr(const SharedPtr& other) : m_ptr(other.m_ptr)
         {
@@ -75,6 +81,13 @@ namespace Ignis
             return *this;
         }
 
+        constexpr SharedPtr& operator=(std::nullptr_t) noexcept
+        {
+            if (m_ptr) m_ptr->release();
+            m_ptr = nullptr;
+            return *this;
+        }
+
         constexpr T* operator->() const { return m_ptr; }
         constexpr T& operator*()  const { return *m_ptr; }
         constexpr T* get()        const { return m_ptr; }
@@ -98,6 +111,14 @@ namespace Ignis
     constexpr SharedPtr<T> create_shared(Args&&... args)
     {
         return SharedPtr<T>(new T(static_cast<Args&&>(args)...));
+    }
+
+    // Checked downcast: SharedPtr<Base> → SharedPtr<Derived>.
+    // Mirrors std::static_pointer_cast — use only when the stored type is known to be T.
+    template<typename T, typename U>
+    constexpr SharedPtr<T> static_pointer_cast(const SharedPtr<U>& other)
+    {
+        return SharedPtr<T>(static_cast<T*>(other.get()));
     }
 
     template<typename T>

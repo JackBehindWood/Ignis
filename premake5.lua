@@ -12,12 +12,15 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
 -- Include directories
 include_dirs = {}
-include_dirs["GLFW"] = "%{wks.location}/engine/vendor/GLFW/include"
-include_dirs["spdlog"] = "%{wks.location}/engine/vendor/spdlog/include"
-include_dirs["metal"] = "%{wks.location}/engine/vendor/metal-cpp"
+include_dirs["GLFW"]        = "%{wks.location}/engine/vendor/GLFW/include"
+include_dirs["spdlog"]      = "%{wks.location}/engine/vendor/spdlog/include"
+include_dirs["metal"]       = "%{wks.location}/engine/vendor/metal-cpp"
+include_dirs["SPIRV_Cross"] = "%{wks.location}/engine/vendor/SPIRV-Cross"
+include_dirs["DXC"]         = "%{wks.location}/engine/vendor/dxc/include"
 
 group "Dependencies"
    include "engine/vendor/GLFW"
+   include "engine/vendor/SPIRV-Cross"
 group ""
 
 -- Include engine and editor premake files

@@ -25,6 +25,7 @@ namespace Ignis
     {
         m_root = root;
         AssetManager::get().set_compiled_root(cache_dir());
+        AssetManager::get().prune_cache();
     }
 
     AssetID EditorAssetManager::import_texture(const Path& filename)
@@ -35,6 +36,11 @@ namespace Ignis
     AssetID EditorAssetManager::import_shader(const Path& filename)
     {
         return import(Path("assets/shaders") / filename, AssetType::Shader);
+    }
+
+    SharedPtr<AssetShader> EditorAssetManager::load_shader(AssetID id)
+    {
+        return AssetManager::get().load_as<AssetShader>(id);
     }
 
     AssetID EditorAssetManager::import(const Path& relative_path, AssetType type)
@@ -54,7 +60,8 @@ namespace Ignis
             Filesystem::create_directories(cache);
         }
 
-        return AssetManager::get().import(source, type);
+        // Assets from the standard resources/assets/ tree are always cached to disk.
+        return AssetManager::get().import(source, type, /*cache_compiled=*/true);
     }
 
 } // namespace Ignis

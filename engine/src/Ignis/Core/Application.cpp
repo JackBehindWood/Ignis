@@ -4,6 +4,7 @@
 #include "Platform.h"
 
 #include "Ignis/Rendering/RenderSystem.h"
+#include "Ignis/Rendering/ShaderCache.h"
 
 
 namespace Ignis
@@ -22,6 +23,7 @@ namespace Ignis
             working_directory = Filesystem::current_path();
         }
         Filesystem::current_path(working_directory);
+        ShaderCache::get().set_cache_root(working_directory / "shadercache");
 
         RenderSystem::init(GRIRenderAPI::Metal);
 

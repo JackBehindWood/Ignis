@@ -141,12 +141,12 @@ namespace Ignis
 		virtual void* get_native_handle() const = 0;
 	};
 
-	// TODO: check if a future shader compiler stage can add pre-compiled bytecode paths here.
 	struct GRIShaderDesc
 	{
-		const char* source      = nullptr;
-		const char* entry_point = nullptr;
-		GRIShaderStage stage    = GRIShaderStage::Vertex;
+		GRIShaderStage  stage         = GRIShaderStage::Vertex;
+		const char*     entry_point   = nullptr;
+		const uint8_t*  bytecode_data = nullptr;
+		size_t          bytecode_size = 0;
 	};
 
 	class GRIVertexShader : public GRIResource

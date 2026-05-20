@@ -19,7 +19,17 @@ Makefile
 
 # Mac
 .DS_Store
-/.claude
-.claudeignore
-CLAUDE.md
+
+# DXC pre-built binaries (downloaded by setup_dxc.py)
+engine/vendor/dxc/
+
+
+# Compiled assets
 /editor/resources/cache
+*.igasset
+
+
+# Claude
+CLAUDE.md
+.claude/
+.claudeignore

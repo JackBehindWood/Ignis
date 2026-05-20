@@ -1,6 +1,7 @@
 #include "edpch.h"
 #include "EditorLayer.h"
 #include "EditorAssetManager.h"
+#include "Ignis/Rendering/ShaderCache.h"
 
 namespace Ignis
 {
@@ -34,39 +35,6 @@ namespace Ignis
         return u;
     }
 
-    static const char* k_triangle_shader = R"(
-        #include <metal_stdlib>
-        using namespace metal;
-
-        struct SceneUniforms {
-            float4x4 transform;
-        };
-
-        struct VertexIn {
-            float3 position [[attribute(0)]];
-            float4 color    [[attribute(1)]];
-        };
-
-        struct VertexOut {
-            float4 position [[position]];
-            float4 color;
-        };
-
-        vertex VertexOut vertex_main(VertexIn in [[stage_in]],
-                                     constant SceneUniforms& uniforms [[buffer(1)]])
-        {
-            VertexOut out;
-            out.position = uniforms.transform * float4(in.position, 1.0);
-            out.color    = in.color;
-            return out;
-        }
-
-        fragment float4 fragment_main(VertexOut in [[stage_in]])
-        {
-            return in.color;
-        }
-    )";
-
     EditorLayer::EditorLayer()
         : Layer("EditorLayer")
     {
@@ -76,19 +44,16 @@ namespace Ignis
     {
         IG_INFO("EditorLayer attached");
 
+        EditorAssetManager& assets = EditorAssetManager::get();
+        assets.set_root(Filesystem::current_path() / "resources");
+        ShaderCache::get().set_cache_root(Filesystem::current_path() / "resources" / "cache" / "shaders");
+
+        const AssetID shader_id = assets.import_shader("triangle.hlsl");
+        m_shader = assets.load_shader(shader_id);
+
+        IG_CORE_ASSERT(m_shader, "Failed to compile/load triangle shader");
+
         GRI* gri = RenderSystem::get_gri();
-
-        GRIShaderDesc vs_desc;
-        vs_desc.source      = k_triangle_shader;
-        vs_desc.entry_point = "vertex_main";
-        vs_desc.stage       = GRIShaderStage::Vertex;
-        m_vertex_shader = gri->create_vertex_shader(vs_desc);
-
-        GRIShaderDesc ps_desc;
-        ps_desc.source      = k_triangle_shader;
-        ps_desc.entry_point = "fragment_main";
-        ps_desc.stage       = GRIShaderStage::Pixel;
-        m_pixel_shader = gri->create_pixel_shader(ps_desc);
 
         // Vertex buffer
         GRIBufferDesc vb_desc;
@@ -98,7 +63,7 @@ namespace Ignis
 
         // Index buffer
         GRIBufferDesc ib_desc;
-        ib_desc.size = sizeof(k_indices);
+        ib_desc.size  = sizeof(k_indices);
         ib_desc.usage = GRIBufferUsage::IndexBuffer;
         m_index_buffer = gri->create_buffer(ib_desc, k_indices);
 
@@ -109,7 +74,7 @@ namespace Ignis
         ub_desc.usage = GRIBufferUsage::UniformBuffer;
         m_uniform_buffer = gri->create_buffer(ub_desc, &uniforms);
 
-        // Vertex declaration: two attributes in one buffer, stride = sizeof(Vertex)
+        // Vertex declaration: position (float3) + color (float4), interleaved in one buffer
         GRIVertexDeclaration vd;
         vd.elements[0] = { GRIVertexElementSemantic::Position, GRIVertexElementFormat::Float3, offsetof(Vertex, position), 0 };
         vd.elements[1] = { GRIVertexElementSemantic::Color,    GRIVertexElementFormat::Float4, offsetof(Vertex, color),    0 };
@@ -118,43 +83,43 @@ namespace Ignis
         vd.num_bindings = 1;
 
         GRIPipelineStateDesc pso_desc;
-        pso_desc.vertex_shader        = m_vertex_shader.get();
-        pso_desc.pixel_shader         = m_pixel_shader.get();
+        pso_desc.vertex_shader        = m_shader->get_render_shader()->get_vertex_shader();
+        pso_desc.pixel_shader         = m_shader->get_render_shader()->get_pixel_shader();
         pso_desc.vertex_declaration   = &vd;
-        pso_desc.render_target_format  = GRIPixelFormat::RGBA8Unorm;
-        pso_desc.depth_stencil_format  = GRIPixelFormat::Depth32Float;
-        pso_desc.primitive_topology    = GRIPrimitiveTopology::TriangleList;
+        pso_desc.render_target_format = GRIPixelFormat::RGBA8Unorm;
+        pso_desc.depth_stencil_format = GRIPixelFormat::Depth32Float;
+        pso_desc.primitive_topology   = GRIPrimitiveTopology::TriangleList;
         m_pipeline_state = gri->create_graphics_pipeline_state(pso_desc);
     }
 
     void EditorLayer::detach()
     {
         IG_INFO("EditorLayer detached");
-        m_pipeline_state  = nullptr;
-        m_uniform_buffer  = nullptr;
-        m_index_buffer    = nullptr;
-        m_vertex_buffer   = nullptr;
-        m_pixel_shader    = nullptr;
-        m_vertex_shader   = nullptr;
+        m_pipeline_state = nullptr;
+        m_uniform_buffer = nullptr;
+        m_index_buffer   = nullptr;
+        m_vertex_buffer  = nullptr;
+        m_shader         = nullptr;
     }
 
     void EditorLayer::update(Timestep ts)
     {
-        GRIViewport* viewport     = Application::get().get_window().get_viewport();
-        GRICommandList& cmd_list  = RenderSystem::get_command_list();
+        GRIViewport* viewport    = Application::get().get_window().get_viewport();
+        GRICommandList& cmd_list = RenderSystem::get_command_list();
 
         cmd_list.begin_frame();
         cmd_list.begin_drawing_viewport(viewport, nullptr);
 
         GRIRenderPassInfo rp;
-        rp.colour_targets[0].clear_value = { 0.1f, 0.1f, 0.1f, 1.0f };
+        rp.colour_targets[0].load_action  = GRILoadAction::Clear;
+        rp.colour_targets[0].store_action = GRIStoreAction::Store;
+        rp.colour_targets[0].clear_value  = { 0.1f, 0.1f, 0.1f, 1.0f };
         cmd_list.begin_render_pass(rp);
 
         cmd_list.set_graphics_pipeline_state(m_pipeline_state.get());
         cmd_list.set_vertex_buffer(m_vertex_buffer.get());
         cmd_list.set_index_buffer(m_index_buffer.get());
         cmd_list.set_uniform_buffer(m_uniform_buffer.get(), 1, GRIShaderStage::Vertex);
-        //cmd_list.draw_primitives(3);
         cmd_list.draw_indexed_primitives(3);
 
         cmd_list.end_render_pass();
@@ -166,15 +131,20 @@ namespace Ignis
     void EditorLayer::event(Event& event)
     {
         EventDispatcher dispatcher(event);
-        dispatcher.dispatch<KeyPressedEvent>([](KeyPressedEvent& e) -> bool
+        dispatcher.dispatch<KeyPressedEvent>([this](KeyPressedEvent& e) -> bool
         {
             if (e.get_key_code() == Key::F5)
             {
-                IG_INFO("Recompiling assets...");
+                IG_INFO("Recompiling shaders...");
                 EditorAssetManager::get().reload_all();
                 return true;
             }
             return false;
         });
+    }
+
+    bool EditorLayer::key_pressed(KeyPressedEvent& e)
+    {
+        return false;
     }
 }
