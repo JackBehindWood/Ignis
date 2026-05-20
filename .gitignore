@@ -19,3 +19,7 @@ Makefile
 
 # Mac
 .DS_Store
+/.claude
+.claudeignore
+CLAUDE.md
+/editor/resources/cache
