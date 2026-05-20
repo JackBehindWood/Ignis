@@ -5,24 +5,17 @@
 
 namespace Ignis
 {
-    struct Vertex
-    {
-        float position[3];
-        float color[4];
-    };
-
-    static const Vertex k_triangle_vertices[3] =
-    {
-        {{ 0.0f,  0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
-        {{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-    };
-
-    static const uint16_t k_indices[3] = { 0, 1, 2 };
 
     struct SceneUniforms
     {
         float transform[16];
+    };
+
+    struct MeshVertex
+    {
+        float position[3];
+        float normal[3];
+        float uv[2];
     };
 
     static SceneUniforms make_identity_uniforms()
@@ -53,19 +46,28 @@ namespace Ignis
 
         IG_CORE_ASSERT(m_shader, "Failed to compile/load triangle shader");
 
+        const AssetID mesh_id = assets.import_mesh("triangle.obj");
+        SharedPtr<AssetMesh> mesh = assets.load_mesh(mesh_id);
+        IG_CORE_ASSERT(mesh, "Failed to load triangle.obj");
+
         GRI* gri = RenderSystem::get_gri();
 
-        // Vertex buffer
-        GRIBufferDesc vb_desc;
-        vb_desc.size  = sizeof(k_triangle_vertices);
-        vb_desc.usage = GRIBufferUsage::VertexBuffer;
-        m_vertex_buffer = gri->create_buffer(vb_desc, k_triangle_vertices);
+        // 1. Set up Vertex Declaration first
+        GRIVertexDeclaration vd;
+        vd.elements[0] = { GRIVertexElementSemantic::Position, GRIVertexElementFormat::Float3, offsetof(MeshVertex, position), 0 };
+        vd.elements[1] = { GRIVertexElementSemantic::Normal,   GRIVertexElementFormat::Float3, offsetof(MeshVertex, normal),   0 };
+        vd.elements[2] = { GRIVertexElementSemantic::TexCoord, GRIVertexElementFormat::Float2, offsetof(MeshVertex, uv),       0 };
+        vd.num_elements = 3;
+        vd.bindings[0]  = { 0, sizeof(MeshVertex) };
+        vd.num_bindings = 1;
 
-        // Index buffer
-        GRIBufferDesc ib_desc;
-        ib_desc.size  = sizeof(k_indices);
-        ib_desc.usage = GRIBufferUsage::IndexBuffer;
-        m_index_buffer = gri->create_buffer(ib_desc, k_indices);
+        // 2. Pass VD into mesh creation. 
+        // Note: size is now just the size of the byte vector
+        m_mesh = RenderMesh::create(
+            mesh->get_vertices().data(),
+            static_cast<uint32_t>(mesh->get_vertices().size()), 
+            mesh->get_indices().data(),
+            static_cast<uint32_t>(mesh->get_indices().size()));
 
         // Uniform buffer
         SceneUniforms uniforms = make_identity_uniforms();
@@ -74,14 +76,7 @@ namespace Ignis
         ub_desc.usage = GRIBufferUsage::UniformBuffer;
         m_uniform_buffer = gri->create_buffer(ub_desc, &uniforms);
 
-        // Vertex declaration: position (float3) + color (float4), interleaved in one buffer
-        GRIVertexDeclaration vd;
-        vd.elements[0] = { GRIVertexElementSemantic::Position, GRIVertexElementFormat::Float3, offsetof(Vertex, position), 0 };
-        vd.elements[1] = { GRIVertexElementSemantic::Color,    GRIVertexElementFormat::Float4, offsetof(Vertex, color),    0 };
-        vd.num_elements = 2;
-        vd.bindings[0]  = { 0, sizeof(Vertex) };
-        vd.num_bindings = 1;
-
+        // 3. Use the VD for the pipeline state
         GRIPipelineStateDesc pso_desc;
         pso_desc.vertex_shader        = m_shader->get_render_shader()->get_vertex_shader();
         pso_desc.pixel_shader         = m_shader->get_render_shader()->get_pixel_shader();
@@ -97,8 +92,7 @@ namespace Ignis
         IG_INFO("EditorLayer detached");
         m_pipeline_state = nullptr;
         m_uniform_buffer = nullptr;
-        m_index_buffer   = nullptr;
-        m_vertex_buffer  = nullptr;
+        m_mesh           = nullptr;
         m_shader         = nullptr;
     }
 
@@ -117,10 +111,10 @@ namespace Ignis
         cmd_list.begin_render_pass(rp);
 
         cmd_list.set_graphics_pipeline_state(m_pipeline_state.get());
-        cmd_list.set_vertex_buffer(m_vertex_buffer.get());
-        cmd_list.set_index_buffer(m_index_buffer.get());
+        cmd_list.set_vertex_buffer(m_mesh->get_vertex_buffer());
+        cmd_list.set_index_buffer(m_mesh->get_index_buffer(), m_mesh->get_index_format());
         cmd_list.set_uniform_buffer(m_uniform_buffer.get(), 1, GRIShaderStage::Vertex);
-        cmd_list.draw_indexed_primitives(3);
+        cmd_list.draw_indexed_primitives(m_mesh->get_index_count());
 
         cmd_list.end_render_pass();
 

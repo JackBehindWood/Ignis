@@ -29,7 +29,3 @@ engine/vendor/dxc/
 *.igasset
 
 
-# Claude
-CLAUDE.md
-.claude/
-.claudeignore

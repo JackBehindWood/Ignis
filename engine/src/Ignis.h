@@ -1,16 +1,7 @@
 #pragma once
 
 // Foundation
-#include "Ignis/Foundation/TypeTraits.h"
-#include "Ignis/Foundation/Filesystem.h"
-#include <Ignis/Foundation/BinaryStream.h>
-#include "Ignis/Foundation/Memory.h"
-#include "Ignis/Foundation/RefCounted.h"
-#include "Ignis/Foundation/SharedPtr.h"
-#include "Ignis/Foundation/UniquePtr.h"
-#include "Ignis/Foundation/String.h"
-#include "Ignis/Foundation/Vector.h"
-#include "Ignis/Foundation/UnordererMap.h"
+#include "Ignis/Foundation/Foundation.h"
 
 // Core
 #include "Ignis/Core/Base.h"
@@ -36,7 +27,9 @@
 #include "Ignis/Rendering/GRI/GRIDefinitions.h"
 #include "Ignis/Rendering/GRI/GRIResource.h"
 #include "Ignis/Asset/AssetShader.h"
+#include "Ignis/Asset/AssetMesh.h"
 #include "Ignis/Rendering/RenderShader.h"
+#include "Ignis/Rendering/RenderMesh.h"
 
 // Events
 #include "Ignis/Events/Event.h"

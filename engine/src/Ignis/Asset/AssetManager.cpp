@@ -1,9 +1,10 @@
 #include "igpch.h"
 #include "AssetManager.h"
 
-#include "Ignis/Rendering/ShaderLoader.h"
 #include "Ignis/Rendering/ShaderCache.h"
 #include "Ignis/Asset/AssetShaderCompiler.h"
+#include "Ignis/Asset/ShaderLoader.h"
+#include "Ignis/Asset/MeshLoader.h"
 
 namespace Ignis
 {
@@ -14,6 +15,7 @@ namespace Ignis
         {
             // case AssetType::Texture2D: { static Texture2DLoader s; return &s; }
             case AssetType::Shader: { static ShaderLoader s; return &s; }
+            case AssetType::Mesh:   { static MeshLoader   s; return &s; }
             default: return nullptr;
         }
     }
@@ -160,11 +162,21 @@ namespace Ignis
     {
         for (const auto& [key, metadata] : m_registry.get_all())
         {
+            if (metadata.Type == AssetType::Shader)
+                ShaderCache::get().remove(metadata.source_path);
+
             AssetCompiler* compiler = get_compiler(metadata.Type);
             if (compiler)
                 compiler->compile(metadata);
         }
         m_loaded_assets.clear();
+    }
+
+    AssetID AssetManager::create_mesh(const Vector<uint8_t>& vertices, const Vector<uint32_t>& indices)
+    {
+        AssetID id;
+        m_loaded_assets[static_cast<uint64_t>(id)] = create_shared<AssetMesh>(id, vertices, indices);
+        return id;
     }
 
 } // namespace Ignis

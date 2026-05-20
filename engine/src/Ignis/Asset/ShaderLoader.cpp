@@ -1,9 +1,10 @@
 #include "igpch.h"
 #include "ShaderLoader.h"
-#include "ShaderCache.h"
-#include "Ignis/Asset/AssetShader.h"
-#include "Ignis/Asset/AssetBinaryStream.h"
-#include "Ignis/Asset/AssetManager.h"
+#include "AssetShader.h"
+#include "AssetBinaryStream.h"
+#include "AssetManager.h"
+#include "Ignis/Rendering/ShaderCache.h"
+
 
 namespace Ignis
 {

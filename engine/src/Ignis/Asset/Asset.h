@@ -15,6 +15,7 @@ namespace Ignis
         None = 0,
         Texture2D,
         Shader,
+        Mesh,
     };
 
     struct AssetMetadata

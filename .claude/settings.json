@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(head:*)",
+      "Bash(clang:*)",
+      "Bash(clang++:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+      "Bash(python3 build/build.py*)",
+      "Bash(python3 build/run.py*)",
+      "Bash(python3 build/build_run.py*)",
+      "Bash(python3 build/cli.py*)",
+      "Bash(python3 build/setup.py*)",
+      "Bash(python3 build/setup_dxc.py*)",
+      "Bash(python3 build/setup_premake.py*)"
+    ],
+    "deny": [
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}

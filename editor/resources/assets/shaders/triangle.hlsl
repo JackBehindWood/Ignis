@@ -6,13 +6,14 @@ struct SceneUniforms
 struct VertexIn
 {
     float3 position : POSITION;
-    float4 color    : COLOR;
+    float3 normal   : NORMAL;
+    float2 uv       : TEXCOORD;
 };
 
 struct VertexOut
 {
     float4 position : SV_POSITION;
-    float4 color    : COLOR;
+    float2 uv       : TEXCOORD;
 };
 
 ConstantBuffer<SceneUniforms> g_uniforms : register(b1);
@@ -21,11 +22,11 @@ VertexOut VSMain(VertexIn input)
 {
     VertexOut output;
     output.position = mul(g_uniforms.transform, float4(input.position, 1.0));
-    output.color    = input.color;
+    output.uv       = input.uv;
     return output;
 }
 
 float4 PSMain(VertexOut input) : SV_TARGET
 {
-    return input.color;
+    return float4(input.uv, 0.0, 1.0);
 }

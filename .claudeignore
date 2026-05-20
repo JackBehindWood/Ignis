@@ -1,0 +1,23 @@
+# Banned Vendor Repositories & External Headers
+engine/vendor/
+editor/vendor/
+
+# Build, Object, and Output Directories
+bin/
+bin-int/
+build/__pycache__/
+premake/output/
+
+# Generated Build Metadata
+compile_commands.json
+
+# Cooked Asset Pipeline Cache
+cache/
+*.igasset
+
+# IDE Artifacts
+.vscode/*.db
+
+# System and Git Repositories
+.git/
+.DS_Store

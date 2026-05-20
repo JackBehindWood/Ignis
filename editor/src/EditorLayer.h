@@ -20,9 +20,8 @@ namespace Ignis
 
     private:
         SharedPtr<AssetShader> m_shader;
-        GRIPipelineStatePtr m_pipeline_state;
-        GRIBufferPtr        m_vertex_buffer;
-		GRIBufferPtr		m_index_buffer;
-        GRIBufferPtr        m_uniform_buffer;
+        SharedPtr<RenderMesh>  m_mesh;
+        GRIPipelineStatePtr    m_pipeline_state;
+        GRIBufferPtr           m_uniform_buffer;
     };
 }
