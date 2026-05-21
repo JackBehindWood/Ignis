@@ -22,14 +22,17 @@
 #include "Ignis/Asset/AssetManager.h"
 
 // Rendering
+#include "Ignis/Rendering/Renderer.h"
 #include "Ignis/Rendering/RenderSystem.h"
 #include "Ignis/Rendering/GRI/GRI.h"
 #include "Ignis/Rendering/GRI/GRIDefinitions.h"
 #include "Ignis/Rendering/GRI/GRIResource.h"
 #include "Ignis/Asset/AssetShader.h"
 #include "Ignis/Asset/AssetMesh.h"
+#include "Ignis/Asset/AssetMaterial.h"
 #include "Ignis/Rendering/RenderShader.h"
 #include "Ignis/Rendering/RenderMesh.h"
+#include "Ignis/Rendering/Material.h"
 
 // Events
 #include "Ignis/Events/Event.h"

@@ -10,6 +10,7 @@ namespace Ignis
     class GRIResource;
     class GRIViewport;
     class GRITexture2D;
+    class GRIShader;
     class GRIVertexShader;
     class GRIPixelShader;
     class GRIPipelineState;
@@ -21,6 +22,7 @@ namespace Ignis
 
     using GRIViewportPtr       = UniquePtr<GRIViewport>;
     using GRITexture2DPtr      = GRIResourcePtr<GRITexture2D>;
+    using GRIShaderPtr         = GRIResourcePtr<GRIShader>;
     using GRIVertexShaderPtr   = GRIResourcePtr<GRIVertexShader>;
     using GRIPixelShaderPtr    = GRIResourcePtr<GRIPixelShader>;
     using GRIPipelineStatePtr  = GRIResourcePtr<GRIPipelineState>;
@@ -58,6 +60,7 @@ namespace Ignis
         Vertex,
         Pixel,
         Compute,
+        COUNT,
     };
 
     // Pixel formats shared across all backends.

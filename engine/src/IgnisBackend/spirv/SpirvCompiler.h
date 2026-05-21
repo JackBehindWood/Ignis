@@ -56,9 +56,10 @@ namespace Ignis
         virtual ~SpirvCompiler() = default;
 
         // HLSL source → SPIR-V words
-        inline Vector<uint32_t> compile_to_binary(const String& source, const char* entry_point, GRIShaderStage stage)
+        inline Vector<uint32_t> compile_to_binary(const String& source, const char* entry_point, GRIShaderStage stage,
+                                                   const Vector<Pair<String, String>>& defines = {})
         {
-            return compile_to_target(source, entry_point, to_execution_model(stage));
+            return compile_to_target(source, entry_point, to_execution_model(stage), defines);
         }
         // SPIR-V words → native source text (e.g. MSL)
         inline String compile_from_binary(const uint32_t* spirv, uint32_t word_count, GRIShaderStage stage)
@@ -81,7 +82,7 @@ namespace Ignis
         static UniquePtr<SpirvCompiler> create(ShaderTarget target);
 
     protected:
-        virtual Vector<uint32_t> compile_to_target(const String& source, const char* entry_point, spv::ExecutionModel exec_model) = 0;
+        virtual Vector<uint32_t> compile_to_target(const String& source, const char* entry_point, spv::ExecutionModel exec_model, const Vector<Pair<String, String>>& defines) = 0;
         virtual String           compile_from_target(const uint32_t* spirv, uint32_t word_count, spv::ExecutionModel exec_model) = 0;
         virtual Vector<uint8_t>  compile_to_backend(const uint32_t* spirv, uint32_t word_count, spv::ExecutionModel exec_model) { return {}; }
         virtual Vector<uint32_t> compile_from_backend(const uint8_t* data, uint32_t size) { return {}; }

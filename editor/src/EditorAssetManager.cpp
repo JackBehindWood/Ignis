@@ -11,6 +11,7 @@ namespace Ignis
             case AssetType::Texture2D: return "textures";
             case AssetType::Shader:    return "shaders";
             case AssetType::Mesh:      return "meshes";
+            case AssetType::Material:  return "materials";
             default:                   return "";
         }
     }
@@ -44,6 +45,11 @@ namespace Ignis
         return import(Path("assets/meshes") / filename, AssetType::Mesh);
     }
 
+    AssetID EditorAssetManager::import_material(const Path& filename)
+    {
+        return import(Path("assets/materials") / filename, AssetType::Material);
+    }
+
     SharedPtr<AssetShader> EditorAssetManager::load_shader(AssetID id)
     {
         return AssetManager::get().load_as<AssetShader>(id);
@@ -52,6 +58,11 @@ namespace Ignis
     SharedPtr<AssetMesh> EditorAssetManager::load_mesh(AssetID id)
     {
         return AssetManager::get().load_as<AssetMesh>(id);
+    }
+
+    SharedPtr<AssetMaterial> EditorAssetManager::load_material(AssetID id)
+    {
+        return AssetManager::get().load_as<AssetMaterial>(id);
     }
 
     AssetID EditorAssetManager::import(const Path& relative_path, AssetType type)

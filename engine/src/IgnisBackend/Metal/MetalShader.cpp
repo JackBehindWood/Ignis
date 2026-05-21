@@ -83,8 +83,8 @@ namespace Ignis
 
         MTL::RenderPipelineDescriptor* pipeline_desc = MTL::RenderPipelineDescriptor::alloc()->init();
 
-        pipeline_desc->setVertexFunction(resource_cast<GRIVertexShader>(desc.vertex_shader)->get_function());
-        pipeline_desc->setFragmentFunction(resource_cast<GRIPixelShader>(desc.pixel_shader)->get_function());
+        pipeline_desc->setVertexFunction(static_cast<MetalVertexShader*>(desc.vertex_shader)->get_function());
+        pipeline_desc->setFragmentFunction(static_cast<MetalPixelShader*>(desc.pixel_shader)->get_function());
         pipeline_desc->colorAttachments()->object(0)->setPixelFormat(Utils::metal_pixel_format(desc.render_target_format));
 
         if (desc.vertex_declaration)

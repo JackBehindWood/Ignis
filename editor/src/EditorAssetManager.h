@@ -28,10 +28,12 @@ namespace Ignis
         AssetID import_texture(const Path& filename);
         AssetID import_shader(const Path& filename);
         AssetID import_mesh(const Path& filename);
+        AssetID import_material(const Path& filename);
 
         // Convenience typed loaders — trigger compile-on-first-load via AssetManager.
-        SharedPtr<AssetShader> load_shader(AssetID id);
-        SharedPtr<AssetMesh>   load_mesh(AssetID id);
+        SharedPtr<AssetShader>   load_shader(AssetID id);
+        SharedPtr<AssetMesh>     load_mesh(AssetID id);
+        SharedPtr<AssetMaterial> load_material(AssetID id);
 
         // Reload all assets (recompile + evict cache). Bound to F5 in EditorLayer.
         void reload_all() { AssetManager::get().reload_all(); }

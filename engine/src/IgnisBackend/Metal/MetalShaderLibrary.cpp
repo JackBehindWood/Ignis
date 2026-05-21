@@ -25,7 +25,7 @@ void MetalShaderLibrary::reset()
 MTL::Function* MetalShaderLibrary::load_hardware_function(const uint8_t* data, size_t size,
                                                            const String& entry_point)
 {
-    const std::string fn_key = to_string(reinterpret_cast<uintptr_t>(data)) + ':' + entry_point;
+    const String fn_key = to_string(reinterpret_cast<uintptr_t>(data)) + ':' + entry_point;
 
     auto fn_it = m_function_cache.find(fn_key);
     if (fn_it != m_function_cache.end())

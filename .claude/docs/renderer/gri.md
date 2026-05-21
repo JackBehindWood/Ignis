@@ -43,13 +43,25 @@ GRIRenderTargetsInfo     { color[]: GRIRenderTargetView, depth: GRIDepthRenderTa
 GRIRenderPassInfo        { render_targets: GRIRenderTargetsInfo, load/store actions }
 ```
 
+## GRIShader hierarchy
+
+```
+GRIShader : GRIResource          — base; get_stage() → GRIShaderStage
+  GRIVertexShader : GRIShader
+  GRIPixelShader  : GRIShader
+```
+
+`GRIPipelineStateDesc::vertex_shader` and `pixel_shader` are `GRIShader*`.
+Metal backend static_casts to `MetalVertexShader*`/`MetalPixelShader*` by position.
+
 ## Pointer aliases
 
 All `SharedPtr<T>` except Viewport:
 
 ```
-GRIVertexShaderPtr  GRIPixelShaderPtr  GRIPipelineStatePtr
-GRITexture2DPtr     GRIBufferPtr       GRIViewportPtr (UniquePtr)
+GRIShaderPtr        GRIVertexShaderPtr  GRIPixelShaderPtr
+GRIPipelineStatePtr GRITexture2DPtr     GRIBufferPtr
+GRIViewportPtr (UniquePtr)
 ```
 
 ## RenderMesh  (Ignis/Rendering/RenderMesh.h)

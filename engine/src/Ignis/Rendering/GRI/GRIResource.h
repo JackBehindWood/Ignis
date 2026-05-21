@@ -149,17 +149,27 @@ namespace Ignis
 		size_t          bytecode_size = 0;
 	};
 
-	class GRIVertexShader : public GRIResource
+	class GRIShader : public GRIResource
 	{
 	public:
-		GRIVertexShader() : GRIResource(GRIResourceType::Shader) {}
+		explicit GRIShader(GRIShaderStage stage) : GRIResource(GRIResourceType::Shader), m_stage(stage) {}
+		virtual ~GRIShader() = default;
+		GRIShaderStage get_stage() const { return m_stage; }
+	private:
+		GRIShaderStage m_stage;
+	};
+
+	class GRIVertexShader : public GRIShader
+	{
+	public:
+		GRIVertexShader() : GRIShader(GRIShaderStage::Vertex) {}
 		virtual ~GRIVertexShader() = default;
 	};
 
-	class GRIPixelShader : public GRIResource
+	class GRIPixelShader : public GRIShader
 	{
 	public:
-		GRIPixelShader() : GRIResource(GRIResourceType::Shader) {}
+		GRIPixelShader() : GRIShader(GRIShaderStage::Pixel) {}
 		virtual ~GRIPixelShader() = default;
 	};
 
@@ -218,8 +228,8 @@ namespace Ignis
 
 	struct GRIPipelineStateDesc
 	{
-		GRIVertexShader*      vertex_shader       = nullptr;
-		GRIPixelShader*       pixel_shader        = nullptr;
+		GRIShader*            vertex_shader       = nullptr;
+		GRIShader*            pixel_shader        = nullptr;
 		GRIVertexDeclaration* vertex_declaration  = nullptr;
 		GRIPixelFormat        render_target_format = GRIPixelFormat::RGBA8Unorm;
 		GRIPixelFormat        depth_stencil_format = GRIPixelFormat::Unknown; // Unknown = no depth

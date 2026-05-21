@@ -16,6 +16,7 @@ namespace Ignis
         Texture2D,
         Shader,
         Mesh,
+        Material,
     };
 
     struct AssetMetadata

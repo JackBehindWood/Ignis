@@ -17,7 +17,7 @@ namespace Ignis
 // ---------------------------------------------------------------------------
 
 static constexpr uint8_t  k_magic[4]  = {'I', 'G', 'S', 'H'};
-static constexpr uint8_t  k_version   = 8;
+static constexpr uint8_t  k_version   = 1;
 
 static void write_str(BinaryWriter& w, const String& s)
 {
@@ -103,7 +103,7 @@ static bool read_stage(BinaryReader& r, ShaderStageOutput& out)
 // FNV-1a 64-bit — deterministic, no std::hash
 // ---------------------------------------------------------------------------
 
-static uint64_t fnv1a(const char* data, size_t size)
+static constexpr uint64_t fnv1a(const char* data, size_t size)
 {
     constexpr uint64_t k_basis = 14695981039346656037ULL;
     constexpr uint64_t k_prime = 1099511628211ULL;
@@ -116,7 +116,7 @@ static uint64_t fnv1a(const char* data, size_t size)
     return hash ? hash : 1;
 }
 
-static String hex8(uint64_t v)
+static constexpr String hex8(uint64_t v)
 {
     constexpr char k_digits[] = "0123456789abcdef";
     String s(8, '0');
@@ -147,6 +147,26 @@ uint64_t ShaderCache::hash_path(const Path& p)
     return fnv1a(s.data(), s.size());
 }
 
+uint64_t ShaderCache::make_stage_key(uint64_t path_hash, GRIShaderStage stage)
+{
+    constexpr uint64_t k_prime = 1099511628211ULL;
+    return path_hash ^ (static_cast<uint64_t>(stage) * k_prime);
+}
+
+uint64_t ShaderCache::mix_defines(uint64_t base, const Vector<Pair<String, String>>& defines)
+{
+    constexpr uint64_t k_prime = 1099511628211ULL;
+    uint64_t h = base;
+    for (const auto& [k, v] : defines)
+    {
+        h ^= fnv1a(k.data(), k.size());
+        h *= k_prime;
+        h ^= fnv1a(v.data(), v.size());
+        h *= k_prime;
+    }
+    return h ? h : 1;
+}
+
 uint64_t ShaderCache::hash_content(const Path& p)
 {
     BinaryReader r(p);
@@ -156,9 +176,9 @@ uint64_t ShaderCache::hash_content(const Path& p)
     return fnv1a(text.data(), text.size());
 }
 
-Path ShaderCache::cache_file_for(uint64_t path_hash, const Path& source_path) const
+Path ShaderCache::cache_file_for(uint64_t path_hash, const Path& source_path, GRIShaderStage stage) const
 {
-    const String name = source_path.stem().string() + "_" + hex8(path_hash) + ".igsh";
+    const String name = source_path.stem().string() + "_" + hex8(make_stage_key(path_hash, stage)) + ".igsh";
     return m_cache_root / name;
 }
 
@@ -173,82 +193,71 @@ ShaderTarget ShaderCache::detect_target()
     }
 }
 
-SharedPtr<RenderShader> ShaderCache::make_render_shader(const Vector<ShaderStageOutput>& stages)
+SharedPtr<RenderShader> ShaderCache::make_render_shader(const ShaderStageOutput& s)
 {
     GRI* gri = RenderSystem::get_gri();
     if (!gri)
         return nullptr;
 
-    GRIVertexShaderPtr vs;
-    GRIPixelShaderPtr  ps;
-    ShaderReflection   vs_refl, ps_refl;
+    GRIShaderDesc desc;
+    desc.stage         = s.stage;
+    desc.entry_point   = s.entry_point.c_str();
+    desc.bytecode_data = s.bytecode.data();
+    desc.bytecode_size = s.bytecode.size();
 
-    for (const auto& s : stages)
+    if (s.stage == GRIShaderStage::Vertex)
     {
-        GRIShaderDesc desc;
-        desc.stage         = s.stage;
-        desc.entry_point   = s.entry_point.c_str();
-        desc.bytecode_data = s.bytecode.data();
-        desc.bytecode_size = s.bytecode.size();
-
-        if (s.stage == GRIShaderStage::Vertex)
-        {
-            vs      = gri->create_vertex_shader(desc);
-            vs_refl = s.reflection;
-        }
-        else if (s.stage == GRIShaderStage::Pixel)
-        {
-            ps      = gri->create_pixel_shader(desc);
-            ps_refl = s.reflection;
-        }
+        GRIVertexShaderPtr raw = gri->create_vertex_shader(desc);
+        if (!raw) return nullptr;
+        return create_shared<RenderShader>(std::move(raw), GRIShaderStage::Vertex, s.reflection);
+    }
+    if (s.stage == GRIShaderStage::Pixel)
+    {
+        GRIPixelShaderPtr raw = gri->create_pixel_shader(desc);
+        if (!raw) return nullptr;
+        return create_shared<RenderShader>(std::move(raw), GRIShaderStage::Pixel, s.reflection);
     }
 
-    if (!vs || !ps)
-        return nullptr;
-
-    return create_shared<RenderShader>(std::move(vs), std::move(ps),
-                                       std::move(vs_refl), std::move(ps_refl));
+    return nullptr;
 }
 
 // ---------------------------------------------------------------------------
 
-SharedPtr<RenderShader> ShaderCache::try_load_disk(const Path& cache_file, uint64_t expected_content_hash)
+bool ShaderCache::try_load_disk(const Path& cache_file, uint64_t expected_variant_hash,
+                                 SharedPtr<RenderShader>& out)
 {
     BinaryReader r(cache_file);
     if (!r.is_open())
-        return nullptr;
+        return false;
 
     uint8_t file_magic[4];
     r.read_bytes(file_magic, 4);
     if (file_magic[0] != k_magic[0] || file_magic[1] != k_magic[1] ||
         file_magic[2] != k_magic[2] || file_magic[3] != k_magic[3])
-        return nullptr;
+        return false;
 
     const uint8_t ver = r.read_u8();
     if (ver != k_version)
-        return nullptr;
+        return false;
 
     const uint32_t hash_lo = r.read_u32();
     const uint32_t hash_hi = r.read_u32();
     const uint64_t stored_hash = (static_cast<uint64_t>(hash_hi) << 32) | hash_lo;
-    if (stored_hash != expected_content_hash)
-        return nullptr; // stale
+    if (stored_hash != expected_variant_hash)
+        return false;
 
-    r.read_u8(); // target — already chosen by detect_target() at runtime
-    const uint8_t num_stages = r.read_u8();
+    r.read_u8(); // target
 
-    Vector<ShaderStageOutput> stages(num_stages);
-    for (uint8_t i = 0; i < num_stages; ++i)
-    {
-        if (!read_stage(r, stages[i]))
-            return nullptr;
-    }
+    ShaderStageOutput stage;
+    if (!read_stage(r, stage))
+        return false;
 
-    return make_render_shader(stages);
+    out = make_render_shader(stage);
+    return out != nullptr;
 }
 
-bool ShaderCache::write_disk(const Path& cache_file, uint64_t content_hash,
-                              const Vector<ShaderStageOutput>& stages, ShaderTarget target)
+bool ShaderCache::write_disk(const Path& cache_file, uint64_t variant_hash,
+                              const ShaderStageOutput& stage, ShaderTarget target)
 {
     Filesystem::create_directories(cache_file.parent_path());
     BinaryWriter w(cache_file);
@@ -257,47 +266,52 @@ bool ShaderCache::write_disk(const Path& cache_file, uint64_t content_hash,
 
     w.write_bytes(k_magic, 4);
     w.write_u8(k_version);
-    w.write_u32(static_cast<uint32_t>(content_hash & 0xFFFFFFFFULL));
-    w.write_u32(static_cast<uint32_t>((content_hash >> 32) & 0xFFFFFFFFULL));
+    w.write_u32(static_cast<uint32_t>(variant_hash & 0xFFFFFFFFULL));
+    w.write_u32(static_cast<uint32_t>((variant_hash >> 32) & 0xFFFFFFFFULL));
     w.write_u8(static_cast<uint8_t>(target));
-    w.write_u8(static_cast<uint8_t>(stages.size()));
-    for (const auto& s : stages)
-        write_stage(w, s);
+    write_stage(w, stage);
 
     return w.good();
 }
 
-SharedPtr<RenderShader> ShaderCache::compile_and_store(const Path& source_path,
-                                                        uint64_t path_hash, uint64_t content_hash)
+bool ShaderCache::compile_and_store(const Path& source_path,
+                                     uint64_t path_hash, uint64_t variant_hash,
+                                     GRIShaderStage requested_stage, SharedPtr<RenderShader>& out,
+                                     const ShaderCompilerOptions& opts)
 {
     BinaryReader src(source_path);
     if (!src.is_open())
     {
         IG_CORE_ERROR("ShaderCache: source not found: {}", source_path.string());
-        return nullptr;
+        return false;
     }
     const String source_text = src.read_all_text();
 
     const ShaderTarget target = detect_target();
     ShaderCompiler compiler(target);
-    const Vector<ShaderStageOutput> stages = compiler.compile(source_text);
+    const Vector<ShaderStageOutput> stages = compiler.compile(source_text, opts);
     if (stages.empty())
     {
         IG_CORE_ERROR("ShaderCache: compile failed for '{}'", source_path.string());
-        return nullptr;
+        return false;
     }
 
-    const Path cache_file = cache_file_for(path_hash, source_path);
-    if (!write_disk(cache_file, content_hash, stages, target))
-        IG_CORE_WARN("ShaderCache: failed to write cache for '{}'", source_path.string());
-    else
-        IG_CORE_INFO("ShaderCache: compiled '{}' -> {}", source_path.filename().string(),
-                     cache_file.filename().string());
+    for (const auto& s : stages)
+    {
+        const Path cache_file = cache_file_for(path_hash, source_path, s.stage);
+        if (!write_disk(cache_file, variant_hash, s, target))
+            IG_CORE_WARN("ShaderCache: failed to write cache for '{}'", source_path.string());
+        else
+            IG_CORE_INFO("ShaderCache: compiled '{}' -> {}", source_path.filename().string(),
+                         cache_file.filename().string());
 
-    SharedPtr<RenderShader> shader = make_render_shader(stages);
-    if (shader)
-        m_memory[path_hash] = {content_hash, shader};
-    return shader;
+        auto shader = make_render_shader(s);
+        if (!shader) return false;
+        m_memory[make_stage_key(path_hash, s.stage)] = {variant_hash, shader};
+        if (s.stage == requested_stage) out = shader;
+    }
+
+    return out != nullptr;
 }
 
 // ---------------------------------------------------------------------------
@@ -305,72 +319,94 @@ SharedPtr<RenderShader> ShaderCache::compile_and_store(const Path& source_path,
 void ShaderCache::remove(const Path& source_path)
 {
     const uint64_t path_hash = hash_path(source_path);
-    m_memory.erase(path_hash);
 
-    const Path cache_file = cache_file_for(path_hash, source_path);
-    if (Filesystem::exists(cache_file))
-        Filesystem::remove(cache_file);
+    for (int s = 0; s < static_cast<int>(GRIShaderStage::COUNT); ++s)
+    {
+        const auto stage = static_cast<GRIShaderStage>(s);
+        m_memory.erase(make_stage_key(path_hash, stage));
+        const Path cache_file = cache_file_for(path_hash, source_path, stage);
+        if (Filesystem::exists(cache_file))
+            Filesystem::remove(cache_file);
+    }
 }
 
-SharedPtr<RenderShader> ShaderCache::get_or_compile(const String& source_text, const String& virtual_name)
+SharedPtr<RenderShader> ShaderCache::get_or_compile(const String& source_text, const String& virtual_name,
+                                                      GRIShaderStage stage, const ShaderCompilerOptions& opts)
 {
     const Path     virtual_path(virtual_name);
     const uint64_t path_hash    = hash_path(virtual_path);
     const uint64_t content_hash = fnv1a(source_text.data(), source_text.size());
+    const uint64_t variant_hash = mix_defines(content_hash, opts.defines);
+    const uint64_t stage_key    = make_stage_key(path_hash, stage);
 
-    auto it = m_memory.find(path_hash);
-    if (it != m_memory.end() && it->second.source_hash == content_hash)
-        return it->second.shader;
-
-    const Path cache_file = cache_file_for(path_hash, virtual_path);
-    SharedPtr<RenderShader> loaded = try_load_disk(cache_file, content_hash);
-    if (loaded)
+    auto it = m_memory.find(stage_key);
+    if (it != m_memory.end() && it->second.variant_hash == variant_hash)
     {
-        m_memory[path_hash] = {content_hash, loaded};
-        return loaded;
+        SharedPtr<RenderShader> sh = it->second.shader;
+        if (sh) return sh;
+    }
+
+    const Path cache_file = cache_file_for(path_hash, virtual_path, stage);
+    SharedPtr<RenderShader> sh;
+    if (try_load_disk(cache_file, variant_hash, sh))
+    {
+        m_memory[stage_key] = {variant_hash, sh};
+        return sh;
     }
 
     const ShaderTarget target = detect_target();
     ShaderCompiler compiler(target);
-    const Vector<ShaderStageOutput> stages = compiler.compile(source_text);
+    const Vector<ShaderStageOutput> stages = compiler.compile(source_text, opts);
     if (stages.empty())
     {
         IG_CORE_ERROR("ShaderCache: compile failed for inline shader '{}'", virtual_name);
         return nullptr;
     }
 
-    if (!write_disk(cache_file, content_hash, stages, target))
-        IG_CORE_WARN("ShaderCache: failed to write cache for inline shader '{}'", virtual_name);
-    else
-        IG_CORE_INFO("ShaderCache: compiled inline '{}' -> {}", virtual_name, cache_file.filename().string());
+    for (const auto& s : stages)
+    {
+        const Path cf = cache_file_for(path_hash, virtual_path, s.stage);
+        if (!write_disk(cf, variant_hash, s, target))
+            IG_CORE_WARN("ShaderCache: failed to write cache for inline shader '{}'", virtual_name);
+        else
+            IG_CORE_INFO("ShaderCache: compiled inline '{}' -> {}", virtual_name, cf.filename().string());
 
-    SharedPtr<RenderShader> shader = make_render_shader(stages);
-    if (shader)
-        m_memory[path_hash] = {content_hash, shader};
-    return shader;
+        auto shader = make_render_shader(s);
+        if (!shader) return nullptr;
+        m_memory[make_stage_key(path_hash, s.stage)] = {variant_hash, shader};
+        if (s.stage == stage) sh = shader;
+    }
+
+    return sh;
 }
 
-SharedPtr<RenderShader> ShaderCache::get_or_compile(const Path& source_path)
+SharedPtr<RenderShader> ShaderCache::get_or_compile(const Path& source_path, GRIShaderStage stage,
+                                                     const ShaderCompilerOptions& opts)
 {
     const uint64_t path_hash    = hash_path(source_path);
     const uint64_t content_hash = hash_content(source_path);
+    const uint64_t variant_hash = mix_defines(content_hash, opts.defines);
+    const uint64_t stage_key    = make_stage_key(path_hash, stage);
 
-    // Memory hit — valid only when source hasn't changed
-    auto it = m_memory.find(path_hash);
-    if (it != m_memory.end() && it->second.source_hash == content_hash)
-        return it->second.shader;
-
-    // Disk hit
-    const Path cache_file = cache_file_for(path_hash, source_path);
-    SharedPtr<RenderShader> loaded = try_load_disk(cache_file, content_hash);
-    if (loaded)
+    auto it = m_memory.find(stage_key);
+    if (it != m_memory.end() && it->second.variant_hash == variant_hash)
     {
-        m_memory[path_hash] = {content_hash, loaded};
-        return loaded;
+        SharedPtr<RenderShader> sh = it->second.shader;
+        if (sh) return sh;
     }
 
-    // Cache miss or stale source — recompile
-    return compile_and_store(source_path, path_hash, content_hash);
+    const Path cache_file = cache_file_for(path_hash, source_path, stage);
+    SharedPtr<RenderShader> sh;
+    if (try_load_disk(cache_file, variant_hash, sh))
+    {
+        m_memory[stage_key] = {variant_hash, sh};
+        return sh;
+    }
+
+    if (!compile_and_store(source_path, path_hash, variant_hash, stage, sh, opts))
+        return nullptr;
+
+    return sh;
 }
 
 } // namespace Ignis

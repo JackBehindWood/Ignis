@@ -22,7 +22,8 @@ static const wchar_t* hlsl_target_profile(spv::ExecutionModel exec_model)
     }
 }
 
-Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, const char* entry_point, spv::ExecutionModel exec_model)
+Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, const char* entry_point, spv::ExecutionModel exec_model,
+                                                       const Vector<Pair<String, String>>& defines)
 {
     CComPtr<IDxcUtils>     dxc_utils;
     CComPtr<IDxcCompiler3> dxc_compiler;
@@ -40,20 +41,35 @@ Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, cons
 
     const std::wstring wide_entry(entry_point, entry_point + std::strlen(entry_point));
 
-    LPCWSTR args[] = {
+    Vector<std::wstring> define_strs;
+    define_strs.reserve(defines.size());
+    for (const auto& d : defines)
+    {
+        std::wstring w(d.first.begin(), d.first.end());
+        if (!d.second.empty())
+            w += L'=' + std::wstring(d.second.begin(), d.second.end());
+        define_strs.push_back(std::move(w));
+    }
+
+    Vector<LPCWSTR> args = {
         L"-spirv",
         L"-fspv-target-env=vulkan1.1",
         L"-T", hlsl_target_profile(exec_model),
         L"-E", wide_entry.c_str(),
         L"-Zpc",
     };
+    for (const auto& d : define_strs)
+    {
+        args.push_back(L"-D");
+        args.push_back(d.c_str());
+    }
 
     DxcBuffer source_buf = { source_blob->GetBufferPointer(), source_blob->GetBufferSize(), DXC_CP_ACP };
 
     CComPtr<IDxcResult> result;
     HRESULT hr = dxc_compiler->Compile(
         &source_buf,
-        args, static_cast<UINT32>(sizeof(args) / sizeof(*args)),
+        args.data(), static_cast<UINT32>(args.size()),
         nullptr,
         IID_PPV_ARGS(&result));
 

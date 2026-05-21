@@ -2,6 +2,7 @@
 #include "EditorLayer.h"
 #include "EditorAssetManager.h"
 #include "Ignis/Rendering/ShaderCache.h"
+#include "Ignis/Rendering/Renderer.h"
 
 namespace Ignis
 {
@@ -34,85 +35,41 @@ namespace Ignis
         assets.set_root(Filesystem::current_path() / "resources");
         ShaderCache::get().set_cache_root(Filesystem::current_path() / "resources" / "cache" / "shaders");
 
-        const AssetID shader_id = assets.import_shader("triangle.hlsl");
-        m_shader = assets.load_shader(shader_id);
-
-        IG_CORE_ASSERT(m_shader, "Failed to compile/load triangle shader");
+        const AssetID material_id = assets.import_material("triangle.igmat");
+        m_material = assets.load_material(material_id);
+        IG_CORE_ASSERT(m_material, "Failed to load triangle material");
 
         const AssetID mesh_id = assets.import_mesh("triangle.obj");
         SharedPtr<AssetMesh> mesh = assets.load_mesh(mesh_id);
         IG_CORE_ASSERT(mesh, "Failed to load triangle.obj");
 
-        GRI* gri = RenderSystem::get_gri();
-
-        // Vertex layout matches IGAM cook output: pos(0) nrm(12) uv(24)
-        GRIVertexDeclaration vd;
-        vd.elements[0] = { GRIVertexElementSemantic::Position, GRIVertexElementFormat::Float3,  0, 0 };
-        vd.elements[1] = { GRIVertexElementSemantic::Normal,   GRIVertexElementFormat::Float3, 12, 0 };
-        vd.elements[2] = { GRIVertexElementSemantic::TexCoord, GRIVertexElementFormat::Float2, 24, 0 };
-        vd.num_elements = 3;
-        vd.bindings[0]  = { 0, mesh->get_vertex_stride() };
-        vd.num_bindings = 1;
-
-        // 2. Pass VD into mesh creation. 
-        // Note: size is now just the size of the byte vector
         m_mesh = RenderMesh::create(
             mesh->get_vertices().data(),
-            static_cast<uint32_t>(mesh->get_vertices().size()), 
+            static_cast<uint32_t>(mesh->get_vertices().size()),
             mesh->get_indices().data(),
             static_cast<uint32_t>(mesh->get_indices().size()));
 
-        // Uniform buffer
         SceneUniforms uniforms = make_identity_uniforms();
         GRIBufferDesc ub_desc;
         ub_desc.size  = sizeof(SceneUniforms);
         ub_desc.usage = GRIBufferUsage::UniformBuffer;
-        m_uniform_buffer = gri->create_buffer(ub_desc, &uniforms);
-
-        // 3. Use the VD for the pipeline state
-        GRIPipelineStateDesc pso_desc;
-        pso_desc.vertex_shader        = m_shader->get_render_shader()->get_vertex_shader();
-        pso_desc.pixel_shader         = m_shader->get_render_shader()->get_pixel_shader();
-        pso_desc.vertex_declaration   = &vd;
-        pso_desc.render_target_format = GRIPixelFormat::RGBA8Unorm;
-        pso_desc.depth_stencil_format = GRIPixelFormat::Depth32Float;
-        pso_desc.primitive_topology   = GRIPrimitiveTopology::TriangleList;
-        m_pipeline_state = gri->create_graphics_pipeline_state(pso_desc);
+        m_uniform_buffer = RenderSystem::get_gri()->create_buffer(ub_desc, &uniforms);
     }
 
     void EditorLayer::detach()
     {
         IG_INFO("EditorLayer detached");
-        m_pipeline_state = nullptr;
         m_uniform_buffer = nullptr;
         m_mesh           = nullptr;
-        m_shader         = nullptr;
+        m_material       = nullptr;
     }
 
     void EditorLayer::update(Timestep ts)
     {
-        GRIViewport* viewport    = Application::get().get_window().get_viewport();
-        GRICommandList& cmd_list = RenderSystem::get_command_list();
-
-        cmd_list.begin_frame();
-        cmd_list.begin_drawing_viewport(viewport, nullptr);
-
-        GRIRenderPassInfo rp;
-        rp.colour_targets[0].load_action  = GRILoadAction::Clear;
-        rp.colour_targets[0].store_action = GRIStoreAction::Store;
-        rp.colour_targets[0].clear_value  = { 0.1f, 0.1f, 0.1f, 1.0f };
-        cmd_list.begin_render_pass(rp);
-
-        cmd_list.set_graphics_pipeline_state(m_pipeline_state.get());
-        cmd_list.set_vertex_buffer(m_mesh->get_vertex_buffer());
-        cmd_list.set_index_buffer(m_mesh->get_index_buffer(), m_mesh->get_index_format());
-        cmd_list.set_uniform_buffer(m_uniform_buffer.get(), 1, GRIShaderStage::Vertex);
-        cmd_list.draw_indexed_primitives(m_mesh->get_index_count());
-
-        cmd_list.end_render_pass();
-
-        cmd_list.end_frame();
-        RenderSystem::submit();
+        GRIViewport* viewport = Application::get().get_window().get_viewport();
+        Renderer::begin(viewport, { 0.1f, 0.1f, 0.1f, 1.0f });
+        Renderer::submit(m_mesh.get(), m_material->get_material(), m_uniform_buffer.get());
+        Renderer::end();
     }
 
     void EditorLayer::event(Event& event)

@@ -6,6 +6,7 @@
 
 namespace Ignis
 {
+    class SpirvCompiler;
     struct ShaderStageOutput
     {
         GRIShaderStage   stage;
@@ -14,18 +15,32 @@ namespace Ignis
         ShaderReflection reflection;
     };
 
+    struct ShaderCompilerOptions
+    {
+        struct StageEntry 
+        { 
+            GRIShaderStage stage; 
+            String entry_point = ""; 
+        };
+
+        StageEntry stages[(size_t)GRIShaderStage::COUNT];
+        uint8_t count = 0;
+        Vector<Pair<String, String>> defines;
+    };
+
     class ShaderCompiler
     {
     public:
         explicit ShaderCompiler(ShaderTarget target);
+        ~ShaderCompiler();
 
-        // HLSL source → per-stage compiled binaries + reflection. Returns empty on failure.
-        Vector<ShaderStageOutput> compile(const String& hlsl_source);
+        Vector<ShaderStageOutput> compile(const String& hlsl_source, const ShaderCompilerOptions& opts = {});
 
         ShaderTarget get_target() const { return m_target; }
-
     private:
-        ShaderTarget m_target;
+        ShaderTarget             m_target;
+        UniquePtr<SpirvCompiler> m_hlsl;
+        UniquePtr<SpirvCompiler> m_backend;
     };
 
 } // namespace Ignis

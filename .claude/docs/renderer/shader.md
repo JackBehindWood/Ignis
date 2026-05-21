@@ -14,13 +14,16 @@
 ```
 AssetShader  (Ignis/Asset/AssetShader.h)
   : public Asset
-  Owns RenderShader by value.
-  get_render_shader() → const RenderShader&
-  static_type()       → AssetType::Shader
+  Holds two SharedPtr<RenderShader> (m_vs, m_ps).
+  get_vertex_render_shader() → RenderShader*
+  get_pixel_render_shader()  → RenderShader*
+  static_type()              → AssetType::Shader
 
 RenderShader  (Ignis/Rendering/RenderShader.h)
-  Value type. GRI handles + per-stage ShaderReflection.
-  get_vertex_shader() / get_pixel_shader() / get_vs_reflection() / get_ps_reflection()
+  Per-stage. Holds GRIShaderPtr + GRIShaderStage + ShaderReflection.
+  get_shader()     → GRIShader*
+  get_stage()      → GRIShaderStage
+  get_reflection() → const ShaderReflection&
 
 ShaderTarget  (Ignis/Rendering/ShaderTarget.h)
   { Vulkan_SPIRV=0, Metal_MSL=1, DX12_DXIL=2, OpenGL_GLSL=3, HLSL=4 }
@@ -75,9 +78,13 @@ Written and read exclusively by `ShaderCache`. Lives in `ShaderCache::m_cache_ro
 
 ```
 ShaderCache::get()
-  set_cache_root(Path)           — editor calls on project load
-  get_or_compile(source_path)    → SharedPtr<RenderShader>
+  set_cache_root(Path)                              — editor calls on project load
+  get_or_compile(source_path, GRIShaderStage)       → SharedPtr<RenderShader>
+  get_or_compile(source_text, virtual_name, stage)  → SharedPtr<RenderShader>
 ```
+
+Full source compiles both stages in one pass; CacheEntry stores { vs, ps } internally.
+Callers request one stage at a time — second call for same source is a free memory hit.
 
 Lookup order: memory cache → disk (`.igsh`) → compile. Content hash drives invalidation:
 if the HLSL source changed, hash mismatch on disk → recompile.
