@@ -20,9 +20,15 @@ metadata:
 
 ## Current focus — `mesh-system` branch
 **Goal:** Mesh asset pipeline — import, cook, load static meshes for draw calls.
-Status: not started.
+Status: **functional baseline** — `.obj` import, `AssetMesh` (format-agnostic bytes), `RenderMesh` (GRI buffer upload), draw call wired in `EditorLayer`.
+
+**Remaining / in-flight (see scratchpad):**
+- Optional: store `GRIVertexDeclaration` in `RenderMesh` to decouple EditorLayer from vertex layout knowledge.
+- `MeshVertex` struct is duplicated in `MeshLoader.cpp` + `EditorLayer.cpp`; needs a shared definition or elimination.
+- No cook/binary step (`AssetMeshCompiler` not implemented); every load re-parses `.obj`.
 
 ## Up next (not started)
+- Mesh cook step — `AssetMeshCompiler` writing `.igasset` binary (matching shader pipeline)
 - Render graph / frame graph
 - Material system
 - Scene / ECS

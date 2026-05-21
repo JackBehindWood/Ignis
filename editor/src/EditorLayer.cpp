@@ -11,13 +11,6 @@ namespace Ignis
         float transform[16];
     };
 
-    struct MeshVertex
-    {
-        float position[3];
-        float normal[3];
-        float uv[2];
-    };
-
     static SceneUniforms make_identity_uniforms()
     {
         SceneUniforms u{};
@@ -52,13 +45,13 @@ namespace Ignis
 
         GRI* gri = RenderSystem::get_gri();
 
-        // 1. Set up Vertex Declaration first
+        // Vertex layout matches IGAM cook output: pos(0) nrm(12) uv(24)
         GRIVertexDeclaration vd;
-        vd.elements[0] = { GRIVertexElementSemantic::Position, GRIVertexElementFormat::Float3, offsetof(MeshVertex, position), 0 };
-        vd.elements[1] = { GRIVertexElementSemantic::Normal,   GRIVertexElementFormat::Float3, offsetof(MeshVertex, normal),   0 };
-        vd.elements[2] = { GRIVertexElementSemantic::TexCoord, GRIVertexElementFormat::Float2, offsetof(MeshVertex, uv),       0 };
+        vd.elements[0] = { GRIVertexElementSemantic::Position, GRIVertexElementFormat::Float3,  0, 0 };
+        vd.elements[1] = { GRIVertexElementSemantic::Normal,   GRIVertexElementFormat::Float3, 12, 0 };
+        vd.elements[2] = { GRIVertexElementSemantic::TexCoord, GRIVertexElementFormat::Float2, 24, 0 };
         vd.num_elements = 3;
-        vd.bindings[0]  = { 0, sizeof(MeshVertex) };
+        vd.bindings[0]  = { 0, mesh->get_vertex_stride() };
         vd.num_bindings = 1;
 
         // 2. Pass VD into mesh creation. 

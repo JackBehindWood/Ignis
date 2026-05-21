@@ -3,6 +3,7 @@
 
 #include "Ignis/Rendering/ShaderCache.h"
 #include "Ignis/Asset/AssetShaderCompiler.h"
+#include "Ignis/Asset/AssetMeshCompiler.h"
 #include "Ignis/Asset/ShaderLoader.h"
 #include "Ignis/Asset/MeshLoader.h"
 
@@ -24,8 +25,8 @@ namespace Ignis
     {
         switch (type)
         {
-            // case AssetType::Texture2D: { static Texture2DCompiler s; return &s; }
             case AssetType::Shader: { static AssetShaderCompiler s; return &s; }
+            case AssetType::Mesh:   { static AssetMeshCompiler   s; return &s; }
             default: return nullptr;
         }
     }
@@ -172,10 +173,10 @@ namespace Ignis
         m_loaded_assets.clear();
     }
 
-    AssetID AssetManager::create_mesh(const Vector<uint8_t>& vertices, const Vector<uint32_t>& indices)
+    AssetID AssetManager::create_mesh(const Vector<uint8_t>& vertices, const Vector<uint32_t>& indices, uint32_t vertex_stride)
     {
         AssetID id;
-        m_loaded_assets[static_cast<uint64_t>(id)] = create_shared<AssetMesh>(id, vertices, indices);
+        m_loaded_assets[static_cast<uint64_t>(id)] = create_shared<AssetMesh>(id, vertices, indices, vertex_stride);
         return id;
     }
 

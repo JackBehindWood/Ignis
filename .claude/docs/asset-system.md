@@ -5,7 +5,7 @@
 ```
 AssetID           = UUID (uint64_t; UUID::s_invalid for null)
 
-AssetType : uint16_t  { None=0, Texture2D, Shader }
+AssetType : uint16_t  { None=0, Texture2D, Shader, Mesh }
 
 AssetMetadata {
     AssetID  ID
@@ -66,19 +66,19 @@ AssetBinaryWriter / AssetBinaryReader
 
 ## AssetMesh  (`Ignis/Asset/AssetMesh.h`)
 
-CPU-side mesh asset — vertices + indices only, no GRI pointers.
+CPU-side mesh asset — format-agnostic byte buffer + uint32 indices, no GRI pointers, no vertex layout knowledge.
 
 ```
 AssetMesh : Asset
-  AssetMesh(id, Vector<MeshVertex>, Vector<uint32_t>)
-  get_vertices() → const Vector<MeshVertex>&
+  AssetMesh(id, Vector<uint8_t> vertices, Vector<uint32_t> indices)
+  get_vertices() → const Vector<uint8_t>&   // raw packed bytes; stride is caller's concern
   get_indices()  → const Vector<uint32_t>&
   static_type()  → AssetType::Mesh
 ```
 
-`MeshVertex { float position[3]; float normal[3]; float uv[2]; }`
+**AssetMeshCompiler** (`Ignis/Asset/AssetMeshCompiler.h/.cpp`): parses `.obj` (v/vn/vt/f, fan-triangulated, dedup by v/vt/vn triple) and writes an `IGAM v1` binary. No vertex struct — bytes are packed directly as `pos(12) nrm(12) uv(8)` = 32-byte stride. Binary layout: `vertex_stride u32, vertex_count u32, [raw vertex bytes], index_count u32, [uint32 indices]`. Registered in `AssetManager::get_compiler(AssetType::Mesh)`.
 
-**MeshLoader** (`Ignis/Asset/MeshLoader.h/.cpp`): parses `.obj` files (v/vn/vt/f, fan-triangulated, dedup by v/vt/vn triple). No cook/binary step. Registered for `AssetType::Mesh` in `AssetManager::get_loader()`.
+**MeshLoader** (`Ignis/Asset/MeshLoader.h/.cpp`): reads `IGAM v1` binary from `compiled_path`; on-demand cooks via `AssetMeshCompiler` if the binary is missing. Layout-agnostic — reads `vertex_stride` from the binary and passes raw bytes straight into `AssetMesh`. No OBJ parsing, no vertex struct knowledge.
 
 Source files live in `resources/assets/meshes/`. Import via:
 ```cpp

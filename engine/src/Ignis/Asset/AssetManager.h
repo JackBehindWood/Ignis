@@ -37,7 +37,7 @@ namespace Ignis
 
         AssetRegistry& registry() { return m_registry; }
 
-        AssetID create_mesh(const Vector<uint8_t>& vertices, const Vector<uint32_t>& indices);
+        AssetID create_mesh(const Vector<uint8_t>& vertices, const Vector<uint32_t>& indices, uint32_t vertex_stride);
 
         void set_compiled_root(const Path& dir) { m_compiled_root = dir; }
         const Path& compiled_root() const { return m_compiled_root; }
