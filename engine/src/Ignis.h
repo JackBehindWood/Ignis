@@ -30,8 +30,10 @@
 #include "Ignis/Asset/AssetShader.h"
 #include "Ignis/Asset/AssetMesh.h"
 #include "Ignis/Asset/AssetMaterial.h"
+#include "Ignis/Asset/AssetTexture2D.h"
 #include "Ignis/Rendering/RenderShader.h"
 #include "Ignis/Rendering/RenderMesh.h"
+#include "Ignis/Rendering/RenderTexture2D.h"
 #include "Ignis/Rendering/Material.h"
 
 // Events

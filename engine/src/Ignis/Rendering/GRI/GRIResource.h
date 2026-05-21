@@ -122,10 +122,12 @@ namespace Ignis
 
 	struct GRITexture2DDesc
 	{
-		uint32_t       width          = 0;
-		uint32_t       height         = 0;
-		uint32_t       num_mip_levels = 1;
-		GRIPixelFormat format         = GRIPixelFormat::BGRA8Unorm;
+		uint32_t       width             = 0;
+		uint32_t       height            = 0;
+		uint32_t       num_mip_levels    = 1;
+		GRIPixelFormat format            = GRIPixelFormat::BGRA8Unorm;
+		const void*    initial_data      = nullptr;
+		size_t         initial_data_size = 0;
 	};
 
 	class GRITexture2D : public GRIResource

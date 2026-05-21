@@ -17,6 +17,8 @@ struct VertexOut
 };
 
 ConstantBuffer<SceneUniforms> g_uniforms : register(b1);
+Texture2D    g_texture : register(t0);
+SamplerState g_sampler : register(s0);
 
 VertexOut VSMain(VertexIn input)
 {
@@ -28,5 +30,5 @@ VertexOut VSMain(VertexIn input)
 
 float4 PSMain(VertexOut input) : SV_TARGET
 {
-    return float4(input.uv, 0.0, 1.0);
+    return g_texture.Sample(g_sampler, input.uv);
 }

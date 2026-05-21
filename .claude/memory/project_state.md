@@ -16,31 +16,36 @@ metadata:
 ## Branch layout
 - `main` — stable baseline
 - `asset-system` — integration branch for all asset subsystems; `shader-system` and `mesh-system` merged in
-- `material-system` — current active branch
+- `material-system` — DONE; `Material`, `AssetMaterial`, `AssetMaterialCompiler`, `MaterialLoader`, `Renderer` submit API
+- `texture-system` — current active branch (cut from `material-system`)
 
-## Current focus — `material-system` branch
-**Goal:** Material abstraction — own PSO + shader, decouple draw call setup from `EditorLayer`.
+## Standing systems (continued)
+- Material system — `Material` (PSO + VS + PS), `AssetMaterial`, `AssetMaterialCompiler` (.igmat → IGMT v1), `MaterialLoader` (reads IGMT, builds PSO with hardcoded standard VD pos+nrm+uv stride 32)
+- Renderer — static `Renderer`: `begin(viewport, clear)` / `submit(mesh, material, transform_ubo)` / `end()`; `EditorLayer::update()` is 3 lines
+- Shader bug fixes — `ShaderCompiler::compile` now stores resolved entry point (not empty string); `ShaderLoader`/`MaterialLoader` now explicitly build `ShaderCompilerOptions` with count=2 before calling `get_or_compile`
 
-**Step 1 DONE:** `GRIShader` base; per-stage `RenderShader`; stage-dispatching `ShaderCache::get_or_compile`; `AssetShader` holds m_vs + m_ps separately.
+## Current focus — `texture-system` branch
+**DONE.** Texture2D asset pipeline fully implemented and building clean.
 
-**Step 2 DONE:** `Material` type.
-- `Material` (Rendering): `GRIPipelineStatePtr` + `m_vs` + `m_ps`. Parameter buffer stubbed (TODO).
-- `AssetMaterial` (Asset): wraps `SharedPtr<Material>`.
-- `AssetMaterialCompiler`: reads `.igmat` (single line = shader filename) → writes IGMT v1 (absolute shader source path string).
-- `MaterialLoader`: reads IGMT, compiles via `ShaderCache`, builds PSO with hardcoded standard VD (pos+nrm+uv stride 32). TODO vertex decl registry left in code.
-- `.igmat` source files → `resources/assets/materials/`. `EditorAssetManager::import_material`/`load_material` added.
-- `EditorLayer` now loads `AssetMaterial`; inline PSO/VD setup removed.
+Deliverables:
+- `engine/vendor/stb/stb_image.h` — vendored
+- `GRITexture2DDesc` — `initial_data` + `initial_data_size` fields added
+- `MetalTexture.cpp` — `replaceRegion` upload on creation
+- `Ignis/Rendering/RenderTexture2D.h` — GPU texture wrapper
+- `Ignis/Asset/AssetTexture2D.h` — asset class
+- `Ignis/Asset/AssetTexture2DCompiler.h/.cpp` — PNG → IGTX v1
+- `Ignis/Asset/TextureLoader.h/.cpp` — IGTX → GPU → AssetTexture2D
+- Registered in `AssetManager`, `EditorAssetManager`, `Ignis.h`
 
-**Step 3 DONE:** `Renderer` submit API.
-- Static `Renderer` class: `begin(GRIViewport*, GRIClearValue)` + `submit(RenderMesh*, Material*, GRIBuffer* transform_ubo)` + `end()`.
-- `begin` builds `GRIRenderPassInfo` internally and calls `begin_frame` / `begin_drawing_viewport` / `begin_render_pass`.
-- `submit` issues PSO + VB + IB + UBO + `draw_indexed_primitives`.
-- `end` calls `end_render_pass` / `end_frame` / `RenderSystem::submit()`.
-- `EditorLayer::update()` reduced to 3 lines; no direct cmd_list or GRI calls remain.
-- `transform_ubo` param is nullable; currently EditorLayer owns the identity UBO and passes it. TODO: move to scene/draw-list layer when that exists.
+## Texture binding (on texture-system branch)
+- `set_texture(GRITexture2D*, slot, stage)` added to `GRICommandContext`, `MetalCommandContext`, `GRICommandList`
+- Metal default linear+repeat sampler created in `MetalCommandContext` ctor, auto-bound at matching slot in `set_texture`
+- `triangle.hlsl` now samples `g_texture`/`g_sampler` at `t0`/`s0`
+- `EditorLayer` imports `test.png`, loads as `AssetTexture2D`, binds before `Renderer::submit`
 
-## Up next (not started)
-- `Texture System`
-- `Renderer` architecture design — general rendering pipeline design: how Renderer, Scene/draw-list, and Render/Frame graph interconnect; what the submit API should evolve into (transforms, draw lists, passes)
+## Up next
+- `Renderer` architecture design — general rendering pipeline: Renderer, Scene/draw-list, Render/Frame graph interconnect
 - Scene / draw list — feeds the Renderer each frame
 - Render graph / Frame graph
+- Vertex declaration registry (TODO in MaterialLoader) — materials declare required input layout; Renderer matches against mesh VBs
+- Per-material parameter buffer (TODO in Material) — blocked on vertex decl registry

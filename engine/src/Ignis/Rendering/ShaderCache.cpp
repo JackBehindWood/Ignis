@@ -124,22 +124,10 @@ static constexpr String hex8(uint64_t v)
     return s;
 }
 
-// ---------------------------------------------------------------------------
-// ShaderCache
-// ---------------------------------------------------------------------------
-
-ShaderCache& ShaderCache::get()
-{
-    static ShaderCache s_instance;
-    return s_instance;
-}
-
 void ShaderCache::set_cache_root(const Path& dir)
 {
     m_cache_root = dir;
 }
-
-// ---------------------------------------------------------------------------
 
 uint64_t ShaderCache::hash_path(const Path& p)
 {
@@ -176,9 +164,9 @@ uint64_t ShaderCache::hash_content(const Path& p)
     return fnv1a(text.data(), text.size());
 }
 
-Path ShaderCache::cache_file_for(uint64_t path_hash, const Path& source_path, GRIShaderStage stage) const
+Path ShaderCache::cache_file_for(uint64_t variant_key, const Path& source_path, GRIShaderStage stage) const
 {
-    const String name = source_path.stem().string() + "_" + hex8(make_stage_key(path_hash, stage)) + ".igsh";
+    const String name = source_path.stem().string() + "_" + hex8(make_stage_key(variant_key, stage)) + ".igsh";
     return m_cache_root / name;
 }
 
@@ -275,7 +263,7 @@ bool ShaderCache::write_disk(const Path& cache_file, uint64_t variant_hash,
 }
 
 bool ShaderCache::compile_and_store(const Path& source_path,
-                                     uint64_t path_hash, uint64_t variant_hash,
+                                     uint64_t variant_key, uint64_t variant_hash,
                                      GRIShaderStage requested_stage, SharedPtr<RenderShader>& out,
                                      const ShaderCompilerOptions& opts)
 {
@@ -298,7 +286,7 @@ bool ShaderCache::compile_and_store(const Path& source_path,
 
     for (const auto& s : stages)
     {
-        const Path cache_file = cache_file_for(path_hash, source_path, s.stage);
+        const Path cache_file = cache_file_for(variant_key, source_path, s.stage);
         if (!write_disk(cache_file, variant_hash, s, target))
             IG_CORE_WARN("ShaderCache: failed to write cache for '{}'", source_path.string());
         else
@@ -307,7 +295,7 @@ bool ShaderCache::compile_and_store(const Path& source_path,
 
         auto shader = make_render_shader(s);
         if (!shader) return false;
-        m_memory[make_stage_key(path_hash, s.stage)] = {variant_hash, shader};
+        m_memory[make_stage_key(variant_key, s.stage)] = {variant_hash, shader};
         if (s.stage == requested_stage) out = shader;
     }
 
@@ -318,13 +306,14 @@ bool ShaderCache::compile_and_store(const Path& source_path,
 
 void ShaderCache::remove(const Path& source_path)
 {
-    const uint64_t path_hash = hash_path(source_path);
+    const uint64_t path_hash   = hash_path(source_path);
+    const uint64_t variant_key = mix_defines(path_hash, {});
 
     for (int s = 0; s < static_cast<int>(GRIShaderStage::COUNT); ++s)
     {
         const auto stage = static_cast<GRIShaderStage>(s);
-        m_memory.erase(make_stage_key(path_hash, stage));
-        const Path cache_file = cache_file_for(path_hash, source_path, stage);
+        m_memory.erase(make_stage_key(variant_key, stage));
+        const Path cache_file = cache_file_for(variant_key, source_path, stage);
         if (Filesystem::exists(cache_file))
             Filesystem::remove(cache_file);
     }
@@ -337,7 +326,8 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const String& source_text, c
     const uint64_t path_hash    = hash_path(virtual_path);
     const uint64_t content_hash = fnv1a(source_text.data(), source_text.size());
     const uint64_t variant_hash = mix_defines(content_hash, opts.defines);
-    const uint64_t stage_key    = make_stage_key(path_hash, stage);
+    const uint64_t variant_key  = mix_defines(path_hash, opts.defines);
+    const uint64_t stage_key    = make_stage_key(variant_key, stage);
 
     auto it = m_memory.find(stage_key);
     if (it != m_memory.end() && it->second.variant_hash == variant_hash)
@@ -346,7 +336,7 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const String& source_text, c
         if (sh) return sh;
     }
 
-    const Path cache_file = cache_file_for(path_hash, virtual_path, stage);
+    const Path cache_file = cache_file_for(variant_key, virtual_path, stage);
     SharedPtr<RenderShader> sh;
     if (try_load_disk(cache_file, variant_hash, sh))
     {
@@ -365,7 +355,7 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const String& source_text, c
 
     for (const auto& s : stages)
     {
-        const Path cf = cache_file_for(path_hash, virtual_path, s.stage);
+        const Path cf = cache_file_for(variant_key, virtual_path, s.stage);
         if (!write_disk(cf, variant_hash, s, target))
             IG_CORE_WARN("ShaderCache: failed to write cache for inline shader '{}'", virtual_name);
         else
@@ -373,7 +363,7 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const String& source_text, c
 
         auto shader = make_render_shader(s);
         if (!shader) return nullptr;
-        m_memory[make_stage_key(path_hash, s.stage)] = {variant_hash, shader};
+        m_memory[make_stage_key(variant_key, s.stage)] = {variant_hash, shader};
         if (s.stage == stage) sh = shader;
     }
 
@@ -386,7 +376,8 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const Path& source_path, GRI
     const uint64_t path_hash    = hash_path(source_path);
     const uint64_t content_hash = hash_content(source_path);
     const uint64_t variant_hash = mix_defines(content_hash, opts.defines);
-    const uint64_t stage_key    = make_stage_key(path_hash, stage);
+    const uint64_t variant_key  = mix_defines(path_hash, opts.defines);
+    const uint64_t stage_key    = make_stage_key(variant_key, stage);
 
     auto it = m_memory.find(stage_key);
     if (it != m_memory.end() && it->second.variant_hash == variant_hash)
@@ -395,7 +386,7 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const Path& source_path, GRI
         if (sh) return sh;
     }
 
-    const Path cache_file = cache_file_for(path_hash, source_path, stage);
+    const Path cache_file = cache_file_for(variant_key, source_path, stage);
     SharedPtr<RenderShader> sh;
     if (try_load_disk(cache_file, variant_hash, sh))
     {
@@ -403,7 +394,7 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const Path& source_path, GRI
         return sh;
     }
 
-    if (!compile_and_store(source_path, path_hash, variant_hash, stage, sh, opts))
+    if (!compile_and_store(source_path, variant_key, variant_hash, stage, sh, opts))
         return nullptr;
 
     return sh;

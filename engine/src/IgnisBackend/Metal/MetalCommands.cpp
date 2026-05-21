@@ -14,7 +14,16 @@ namespace Ignis
         , m_command_buffer(nullptr)
         , m_active_viewport(nullptr)
         , m_render_encoder(nullptr)
-    {}
+        , m_default_sampler(nullptr)
+    {
+        MTL::SamplerDescriptor* sd = MTL::SamplerDescriptor::alloc()->init();
+        sd->setMinFilter(MTL::SamplerMinMagFilterLinear);
+        sd->setMagFilter(MTL::SamplerMinMagFilterLinear);
+        sd->setSAddressMode(MTL::SamplerAddressModeRepeat);
+        sd->setTAddressMode(MTL::SamplerAddressModeRepeat);
+        m_default_sampler = device.get_device()->newSamplerState(sd);
+        sd->release();
+    }
 
     void MetalCommandContext::begin_frame()
     {
@@ -160,6 +169,22 @@ namespace Ignis
             m_render_encoder->get()->setVertexBuffer(metal_buffer->get_buffer(), offset, slot);
         else if (stage == GRIShaderStage::Pixel)
             m_render_encoder->get()->setFragmentBuffer(metal_buffer->get_buffer(), offset, slot);
+    }
+
+    void MetalCommandContext::set_texture(GRITexture2D* texture, uint32_t slot, GRIShaderStage stage)
+    {
+        IG_CORE_ASSERT(m_render_encoder, "set_texture called with no active render pass");
+        MetalTexture2D* metal_tex = resource_cast<GRITexture2D>(texture);
+        if (stage == GRIShaderStage::Pixel)
+        {
+            m_render_encoder->get()->setFragmentTexture(metal_tex->get_texture(), slot);
+            m_render_encoder->get()->setFragmentSamplerState(m_default_sampler, slot);
+        }
+        else if (stage == GRIShaderStage::Vertex)
+        {
+            m_render_encoder->get()->setVertexTexture(metal_tex->get_texture(), slot);
+            m_render_encoder->get()->setVertexSamplerState(m_default_sampler, slot);
+        }
     }
 
     void MetalCommandContext::set_graphics_pipeline_state(GRIPipelineState* pipeline_state)

@@ -197,6 +197,16 @@ namespace Ignis
 		void execute(GRICommandListBase& cmd_list);
 	};
 
+	GRICOMMAND_MACRO(GRICommandSetTexture)
+	{
+		GRITexture2D*  texture;
+		uint32_t       slot;
+		GRIShaderStage stage;
+		GRICommandSetTexture(GRITexture2D* texture, uint32_t slot, GRIShaderStage stage)
+			: texture(texture), slot(slot), stage(stage) {}
+		void execute(GRICommandListBase& cmd_list);
+	};
+
 	GRICOMMAND_MACRO(GRICommandSetGraphicsPipelineState)
 	{
 		GRIPipelineState* pipeline_state;
@@ -275,6 +285,11 @@ namespace Ignis
 		inline void set_uniform_buffer(GRIBuffer* buffer, uint32_t slot, GRIShaderStage stage, uint32_t offset = 0)
 		{
 			ALLOC_COMMAND(GRICommandSetUniformBuffer)(buffer, slot, stage, offset);
+		}
+
+		inline void set_texture(GRITexture2D* texture, uint32_t slot, GRIShaderStage stage)
+		{
+			ALLOC_COMMAND(GRICommandSetTexture)(texture, slot, stage);
 		}
 
 		inline void set_graphics_pipeline_state(GRIPipelineState* pipeline_state)

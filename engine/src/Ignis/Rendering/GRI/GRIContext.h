@@ -24,6 +24,8 @@ namespace Ignis
         virtual void set_index_buffer(GRIBuffer* buffer, GRIIndexFormat format, uint32_t offset) = 0;
         virtual void set_uniform_buffer(GRIBuffer* buffer, uint32_t slot, GRIShaderStage stage, uint32_t offset = 0) = 0;
 
+        virtual void set_texture(GRITexture2D* texture, uint32_t slot, GRIShaderStage stage) = 0;
+
         virtual void set_graphics_pipeline_state(GRIPipelineState* pipeline_state) = 0;
         virtual void draw_primitives(uint32_t vertex_count, uint32_t first_vertex) = 0;
         virtual void draw_indexed_primitives(uint32_t index_count, uint32_t first_index, int32_t vertex_offset) = 0;

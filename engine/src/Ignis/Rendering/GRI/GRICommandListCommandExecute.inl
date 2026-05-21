@@ -60,6 +60,11 @@ namespace Ignis
 	{
 		INTERNAL_DECORATOR(set_uniform_buffer)(buffer, slot, stage, offset);
 	}
+
+	void GRICommandSetTexture::execute(GRICommandListBase& cmd_list)
+	{
+		INTERNAL_DECORATOR(set_texture)(texture, slot, stage);
+	}
 }
 
 #undef INTERNAL_DECORATOR

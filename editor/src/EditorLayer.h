@@ -19,8 +19,9 @@ namespace Ignis
 		void update(Timestep ts) override;
 
     private:
-        SharedPtr<AssetMaterial> m_material;
-        SharedPtr<RenderMesh>    m_mesh;
-        GRIBufferPtr             m_uniform_buffer;
+        SharedPtr<AssetMaterial>  m_material;
+        SharedPtr<RenderMesh>     m_mesh;
+        GRIBufferPtr              m_uniform_buffer;
+        SharedPtr<AssetTexture2D> m_texture;
     };
 }

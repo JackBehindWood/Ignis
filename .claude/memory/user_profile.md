@@ -1,9 +1,7 @@
----
 name: user-profile
 description: Jack Agterdenbos — developer profile, collaboration style, and expectations
 metadata:
   type: user
----
 
 Developer: Jack Agterdenbos (jackagterdenbos@gmail.com)
 Role: Sole author of the Ignis engine (C++20, Metal/macOS).
@@ -12,6 +10,7 @@ Expertise: Deep systems-level C++ and graphics programming. Comfortable with Met
 **Collaboration style:**
 - Expects terse, zero-filler responses — no thought-process narration, no post-mortems unless asked
 - Wants plan posted + scratchpad updated *before* any file is touched
+- **Design Before Code:** Write new system designs into `.claude/memory/design.md` (overwrite per session). No scratchpad, no code until design is approved.
 - Dislikes over-engineering: no premature abstractions, no error handling for impossible cases, no backward-compat shims
 - No comments in code unless the WHY is genuinely non-obvious
 - Does not need C++ or Metal mechanics explained

@@ -11,7 +11,11 @@ namespace Ignis
     class ShaderCache
     {
     public:
-        static ShaderCache& get();
+        static ShaderCache& get()
+        {
+            static ShaderCache instance;
+            return instance;
+        }
 
         void        set_cache_root(const Path& dir);
         const Path& cache_root() const { return m_cache_root; }
@@ -31,26 +35,20 @@ namespace Ignis
             SharedPtr<RenderShader> shader;
         };
 
-        Path                                   m_cache_root;
-        UnorderedMap<uint64_t, CacheEntry>     m_memory;
+        Path m_cache_root;
+        UnorderedMap<uint64_t, CacheEntry> m_memory;
 
-        Path     cache_file_for(uint64_t path_hash, const Path& source_path, GRIShaderStage stage) const;
+        Path cache_file_for(uint64_t variant_key, const Path& source_path, GRIShaderStage stage) const;
 
         static uint64_t hash_path(const Path& p);
         static uint64_t hash_content(const Path& p);
-        static uint64_t make_stage_key(uint64_t path_hash, GRIShaderStage stage);
+        static uint64_t make_stage_key(uint64_t variant_key, GRIShaderStage stage);
         static uint64_t mix_defines(uint64_t base, const Vector<Pair<String, String>>& defines);
         static ShaderTarget detect_target();
         static SharedPtr<RenderShader> make_render_shader(const ShaderStageOutput& stage);
-
-        bool                    try_load_disk(const Path& cache_file, uint64_t expected_variant_hash,
-                                              SharedPtr<RenderShader>& out);
-        bool                    write_disk(const Path& cache_file, uint64_t variant_hash,
-                                           const ShaderStageOutput& stage, ShaderTarget target);
-        bool                    compile_and_store(const Path& source_path,
-                                                  uint64_t path_hash, uint64_t variant_hash,
-                                                  GRIShaderStage requested_stage, SharedPtr<RenderShader>& out,
-                                                  const ShaderCompilerOptions& opts);
+        bool try_load_disk(const Path& cache_file, uint64_t expected_variant_hash, SharedPtr<RenderShader>& out);
+        bool write_disk(const Path& cache_file, uint64_t variant_hash, const ShaderStageOutput& stage, ShaderTarget target);
+        bool compile_and_store(const Path& source_path, uint64_t variant_key, uint64_t variant_hash, GRIShaderStage requested_stage, SharedPtr<RenderShader>& out, const ShaderCompilerOptions& opts);
     };
 
 } // namespace Ignis

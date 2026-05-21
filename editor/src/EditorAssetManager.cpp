@@ -50,6 +50,11 @@ namespace Ignis
         return import(Path("assets/materials") / filename, AssetType::Material);
     }
 
+    SharedPtr<AssetTexture2D> EditorAssetManager::load_texture(AssetID id)
+    {
+        return AssetManager::get().load_as<AssetTexture2D>(id);
+    }
+
     SharedPtr<AssetShader> EditorAssetManager::load_shader(AssetID id)
     {
         return AssetManager::get().load_as<AssetShader>(id);

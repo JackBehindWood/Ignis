@@ -43,6 +43,13 @@ namespace Ignis
         tex_desc->setMipmapLevelCount(desc.num_mip_levels);
 
         m_texture = m_device.get_device()->newTexture(tex_desc);
+
+        if (desc.initial_data)
+        {
+            const uint32_t bytes_per_row = desc.width * 4;
+            MTL::Region region = MTL::Region::Make2D(0, 0, desc.width, desc.height);
+            m_texture->replaceRegion(region, 0, desc.initial_data, bytes_per_row);
+        }
     }
 
     MetalTexture2D::MetalTexture2D(MetalDevice* device, MTL::Texture* texture, bool retain) : m_device(*device), m_texture(texture)

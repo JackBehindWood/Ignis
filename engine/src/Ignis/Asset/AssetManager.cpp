@@ -5,9 +5,11 @@
 #include "Ignis/Asset/AssetShaderCompiler.h"
 #include "Ignis/Asset/AssetMeshCompiler.h"
 #include "Ignis/Asset/AssetMaterialCompiler.h"
+#include "Ignis/Asset/AssetTexture2DCompiler.h"
 #include "Ignis/Asset/ShaderLoader.h"
 #include "Ignis/Asset/MeshLoader.h"
 #include "Ignis/Asset/MaterialLoader.h"
+#include "Ignis/Asset/TextureLoader.h"
 
 namespace Ignis
 {
@@ -16,7 +18,7 @@ namespace Ignis
     {
         switch (type)
         {
-            // case AssetType::Texture2D: { static Texture2DLoader s; return &s; }
+            case AssetType::Texture2D: { static TextureLoader          s; return &s; }
             case AssetType::Shader:   { static ShaderLoader   s; return &s; }
             case AssetType::Mesh:     { static MeshLoader     s; return &s; }
             case AssetType::Material: { static MaterialLoader s; return &s; }
@@ -28,6 +30,7 @@ namespace Ignis
     {
         switch (type)
         {
+            case AssetType::Texture2D: { static AssetTexture2DCompiler s; return &s; }
             case AssetType::Shader:   { static AssetShaderCompiler   s; return &s; }
             case AssetType::Mesh:     { static AssetMeshCompiler     s; return &s; }
             case AssetType::Material: { static AssetMaterialCompiler s; return &s; }

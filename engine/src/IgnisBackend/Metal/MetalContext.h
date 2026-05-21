@@ -19,6 +19,7 @@ namespace Ignis
         MetalCommandBuffer*        m_command_buffer;
         MetalViewport*             m_active_viewport;
         MetalRenderCommandEncoder* m_render_encoder;
+        MTL::SamplerState*         m_default_sampler;
 
     public:
         MetalCommandContext(MetalDevice& device);
@@ -38,6 +39,8 @@ namespace Ignis
         virtual void set_vertex_buffer(GRIBuffer* buffer, uint32_t offset, uint32_t buffer_index) override;
         virtual void set_index_buffer(GRIBuffer* buffer, GRIIndexFormat format, uint32_t offset) override;
         virtual void set_uniform_buffer(GRIBuffer* buffer, uint32_t slot, GRIShaderStage stage, uint32_t offset) override;
+
+        virtual void set_texture(GRITexture2D* texture, uint32_t slot, GRIShaderStage stage) override;
 
         virtual void set_graphics_pipeline_state(GRIPipelineState* pipeline_state) override;
         virtual void draw_primitives(uint32_t vertex_count, uint32_t first_vertex) override;

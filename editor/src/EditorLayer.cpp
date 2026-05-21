@@ -35,6 +35,10 @@ namespace Ignis
         assets.set_root(Filesystem::current_path() / "resources");
         ShaderCache::get().set_cache_root(Filesystem::current_path() / "resources" / "cache" / "shaders");
 
+        const AssetID texture_id = assets.import_texture("test.png");
+        m_texture = assets.load_texture(texture_id);
+        IG_CORE_ASSERT(m_texture, "Failed to load test.png");
+
         const AssetID material_id = assets.import_material("triangle.igmat");
         m_material = assets.load_material(material_id);
         IG_CORE_ASSERT(m_material, "Failed to load triangle material");
@@ -62,12 +66,15 @@ namespace Ignis
         m_uniform_buffer = nullptr;
         m_mesh           = nullptr;
         m_material       = nullptr;
+        m_texture        = nullptr;
     }
 
     void EditorLayer::update(Timestep ts)
     {
         GRIViewport* viewport = Application::get().get_window().get_viewport();
         Renderer::begin(viewport, { 0.1f, 0.1f, 0.1f, 1.0f });
+        RenderSystem::get_command_list().set_texture(
+            m_texture->get_render_texture()->get_texture(), 0, GRIShaderStage::Pixel);
         Renderer::submit(m_mesh.get(), m_material->get_material(), m_uniform_buffer.get());
         Renderer::end();
     }

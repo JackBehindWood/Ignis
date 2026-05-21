@@ -31,6 +31,7 @@ namespace Ignis
         AssetID import_material(const Path& filename);
 
         // Convenience typed loaders — trigger compile-on-first-load via AssetManager.
+        SharedPtr<AssetTexture2D> load_texture(AssetID id);
         SharedPtr<AssetShader>   load_shader(AssetID id);
         SharedPtr<AssetMesh>     load_mesh(AssetID id);
         SharedPtr<AssetMaterial> load_material(AssetID id);
