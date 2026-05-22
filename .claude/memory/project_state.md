@@ -43,9 +43,10 @@ Deliverables:
 - `triangle.hlsl` now samples `g_texture`/`g_sampler` at `t0`/`s0`
 - `EditorLayer` imports `test.png`, loads as `AssetTexture2D`, binds before `Renderer::submit`
 
-## Up next
-- `Renderer` architecture design — general rendering pipeline: Renderer, Scene/draw-list, Render/Frame graph interconnect
-- Scene / draw list — feeds the Renderer each frame
-- Render graph / Frame graph
-- Vertex declaration registry (TODO in MaterialLoader) — materials declare required input layout; Renderer matches against mesh VBs
-- Per-material parameter buffer (TODO in Material) — blocked on vertex decl registry
+## Up next (ordered)
+1. Vertex declaration registry — unblock material generality; `MaterialLoader` hardcodes `pos+nrm+uv stride 32`; materials must declare required input layout and Renderer must match against mesh VBs
+2. Per-material parameter buffer — blocked on vertex decl registry
+3. Stage-agnostic `AssetShader`; requires refactoring `AssetShader` from hardcoded `m_vs`/`m_ps` fields;
+4. Renderer architecture design — define general pipeline shape: Renderer, Scene/draw-list, Render/Frame graph interconnect; everything downstream depends on this
+5. Scene / draw list — feeds the Renderer each frame; shape determined by renderer architecture
+6. Render graph / Frame graph — integrates renderer + scene once both are stable
