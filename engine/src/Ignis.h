@@ -3,6 +3,9 @@
 // Foundation
 #include "Ignis/Foundation/Foundation.h"
 
+// Math
+#include "Ignis/Math/Math.h"
+
 // Core
 #include "Ignis/Core/Base.h"
 #include "Ignis/Core/UUID.h"
@@ -35,6 +38,12 @@
 #include "Ignis/Rendering/RenderMesh.h"
 #include "Ignis/Rendering/RenderTexture2D.h"
 #include "Ignis/Rendering/Material.h"
+
+// Scene
+#include "Ignis/Scene/Scene.h"
+#include "Ignis/Scene/Entity.h"
+#include "Ignis/Scene/Components.h"
+#include "Ignis/Scene/SceneRenderer.h"
 
 // Events
 #include "Ignis/Events/Event.h"

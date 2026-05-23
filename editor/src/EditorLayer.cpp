@@ -23,25 +23,23 @@ namespace Ignis
         assets.set_root(Filesystem::current_path() / "resources");
         ShaderCache::get().set_cache_root(Filesystem::current_path() / "resources" / "cache" / "shaders");
 
-        const AssetID texture_id = assets.import_texture("test.png");
+        const AssetID texture_id  = assets.import_texture("test.png");
         m_texture = assets.load_texture(texture_id);
         IG_CORE_ASSERT(m_texture, "Failed to load test.png");
 
-        m_material_id = assets.import_material("triangle.igmat");
-        m_mesh_id     = assets.import_mesh("triangle.obj");
-
-        SharedPtr<AssetMesh> mesh = assets.load_mesh(m_mesh_id);
-        IG_CORE_ASSERT(mesh, "Failed to load triangle.obj");
-        m_index_count = static_cast<uint32_t>(mesh->get_indices().size());
-
-        m_transform.transform[0]  = 1.0f;
-        m_transform.transform[5]  = 1.0f;
-        m_transform.transform[10] = 1.0f;
-        m_transform.transform[15] = 1.0f;
+        const AssetID material_id = assets.import_material("triangle.igmat");
+        const AssetID mesh_id     = assets.import_mesh("triangle.obj");
 
         m_forward_pass.colour_targets[0].load_action  = GRILoadAction::Clear;
         m_forward_pass.colour_targets[0].store_action = GRIStoreAction::Store;
         m_forward_pass.colour_targets[0].clear_value  = { 0.1f, 0.1f, 0.1f, 1.0f };
+
+        Entity e = m_active_scene.create_entity();
+        e.add_component<TransformComponent>();
+        MeshComponent mc;
+        mc.mesh_id     = mesh_id;
+        mc.material_id = material_id;
+        e.add_component<MeshComponent>(mc);
     }
 
     void EditorLayer::detach()
@@ -60,10 +58,8 @@ namespace Ignis
         cmd.begin_render_pass(m_forward_pass);
 
         cmd.set_texture(m_texture->get_render_texture()->get_texture(), 0, GRIShaderStage::Pixel);
-        Renderer::bind_material(cmd, m_material_id);
-        Renderer::bind_mesh(cmd, m_mesh_id);
-        Renderer::bind_transform(cmd, &m_transform, sizeof(m_transform));
-        cmd.draw_indexed_primitives(m_index_count);
+
+        m_scene_renderer.render_scene(m_active_scene, cmd);
 
         cmd.end_render_pass();
         Renderer::end_frame();
@@ -72,20 +68,19 @@ namespace Ignis
     void EditorLayer::event(Event& event)
     {
         EventDispatcher dispatcher(event);
-        dispatcher.dispatch<KeyPressedEvent>([this](KeyPressedEvent& e) -> bool
-        {
-            if (e.get_key_code() == Key::F5)
-            {
-                IG_INFO("Recompiling assets...");
-                EditorAssetManager::get().reload_all();
-                return true;
-            }
-            return false;
-        });
+        dispatcher.dispatch<KeyPressedEvent>(IG_BIND_EVENT_FN(EditorLayer::key_pressed));
     }
 
     bool EditorLayer::key_pressed(KeyPressedEvent& e)
     {
+        IG_INFO("Key pressed: {0} ({1} repeats)", e.get_key_code(), e.get_repeat_count());
+        if (e.get_key_code() == Key::F5)
+        {
+            IG_INFO("Recompiling assets...");
+            EditorAssetManager::get().reload_all();
+            IG_INFO("Assets reloaded");
+            return true;
+        }
         return false;
     }
 }

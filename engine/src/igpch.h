@@ -10,11 +10,9 @@
 #include <atomic>
 
 #include "Ignis/Foundation/Foundation.h"
-
+#include "Ignis/Math/Math.h"
 
 #include <unordered_set>
-
-
 #include <chrono>
 
 #include "Ignis/Core/Base.h"

@@ -19,14 +19,10 @@ namespace Ignis
 		void update(Timestep ts) override;
 
     private:
-        AssetID m_mesh_id;
-        AssetID m_material_id;
-        uint32_t m_index_count = 0;
-
         SharedPtr<AssetTexture2D> m_texture;
-        GRIRenderPassInfo m_forward_pass;
+        GRIRenderPassInfo         m_forward_pass;
 
-        struct SceneUniforms { float transform[16]; };
-        SceneUniforms m_transform{};
+        Scene         m_active_scene;
+        SceneRenderer m_scene_renderer;
     };
 }

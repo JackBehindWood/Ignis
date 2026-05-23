@@ -1,0 +1,31 @@
+#pragma once
+
+#include "Scene.h"
+#include "Ignis/Math/Math.h"
+#include "Ignis/Rendering/GRI/GRICommandList.h"
+#include "Ignis/Rendering/RenderMesh.h"
+#include "Ignis/Rendering/Material.h"
+
+namespace Ignis
+{
+    struct FrameDrawItem
+    {
+        const RenderMesh* mesh     = nullptr;
+        const Material*   material = nullptr;
+        Math::Mat4f       world    = Math::Mat4f::identity();
+        float             depth    = 0.0f;
+    };
+
+    class SceneRenderer
+    {
+    public:
+        void render_scene(Scene& scene, GRICommandList& cmd);
+
+    private:
+        // Persistent across frames; .clear()'d at the top of each render_scene call.
+        // Avoids per-frame heap allocation once capacity stabilises.
+        Vector<FrameDrawItem> m_opaque;
+        Vector<FrameDrawItem> m_transparent;
+    };
+
+} // namespace Ignis

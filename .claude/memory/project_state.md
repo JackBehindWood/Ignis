@@ -11,17 +11,21 @@ metadata:
 * **Asset pipeline (v1 Complete)** — manager, registry, binary stream, and cook infrastructure. Fully integrated with complete subsystems for **Shaders, Meshes, Materials, and Textures**.
 * **Editor host** — EditorLayer, EditorAssetManager, import UI
 * **SPIRV toolchain** — DXC (HLSL→SPIR-V) + SPIRV-Cross (SPIR-V→MSL)
-* **Renderer architecture (Complete, v2)** — `Renderer` is a **pass-agnostic** coordinator: `init`/`shutdown`/`begin_frame(viewport)`/`end_frame()`; static bind helpers (`bind_mesh`, `bind_material`, `bind_transform`) record into a caller-supplied `GRICommandListBase&`. Render pass boundaries (`begin_render_pass` / `end_render_pass`) are **caller-owned** — callers hold and configure their own `GRIRenderPassInfo`. `DrawPacket` removed. `RenderResourceCache`, `MaterialFactory` (PSO cache), `FrameUniformAllocator` (4 MB ring buffer, 256-byte aligned). Ref: `.claude/docs/renderer/renderer.md`, `.claude/docs/renderer/design.md`.
+* **Renderer architecture (Complete, v2)** — `Renderer` is a **pass-agnostic** coordinator. 
+* **Math Library** - in Math namespace.
+* **Scene System** - ECS scene with renderer and components.
 
 ## Branch layout
 * `dev` — stable baseline (now includes the complete `asset-system`)
-* `renderer-architecture` — active; renderer architecture complete, pending merge
+* `renderer-architecture` — active; core pass-agnostic architecture complete, pending final merge
+* `scene-draw-list` — active; implementing the asset-decoupled scene layer that tracks and merges into `renderer-architecture`
+* `Render-graph` - active; implementing a render graph / frame graph (builder style) and merges into `renderer-architecture`
 
 ## Current focus
-* **Renderer Architecture v2 DONE.** `DrawPacket` removed. `Renderer` is fully pass-agnostic: no `s_forward_pass`, no internal `begin/end_render_pass`. All pass boundaries (`GRIRenderPassInfo` config, `cmd.begin_render_pass`, `cmd.end_render_pass`) are caller-owned. `EditorLayer` holds `m_forward_pass` and manages it explicitly. `bind_mesh/bind_material/bind_transform` are pure bind utilities.
+`scene-draw-list` branch audit complete — ready for merge review.
 
 ## Up next (ordered)
-1.  **Scene / draw list** *(active)* — scene representation that produces renderables per frame; caller configures one or more `GRIRenderPassInfo`, loops over drawables, and records explicit `begin_render_pass` / `Renderer::bind_*` / `draw_indexed_primitives` / `end_render_pass` sequences into a `GRICommandList`
+1.  **Merge `scene-draw-list` → `renderer-architecture`** — verify clean compile, then merge
 2.  **Render graph / Frame graph** — graph nodes own `GRIRenderPassInfo` + `GRICommandList`; replaces per-caller manual pass management; `Renderer::bind_*` unchanged
-3.  **Asset System V2** — dependency graph, async loading, hot-reloading, streaming
-4.  **Project system** — project configurations, workspaces, engine-to-project separation
+3.  **Asset System V2** — dependency graph, async loading, hot-reload, streaming
+4.  **Compute passes, ray tracing**

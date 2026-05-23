@@ -9,7 +9,8 @@ namespace Ignis
     SharedPtr<RenderMesh> RenderMesh::create(
     const void* vertex_data, uint32_t vertex_data_size,
     const uint32_t* index_data, uint32_t index_count,
-    GRIIndexFormat index_format)
+    GRIIndexFormat index_format,
+    Math::Vec3f bounds_center, float bounds_radius)
     {
         GRI* gri = RenderSystem::get_gri();
         GRIBufferDesc vb_desc;
@@ -22,7 +23,8 @@ namespace Ignis
         ib_desc.usage = GRIBufferUsage::IndexBuffer;
         GRIBufferPtr ib = gri->create_buffer(ib_desc, index_data);
 
-        return create_shared<RenderMesh>(std::move(vb), std::move(ib), index_count, index_format);
+        return create_shared<RenderMesh>(std::move(vb), std::move(ib), index_count, index_format,
+                                        bounds_center, bounds_radius);
     }
 
 } // namespace Ignis
