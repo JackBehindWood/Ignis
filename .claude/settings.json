@@ -19,7 +19,8 @@
       "Bash(python3 build/cli.py*)",
       "Bash(python3 build/setup.py*)",
       "Bash(python3 build/setup_dxc.py*)",
-      "Bash(python3 build/setup_premake.py*)"
+      "Bash(python3 build/setup_premake.py*)",
+      "Bash(make:*)"
     ],
     "deny": [
       "Bash(git checkout:*)",

@@ -7,11 +7,12 @@
 #include "Ignis/Rendering/RenderSystem.h"
 #include "Ignis/Rendering/ShaderCache.h"
 #include "Ignis/Rendering/ShaderCompiler.h"
+#include "Ignis/Rendering/VertexDeclarationRegistry.h"
 
 namespace Ignis
 {
 
-static constexpr AssetBlobHeader k_material_header = {{'I', 'G', 'M', 'T'}, 1};
+static constexpr AssetBlobHeader k_material_header = {{'I', 'G', 'M', 'T'}, 2};
 
 static String read_str(AssetBinaryReader& r)
 {
@@ -39,7 +40,9 @@ SharedPtr<Asset> MaterialLoader::load(const AssetMetadata& metadata)
             return nullptr;
     }
 
-    const Path shader_source(read_str(r));
+    const Path   shader_source(read_str(r));
+    const String vertex_layout_name = read_str(r);
+    const uint32_t param_data_size  = r.read_u32();
     if (!r.good())
     {
         IG_CORE_ERROR("MaterialLoader: corrupted recipe for '{}'", metadata.compiled_path.string());
@@ -59,21 +62,17 @@ SharedPtr<Asset> MaterialLoader::load(const AssetMetadata& metadata)
         return nullptr;
     }
 
-    // TODO: vertex declaration registry — materials should declare their required input layout
-    // and the Renderer should match it against mesh vertex buffers at draw time.
-    // Hardcoded standard layout (pos:12 nrm:12 uv:8, stride 32) matches IGAM cook output.
-    GRIVertexDeclaration vd;
-    vd.elements[0] = { GRIVertexElementSemantic::Position, GRIVertexElementFormat::Float3,  0, 0 };
-    vd.elements[1] = { GRIVertexElementSemantic::Normal,   GRIVertexElementFormat::Float3, 12, 0 };
-    vd.elements[2] = { GRIVertexElementSemantic::TexCoord, GRIVertexElementFormat::Float2, 24, 0 };
-    vd.num_elements = 3;
-    vd.bindings[0]  = { 0, 32 };
-    vd.num_bindings = 1;
+    const GRIVertexDeclaration* vd = VertexDeclarationRegistry::get().find(vertex_layout_name);
+    if (!vd)
+    {
+        IG_CORE_ERROR("MaterialLoader: unknown vertex layout '{}' for '{}'", vertex_layout_name, shader_source.string());
+        return nullptr;
+    }
 
     GRIPipelineStateDesc pso_desc;
     pso_desc.vertex_shader        = vs->get_shader();
     pso_desc.pixel_shader         = ps->get_shader();
-    pso_desc.vertex_declaration   = &vd;
+    pso_desc.vertex_declaration   = const_cast<GRIVertexDeclaration*>(vd);
     pso_desc.render_target_format = GRIPixelFormat::RGBA8Unorm;
     pso_desc.depth_stencil_format = GRIPixelFormat::Depth32Float;
     pso_desc.primitive_topology   = GRIPrimitiveTopology::TriangleList;
@@ -85,7 +84,19 @@ SharedPtr<Asset> MaterialLoader::load(const AssetMetadata& metadata)
         return nullptr;
     }
 
-    auto material = create_shared<Material>(vs, ps, std::move(pso));
+    GRIBufferPtr params_buffer;
+    if (param_data_size > 0)
+    {
+        Vector<uint8_t> param_data(param_data_size);
+        r.read_bytes(param_data.data(), param_data_size);
+
+        GRIBufferDesc buf_desc;
+        buf_desc.size  = param_data_size;
+        buf_desc.usage = GRIBufferUsage::UniformBuffer;
+        params_buffer  = RenderSystem::get_gri()->create_buffer(buf_desc, param_data.data());
+    }
+
+    auto material = create_shared<Material>(vs, ps, std::move(pso), vd, std::move(params_buffer));
     return create_shared<AssetMaterial>(metadata.ID, std::move(material));
 }
 

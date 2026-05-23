@@ -89,16 +89,18 @@ SharedPtr<AssetMesh> mesh = EditorAssetManager::get().load_mesh(id);
 ## AssetShader  (`Ignis/Asset/AssetShader.h`)
 
 Asset-layer shader — lives in the Asset module, does NOT hold GRI pointers directly.
+One `AssetShader` = one compiled stage. VS and PS from the same `.hlsl` are separate `AssetID`s.
 
 ```
 AssetShader : Asset
-  AssetShader(id, RenderShader)
-  get_render_shader()   → const RenderShader&
-  static_type()         → AssetType::Shader
+  AssetShader(id, SharedPtr<RenderShader>)
+  get_render_shader()  → RenderShader*
+  get_stage()          → GRIShaderStage   (delegates to RenderShader)
+  static_type()        → AssetType::Shader
 ```
 
-Owns a `RenderShader` by value. `RenderShader` holds the GRI handles + per-stage `ShaderReflection` (see `shader.md`).
-Created by `ShaderLoader::load` and cached by `AssetManager`. Retrieve via:
-```cpp
-AssetManager::get().load_as<AssetShader>(id)
-```
+Owns a `SharedPtr<RenderShader>`. Created by `ShaderLoader::load` and cached by `AssetManager`.
+
+`EditorAssetManager::import_shader(filename)` → `std::pair<AssetID,AssetID>` (vs_id, ps_id).  
+`AssetMetadata::user_data` carries `GRIShaderStage` from importer → compiler → loader.  
+`AssetManager::import(path, type, cache, user_data)` factors `user_data` into the ID and cache name so VS/PS from the same source get distinct entries.

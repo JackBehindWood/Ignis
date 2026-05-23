@@ -6,11 +6,12 @@
 #include "Ignis/Rendering/ShaderCache.h"
 #include "Ignis/Rendering/ShaderCompiler.h"
 
+#include <chrono>
 
 namespace Ignis
 {
 
-static constexpr AssetBlobHeader k_recipe_header = {{'I', 'G', 'A', 'S'}, 1};
+static constexpr AssetBlobHeader k_igas_v2_header = {{'I', 'G', 'A', 'S'}, 2};
 
 static String read_str(AssetBinaryReader& r)
 {
@@ -21,64 +22,88 @@ static String read_str(AssetBinaryReader& r)
     return s;
 }
 
-// ---------------------------------------------------------------------------
-
-static bool resolve_from_recipe(AssetBinaryReader& r,
-                                 SharedPtr<RenderShader>& out_vs, SharedPtr<RenderShader>& out_ps)
+static uint64_t get_mtime_ns(const Path& path)
 {
-    const Path   source_path(read_str(r));
-    const String entry_vs = read_str(r);
-    const String entry_ps = read_str(r);
-    const uint32_t num_defines = r.read_u32();
+    std::error_code ec;
+    auto ftime = Filesystem::last_write_time(path, ec);
+    if (ec)
+        return 0;
+    return static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            ftime.time_since_epoch()).count());
+}
 
-    ShaderCompilerOptions opts;
-    opts.stages[0] = { GRIShaderStage::Vertex, entry_vs };
-    opts.stages[1] = { GRIShaderStage::Pixel,  entry_ps };
-    opts.count = 2;
-    opts.defines.reserve(num_defines);
-    for (uint32_t i = 0; i < num_defines; ++i)
+static bool check_deps_stale(AssetBinaryReader& r, uint32_t num_deps)
+{
+    for (uint32_t i = 0; i < num_deps; ++i)
     {
-        String key = read_str(r);
-        String val = read_str(r);
-        opts.defines.push_back({ std::move(key), std::move(val) });
+        const Path     path(read_str(r));
+        const uint64_t recorded_mtime = r.read_u64();
+
+        if (Filesystem::exists(path) && get_mtime_ns(path) > recorded_mtime)
+            return true;
     }
-
-    if (!r.good())
-        return false;
-
-    out_vs = ShaderCache::get().get_or_compile(source_path, GRIShaderStage::Vertex, opts);
-    out_ps = ShaderCache::get().get_or_compile(source_path, GRIShaderStage::Pixel,  opts);
-    return out_vs && out_ps;
+    return false;
 }
 
 // ---------------------------------------------------------------------------
 
 SharedPtr<Asset> ShaderLoader::load(const AssetMetadata& metadata)
 {
-    // Try to open the IGAS v1 recipe
-    AssetBinaryReader r = AssetBinaryReader::open(metadata.compiled_path, k_recipe_header);
-    if (!r.is_open())
+    auto try_load = [&]() -> SharedPtr<Asset>
     {
-        // Recipe missing — write it now (on-demand cook)
-        AssetCompiler* compiler = AssetManager::get_compiler(AssetType::Shader);
-        if (!compiler || !compiler->compile(metadata))
-        {
-            IG_CORE_ERROR("ShaderLoader: recipe cook failed for '{}'", metadata.source_path.string());
-            return nullptr;
-        }
-        r = AssetBinaryReader::open(metadata.compiled_path, k_recipe_header);
+        AssetBinaryReader r = AssetBinaryReader::open(metadata.compiled_path, k_igas_v2_header);
         if (!r.is_open())
             return nullptr;
-    }
 
-    SharedPtr<RenderShader> vs, ps;
-    if (!resolve_from_recipe(r, vs, ps))
+        const Path   source_path(read_str(r));
+        const auto   stage       = static_cast<GRIShaderStage>(r.read_u8());
+        const String entry_point = read_str(r);
+        const uint32_t num_defines = r.read_u32();
+
+        ShaderCompilerOptions opts;
+        opts.stages[static_cast<size_t>(stage)] = { stage, entry_point };
+        opts.count = 1;
+        opts.defines.reserve(num_defines);
+        for (uint32_t i = 0; i < num_defines; ++i)
+        {
+            String key = read_str(r);
+            String val = read_str(r);
+            opts.defines.push_back({ std::move(key), std::move(val) });
+        }
+
+        const uint32_t num_deps = r.read_u32();
+        if (check_deps_stale(r, num_deps))
+            return nullptr; // signal recompile needed
+
+        if (!r.good())
+            return nullptr;
+
+        SharedPtr<RenderShader> rs = ShaderCache::get().get_or_compile(source_path, stage, opts);
+        if (!rs)
+            return nullptr;
+
+        return create_shared<AssetShader>(metadata.ID, std::move(rs));
+    };
+
+    // First attempt
+    SharedPtr<Asset> asset = try_load();
+    if (asset)
+        return asset;
+
+    // Recipe missing or deps stale — recompile
+    AssetCompiler* compiler = AssetManager::get_compiler(AssetType::Shader);
+    if (!compiler || !compiler->compile(metadata))
     {
-        IG_CORE_ERROR("ShaderLoader: shader compile failed for '{}'", metadata.source_path.string());
+        IG_CORE_ERROR("ShaderLoader: cook failed for '{}'", metadata.source_path.string());
         return nullptr;
     }
 
-    return create_shared<AssetShader>(metadata.ID, std::move(vs), std::move(ps));
+    asset = try_load();
+    if (!asset)
+        IG_CORE_ERROR("ShaderLoader: shader compile failed for '{}'", metadata.source_path.string());
+
+    return asset;
 }
 
 } // namespace Ignis

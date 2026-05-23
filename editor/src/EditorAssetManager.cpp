@@ -35,9 +35,27 @@ namespace Ignis
         return import(Path("assets/textures") / filename, AssetType::Texture2D);
     }
 
-    AssetID EditorAssetManager::import_shader(const Path& filename)
+    std::pair<AssetID, AssetID> EditorAssetManager::import_shader(const Path& filename)
     {
-        return import(Path("assets/shaders") / filename, AssetType::Shader);
+        Path source = m_root / "assets/shaders" / filename;
+
+        if (!Filesystem::exists(source))
+        {
+            IG_ERROR("EditorAssetManager: source file not found: {0}", source.string());
+            const AssetID invalid(UUID::s_invalid);
+            return { invalid, invalid };
+        }
+
+        Path cache = cache_dir();
+        if (!Filesystem::exists(cache))
+            Filesystem::create_directories(cache);
+
+        const AssetID vs_id = AssetManager::get().import(
+            source, AssetType::Shader, true, (uint64_t)GRIShaderStage::Vertex);
+        const AssetID ps_id = AssetManager::get().import(
+            source, AssetType::Shader, true, (uint64_t)GRIShaderStage::Pixel);
+
+        return { vs_id, ps_id };
     }
 
     AssetID EditorAssetManager::import_mesh(const Path& filename)

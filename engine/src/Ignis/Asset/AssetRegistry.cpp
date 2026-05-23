@@ -4,21 +4,33 @@
 namespace Ignis
 {
 
-    void AssetRegistry::register_asset(const AssetMetadata& metadata)
+    void AssetRegistry::register_asset(const AssetMetadata& metadata, const Path& source_key)
     {
         uint64_t key = static_cast<uint64_t>(metadata.ID);
         m_registry[key] = metadata;
-        m_source_index[metadata.source_path.string()] = key;
+        const String& index_key = source_key.empty()
+            ? metadata.source_path.string()
+            : source_key.string();
+        m_source_index[index_key] = key;
     }
 
     void AssetRegistry::remove(AssetID id)
     {
         auto it = m_registry.find(static_cast<uint64_t>(id));
-        if (it != m_registry.end())
+        if (it == m_registry.end())
+            return;
+
+        // Erase whichever source_index entry points to this ID.
+        const uint64_t raw = static_cast<uint64_t>(id);
+        for (auto sit = m_source_index.begin(); sit != m_source_index.end(); ++sit)
         {
-            m_source_index.erase(it->second.source_path.string());
-            m_registry.erase(it);
+            if (sit->second == raw)
+            {
+                m_source_index.erase(sit);
+                break;
+            }
         }
+        m_registry.erase(it);
     }
 
     const AssetMetadata* AssetRegistry::get(AssetID id) const

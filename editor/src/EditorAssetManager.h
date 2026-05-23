@@ -26,13 +26,14 @@ namespace Ignis
         // Typed imports — filename only, no path prefix needed.
         // e.g. import_texture("rock.png")  →  resources/assets/textures/rock.png
         AssetID import_texture(const Path& filename);
-        AssetID import_shader(const Path& filename);
+        // Returns {vs_id, ps_id}
+        std::pair<AssetID, AssetID> import_shader(const Path& filename);
         AssetID import_mesh(const Path& filename);
         AssetID import_material(const Path& filename);
 
         // Convenience typed loaders — trigger compile-on-first-load via AssetManager.
         SharedPtr<AssetTexture2D> load_texture(AssetID id);
-        SharedPtr<AssetShader>   load_shader(AssetID id);
+        SharedPtr<AssetShader>  load_shader(AssetID id);
         SharedPtr<AssetMesh>     load_mesh(AssetID id);
         SharedPtr<AssetMaterial> load_material(AssetID id);
 

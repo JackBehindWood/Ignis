@@ -8,20 +8,19 @@ namespace Ignis
     class AssetShader : public Asset
     {
     public:
-        AssetShader(AssetID id, SharedPtr<RenderShader> vs, SharedPtr<RenderShader> ps)
-            : m_vs(std::move(vs)), m_ps(std::move(ps))
+        AssetShader(AssetID id, SharedPtr<RenderShader> shader)
+            : m_shader(std::move(shader))
         {
             m_id = id;
         }
 
-        RenderShader* get_vertex_render_shader() const { return m_vs.get(); }
-        RenderShader* get_pixel_render_shader()  const { return m_ps.get(); }
+        RenderShader*  get_render_shader() const { return m_shader.get(); }
+        GRIShaderStage get_stage()         const { return m_shader->get_stage(); }
 
         static AssetType static_type() { return AssetType::Shader; }
 
     private:
-        SharedPtr<RenderShader> m_vs;
-        SharedPtr<RenderShader> m_ps;
+        SharedPtr<RenderShader> m_shader;
     };
 
 } // namespace Ignis

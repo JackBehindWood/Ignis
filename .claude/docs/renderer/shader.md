@@ -14,10 +14,10 @@
 ```
 AssetShader  (Ignis/Asset/AssetShader.h)
   : public Asset
-  Holds two SharedPtr<RenderShader> (m_vs, m_ps).
-  get_vertex_render_shader() → RenderShader*
-  get_pixel_render_shader()  → RenderShader*
-  static_type()              → AssetType::Shader
+  Single-stage. Holds one SharedPtr<RenderShader>.
+  get_render_shader() → RenderShader*
+  get_stage()         → GRIShaderStage
+  static_type()       → AssetType::Shader
 
 RenderShader  (Ignis/Rendering/RenderShader.h)
   Per-stage. Holds GRIShaderPtr + GRIShaderStage + ShaderReflection.
@@ -41,17 +41,23 @@ ShaderReflection  (Ignis/Rendering/ShaderReflection.h)
 
 ---
 
-## .igasset format (IGAS v1)
+## .igasset format (IGAS v2)
+
+One file per stage.
 
 ```
-[magic 'IGAS'][version u8=1]
-source_path   len(u32) + chars
-entry_vs      len(u32) + chars
-entry_ps      len(u32) + chars
-num_defines   u32               // 0 for now; reserved for [name(str) value(str)] × N
+[magic 'IGAS'][version u8=2]
+source_path  : str
+stage        : u8              // GRIShaderStage cast to uint8
+entry_point  : str             // "VSMain" / "PSMain" / "CSMain"
+num_defines  : u32             // 0 for now; reserved for [key(str) value(str)] × N
+num_deps     : u32
+per dep:
+  dep_path   : str
+  mtime_ns   : u64
 ```
 
-Written by `AssetShaderCompiler::compile()`. Rewrite whenever source path changes.
+Written by `AssetShaderCompiler::compile()`. `dep_path` includes the source file and all `#include "..."` files. `ShaderLoader` checks each dep's mtime against the recorded value; any newer → recompile.
 
 ---
 
@@ -99,14 +105,18 @@ Internal renderer shaders call `get_or_compile()` directly — no `AssetID`, no 
 
 **Asset shader (cook + load):**
 ```
-import()
-  AssetShaderCompiler::compile() → writes IGAS v1 .igasset
+EditorAssetManager::import_shader("triangle.hlsl") → {vs_id, ps_id}
+  AssetManager::import(source, Shader, true, GRIShaderStage::Vertex) → vs_id
+  AssetManager::import(source, Shader, true, GRIShaderStage::Pixel)  → ps_id
 
-AssetManager::load_as<AssetShader>(id)
-  ShaderLoader::load()
-    reads .igasset → source_path
-    ShaderCache::get_or_compile(source_path) → SharedPtr<RenderShader>
-    → AssetShader(id, *render_shader)
+AssetManager::load_as<AssetShader>(vs_id)
+  ShaderLoader::load(vs_metadata)          // user_data = GRIShaderStage::Vertex
+    open IGAS v2 (cook if missing/stale)
+    dep staleness check
+    ShaderCache::get_or_compile(source, Vertex, opts) → SharedPtr<RenderShader>
+    → AssetShader(vs_id, render_shader)    // single stage
+
+AssetManager::load_as<AssetShader>(ps_id)  // same flow, stage = Pixel
 ```
 
 **Internal renderer shader:**

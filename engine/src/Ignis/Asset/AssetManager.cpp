@@ -67,13 +67,20 @@ namespace Ignis
         return result;
     }
 
-    AssetID AssetManager::import(const Path& source_path, AssetType type, bool cache_compiled)
+    AssetID AssetManager::import(const Path& source_path, AssetType type, bool cache_compiled, uint64_t user_data)
     {
-        AssetID existing = m_registry.find_by_source(source_path);
+        // When user_data is non-zero, incorporate it into the key so that two sub-assets
+        // of the same source (e.g. VS and PS from the same .hlsl) get distinct IDs.
+        const String key_str = user_data
+            ? source_path.string() + "|" + std::to_string(user_data)
+            : source_path.string();
+        const Path key_path(key_str);
+
+        AssetID existing = m_registry.find_by_source(key_path);
         if (static_cast<uint64_t>(existing) != UUID::s_invalid)
             return existing;
 
-        const uint64_t hash = hash_path(source_path);
+        const uint64_t hash = hash_path(key_path);
 
         // e.g. triangle_a3f2b1c0.igasset — readable and collision-safe
         const String cache_name = source_path.stem().string() + "_" + hash_hex8(hash) + ".igasset";
@@ -84,7 +91,8 @@ namespace Ignis
         metadata.source_path    = source_path;
         metadata.compiled_path  = m_compiled_root / cache_name;
         metadata.cache_compiled = cache_compiled;
-        m_registry.register_asset(metadata);
+        metadata.user_data      = user_data;
+        m_registry.register_asset(metadata, key_path);
         return metadata.ID;
     }
 

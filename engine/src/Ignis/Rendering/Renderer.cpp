@@ -28,6 +28,8 @@ namespace Ignis
         cmd.set_index_buffer(mesh->get_index_buffer(), mesh->get_index_format());
         if (transform_ubo)
             cmd.set_uniform_buffer(transform_ubo, 1, GRIShaderStage::Vertex);
+        if (GRIBuffer* params = material->get_params_buffer())
+            cmd.set_uniform_buffer(params, 2, GRIShaderStage::Pixel);
         cmd.draw_indexed_primitives(mesh->get_index_count());
     }
 

@@ -30,6 +30,7 @@ struct AssetBinaryWriter
 
     void write_u8   (uint8_t  v)                    { m_writer.write_u8(v);             }
     void write_u32  (uint32_t v)                    { m_writer.write_u32(v);            }
+    void write_u64  (uint64_t v)                    { m_writer.write_u64(v);            }
     void write_bytes(const void* data, size_t size) { m_writer.write_bytes(data, size); }
 
     AssetBinaryWriter()                              = default;
@@ -56,6 +57,7 @@ struct AssetBinaryReader
 
     uint8_t  read_u8   ()                        { return m_reader.read_u8();           }
     uint32_t read_u32  ()                        { return m_reader.read_u32();          }
+    uint64_t read_u64  ()                        { return m_reader.read_u64();          }
     void     read_bytes(void* data, size_t size) { m_reader.read_bytes(data, size);     }
 
     AssetBinaryReader()                              = default;

@@ -5,8 +5,8 @@
 namespace Ignis
 {
 
-// IGMT v1 — material recipe: absolute path to the HLSL shader source.
-static constexpr AssetBlobHeader k_material_header = {{'I', 'G', 'M', 'T'}, 1};
+// IGMT v2 — material recipe: shader source path, vertex layout name, param data blob.
+static constexpr AssetBlobHeader k_material_header = {{'I', 'G', 'M', 'T'}, 2};
 
 static void write_str(AssetBinaryWriter& w, const String& s)
 {
@@ -15,22 +15,35 @@ static void write_str(AssetBinaryWriter& w, const String& s)
         w.write_bytes(s.data(), s.size());
 }
 
-// .igmat text format: single line containing the shader filename (e.g. "triangle.hlsl").
-// Resolved relative to the sibling shaders/ directory.
+// .igmat text format:
+//   line 1 — shader filename (e.g. "triangle.hlsl"), resolved to assets/shaders/
+//   line 2 — optional vertex layout name (default: "standard_mesh")
 bool AssetMaterialCompiler::compile(const AssetMetadata& metadata)
 {
     String source_text;
     if (!read_source_text(metadata, source_text))
         return false;
 
-    // Trim whitespace / newlines from the shader filename line.
     const auto trim = [](const String& s) -> String {
         size_t a = s.find_first_not_of(" \t\r\n");
         if (a == String::npos) return {};
         size_t b = s.find_last_not_of(" \t\r\n");
         return s.substr(a, b - a + 1);
     };
-    const String shader_filename = trim(source_text);
+
+    String shader_filename;
+    String vertex_layout = "standard_mesh";
+    {
+        size_t nl = source_text.find('\n');
+        shader_filename = trim(nl != String::npos ? source_text.substr(0, nl) : source_text);
+        if (nl != String::npos)
+        {
+            String line2 = trim(source_text.substr(nl + 1));
+            if (!line2.empty())
+                vertex_layout = line2;
+        }
+    }
+
     if (shader_filename.empty())
     {
         IG_CORE_ERROR("AssetMaterialCompiler: empty shader filename in '{}'", metadata.source_path.string());
@@ -50,6 +63,8 @@ bool AssetMaterialCompiler::compile(const AssetMetadata& metadata)
         return false;
 
     write_str(w, shader_source.string());
+    write_str(w, vertex_layout);
+    w.write_u32(0); // param_data_size
     return w.good();
 }
 

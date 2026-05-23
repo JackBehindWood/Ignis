@@ -8,7 +8,7 @@ namespace Ignis
     class AssetRegistry
     {
     public:
-        void                    register_asset(const AssetMetadata& metadata);
+        void                    register_asset(const AssetMetadata& metadata, const Path& source_key = {});
         void                    remove(AssetID id);
 
         const AssetMetadata*    get(AssetID id) const;

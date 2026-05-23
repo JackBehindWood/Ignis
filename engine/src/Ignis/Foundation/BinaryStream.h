@@ -23,7 +23,16 @@ public:
 
     void write_u8 (uint8_t  v) { m_stream.write(reinterpret_cast<const char*>(&v), 1); }
     void write_u32(uint32_t v) { m_stream.write(reinterpret_cast<const char*>(&v), 4); }
+    void write_u64(uint64_t v) { m_stream.write(reinterpret_cast<const char*>(&v), 8); }
     void write_bytes(const void* data, size_t size) { m_stream.write(static_cast<const char*>(data), size); }
+
+    template <typename T>
+    BinaryWriter& operator<<(const T& value)
+    {
+        static_assert(IsTriviallyCopyable<T>, "Type must be trivially copyable for binary serialization.");
+        write_bytes(&value, sizeof(T));
+        return *this;
+    }
 
 private:
     std::ofstream m_stream;
@@ -45,7 +54,16 @@ public:
 
     uint8_t  read_u8()  { uint8_t  v; m_stream.read(reinterpret_cast<char*>(&v), 1); return v; }
     uint32_t read_u32() { uint32_t v; m_stream.read(reinterpret_cast<char*>(&v), 4); return v; }
+    uint64_t read_u64() { uint64_t v; m_stream.read(reinterpret_cast<char*>(&v), 8); return v; }
     void read_bytes(void* data, size_t size) { m_stream.read(static_cast<char*>(data), size); }
+
+    template <typename T>
+    BinaryReader& operator>>(T& value)
+    {
+        static_assert(IsTriviallyCopyable<T>, "Type must be trivially copyable for binary deserialization.");
+        read_bytes(&value, sizeof(T));
+        return *this;
+    }
 
     size_t get_size()
     {

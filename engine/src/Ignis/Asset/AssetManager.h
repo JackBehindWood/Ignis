@@ -19,7 +19,7 @@ namespace Ignis
             return instance;
         }
 
-        AssetID import(const Path& source_path, AssetType type, bool cache_compiled = false);
+        AssetID import(const Path& source_path, AssetType type, bool cache_compiled = false, uint64_t user_data = 0);
 
         SharedPtr<Asset> load(AssetID id);
 

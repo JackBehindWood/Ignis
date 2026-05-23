@@ -48,6 +48,9 @@ namespace Ignis
     template <typename T, typename... Args>
     inline constexpr bool IsConstructible = std::is_constructible_v<T, Args...>;
 
+    template <typename T>
+    inline constexpr bool IsTriviallyCopyable = std::is_trivially_copyable_v<T>;
+
 
     // --- Primary Type Categories ---
 
