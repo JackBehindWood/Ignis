@@ -44,9 +44,13 @@ Cross-check `project_state.md` against `git status` when touching active work.
 
 | Doc | Load when touching… |
 |-----|---------------------|
+| `.claude/docs/renderer/renderer.md` | `Renderer`, `RenderResourceCache`, `MaterialFactory`, `FrameUniformAllocator`, bind helpers, uniform slots |
+| `.claude/docs/renderer/design.md` | renderer philosophy, system architecture diagram |
+| `.claude/docs/renderer/mesh.md` | `RenderMesh`, mesh upload pipeline, vertex layout |
 | `.claude/docs/renderer/gri.md` | GRI interface, resource/descriptor types, pipeline state, render passes, `RenderSystem` |
-| `.claude/docs/renderer/shader.md` | shader cooking/loading, `RenderShader`, `ShaderTarget`, `SpirvReflection`, SPIR-V/MSL compilation |
+| `.claude/docs/renderer/shader.md` | `RenderShader`, `ShaderTarget`, `ShaderReflection`, `ShaderCache`, SPIR-V/MSL compilation |
 | `.claude/docs/renderer/metal.md` | anything in `IgnisBackend/Metal/`, metal-cpp ownership, `MetalGRI`, `MetalCommandContext`, `MetalShaderLibrary` |
-| `.claude/docs/asset-system.md` | `AssetManager`, `AssetHandle`, `AssetShader`, asset cooking, `AssetType`, binary streams |
+| `.claude/docs/asset-system.md` | `AssetManager`, `AssetHandle`, `AssetShader`, `AssetMesh`, asset cooking, `AssetType`, binary streams |
 | `.claude/docs/build.md` | build system, Premake, vendor layout, plugins, entry points |
 | `.claude/docs/editor.md` | `EditorLayer`, `EditorAssetManager`, `resources/` layout |
+| `.claude/docs/docs.md` | doc layout, domain boundary rules, where to put new docs |

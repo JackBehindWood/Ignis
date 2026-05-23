@@ -86,8 +86,9 @@ namespace Ignis
     public:
         MetalBuffer(MTL::Buffer* buffer, uint32_t size);
         ~MetalBuffer() override;
-        uint32_t     get_size()   const override { return m_size; }
-        MTL::Buffer* get_buffer() const          { return m_buffer; }
+        uint32_t     get_size()        const override { return m_size; }
+        void*        get_mapped_data() const override { return m_buffer->contents(); }
+        MTL::Buffer* get_buffer()      const          { return m_buffer; }
     };
 
     // ---------- Metal shaders ----------

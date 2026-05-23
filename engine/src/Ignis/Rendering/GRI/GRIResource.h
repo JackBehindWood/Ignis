@@ -191,6 +191,7 @@ namespace Ignis
 		GRIBuffer() : GRIResource(GRIResourceType::Buffer) {}
 		virtual ~GRIBuffer() = default;
 		virtual uint32_t get_size() const = 0;
+		virtual void*    get_mapped_data() const = 0;
 	};
 
 	// ---------- Vertex layout ----------

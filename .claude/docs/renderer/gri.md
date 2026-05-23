@@ -64,21 +64,6 @@ GRIPipelineStatePtr GRITexture2DPtr     GRIBufferPtr
 GRIViewportPtr (UniquePtr)
 ```
 
-## RenderMesh  (Ignis/Rendering/RenderMesh.h)
-
-```
-RenderMesh : RefCounted
-  RenderMesh(GRIBufferPtr vb, GRIBufferPtr ib, uint32_t index_count, GRIIndexFormat index_format)
-  get_vertex_buffer() → GRIBuffer*
-  get_index_buffer()  → GRIBuffer*
-  get_index_count()   → uint32_t
-  get_index_format()  → GRIIndexFormat
-```
-
-GPU mesh resource — mirrors `RenderShader`. Caller allocates GRI buffers and passes ownership. No source file, no cook step.
-
----
-
 ## RenderSystem
 
 Static singleton. Owns `GRI*` and `GRICommandListExecutor`.

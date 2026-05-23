@@ -1,19 +1,52 @@
 #pragma once
 
-#include "GRI/GRIDefinitions.h"
+#include "Ignis/Asset/AssetMaterial.h"
+#include "Ignis/Rendering/GRI/GRIDefinitions.h"
+#include "Ignis/Rendering/GRI/GRICommandList.h"
+#include "Ignis/Rendering/RenderResourceCache.h"
+#include "Ignis/Rendering/MaterialFactory.h"
+#include "Ignis/Rendering/FrameUniformAllocator.h"
 
 namespace Ignis
 {
-    class RenderMesh;
-    class Material;
-    class GRIBuffer;
     class GRIViewport;
+
+    enum class UniformSlot : uint32_t
+    {
+        FrameData    = 0,
+        Transform    = 1,
+        MaterialArgs = 2,
+    };
+
+    struct RendererConfig
+    {
+        GRIPixelFormat render_target_format = GRIPixelFormat::BGRA8Unorm;
+        GRIPixelFormat depth_format         = GRIPixelFormat::Depth32Float;
+        uint32_t       max_frames_in_flight = 1;
+        uint32_t       uniform_buffer_size  = 4 * 1024 * 1024;
+    };
 
     class Renderer
     {
     public:
-        static void begin(GRIViewport* viewport, GRIClearValue clear = {});
-        static void submit(RenderMesh* mesh, Material* material, GRIBuffer* transform_ubo);
-        static void end();
+        static void init(const RendererConfig& config = {});
+        static void shutdown();
+
+        static void begin_frame(GRIViewport* viewport);
+        static void end_frame();
+
+        static void bind_mesh(GRICommandListBase& cmd_list, AssetID mesh_id);
+        static void bind_material(GRICommandListBase& cmd_list, AssetID material_id);
+        static void bind_transform(GRICommandListBase& cmd_list, const void* data, uint32_t size);
+
+        static RenderResourceCache& get_resource_cache()   { return s_resource_cache; }
+        static MaterialFactory&     get_material_factory() { return s_material_factory; }
+
+    private:
+        inline static RendererConfig        s_config;
+        inline static RenderResourceCache   s_resource_cache;
+        inline static MaterialFactory       s_material_factory;
+        inline static FrameUniformAllocator s_frame_alloc;
+        inline static UnorderedMap<uint64_t, SharedPtr<AssetMaterial>> s_material_cache;
     };
 } // namespace Ignis

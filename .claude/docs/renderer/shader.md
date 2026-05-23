@@ -11,14 +11,9 @@
 
 ## Layer types
 
-```
-AssetShader  (Ignis/Asset/AssetShader.h)
-  : public Asset
-  Single-stage. Holds one SharedPtr<RenderShader>.
-  get_render_shader() → RenderShader*
-  get_stage()         → GRIShaderStage
-  static_type()       → AssetType::Shader
+Asset-layer shader (`AssetShader`) is documented in `asset-system.md`.
 
+```
 RenderShader  (Ignis/Rendering/RenderShader.h)
   Per-stage. Holds GRIShaderPtr + GRIShaderStage + ShaderReflection.
   get_shader()     → GRIShader*
@@ -38,6 +33,8 @@ ShaderReflection  (Ignis/Rendering/ShaderReflection.h)
 ```
 
 `SpirvReflection` is backend-private. `ShaderCompiler` translates it to `ShaderReflection`.
+
+`AssetShaderCompiler` (in `Ignis/Asset/`) is asset-layer — see `asset-system.md`.
 
 ---
 
@@ -148,7 +145,4 @@ ShaderCompiler  (Ignis/Rendering/)
   compile(hlsl_source) → Vector<ShaderStageOutput>   empty on failure
 
 ShaderStageOutput { stage, entry_point, bytecode, reflection }
-
-AssetShaderCompiler : AssetCompiler  (Ignis/Asset/)
-  compile(AssetMetadata) → bool      // writes IGAS v1 recipe only, no HLSL read
 ```
