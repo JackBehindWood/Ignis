@@ -5,9 +5,12 @@
 #include "Ignis/Rendering/GRI/GRICommandList.h"
 #include "Ignis/Rendering/RenderMesh.h"
 #include "Ignis/Rendering/Material.h"
+#include "Ignis/Rendering/RenderGraph/RGResource.h"
 
 namespace Ignis
 {
+    class RGBuilder;
+
     struct FrameDrawItem
     {
         const RenderMesh* mesh     = nullptr;
@@ -19,7 +22,7 @@ namespace Ignis
     class SceneRenderer
     {
     public:
-        void render_scene(Scene& scene, GRICommandList& cmd);
+        void render_scene(Scene& scene, RGBuilder& builder, RGTextureHandle backbuffer, GRITexture2D* scene_texture);
 
     private:
         // Persistent across frames; .clear()'d at the top of each render_scene call.

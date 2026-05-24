@@ -1,7 +1,7 @@
 #pragma once
 
+#include "ShaderReflection.h"
 #include "Ignis/Rendering/GRI/GRIResource.h"
-#include "Ignis/Rendering/ShaderReflection.h"
 
 namespace Ignis
 {

@@ -6,10 +6,35 @@
 #include "Ignis/Asset/AssetMaterial.h"
 #include "Ignis/Rendering/Renderer.h"
 #include "Ignis/Rendering/RenderSystem.h"
+#include "Ignis/Rendering/RenderGraph/RGBuilder.h"
 
 namespace Ignis
 {
-    void SceneRenderer::render_scene(Scene& scene, GRICommandList& cmd)
+    namespace
+    {
+        struct ScenePassParams
+        {
+            GRITexture2D* scene_texture;
+        };
+    }
+
+    namespace Utils
+    {
+        static void emit (GRICommandList& cmd, const FrameDrawItem& item)
+        {
+            cmd.set_graphics_pipeline_state(item.material->get_pipeline_state());
+            if (item.material->get_params_buffer())
+                cmd.set_uniform_buffer(item.material->get_params_buffer(),
+                                        static_cast<uint32_t>(UniformSlot::MaterialArgs),
+                                        GRIShaderStage::Pixel);
+            cmd.set_vertex_buffer(item.mesh->get_vertex_buffer());
+            cmd.set_index_buffer(item.mesh->get_index_buffer(), item.mesh->get_index_format());
+            Renderer::bind_transform(cmd, item.world.data(), sizeof(Math::Mat4f));
+            cmd.draw_indexed_primitives(item.mesh->get_index_count());
+        };
+    }
+
+    void SceneRenderer::render_scene(Scene& scene, RGBuilder& builder, RGTextureHandle backbuffer, GRITexture2D* scene_texture)
     {
         m_opaque.clear();
         m_transparent.clear();
@@ -131,24 +156,21 @@ namespace Ignis
         std::sort(m_transparent.begin(), m_transparent.end(),
             [](const FrameDrawItem& a, const FrameDrawItem& b) { return a.depth > b.depth; });
 
-        // --- Emit ---
-        auto emit = [&](const FrameDrawItem& item)
-        {
-            cmd.set_graphics_pipeline_state(item.material->get_pipeline_state());
-            if (item.material->get_params_buffer())
-                cmd.set_uniform_buffer(item.material->get_params_buffer(),
-                                       static_cast<uint32_t>(UniformSlot::MaterialArgs),
-                                       GRIShaderStage::Pixel);
-            cmd.set_vertex_buffer(item.mesh->get_vertex_buffer());
-            cmd.set_index_buffer(item.mesh->get_index_buffer(), item.mesh->get_index_format());
-            Renderer::bind_transform(cmd, item.world.data(), sizeof(Math::Mat4f));
-            cmd.draw_indexed_primitives(item.mesh->get_index_count());
-        };
+        // --- Register pass ---
+        ScenePassParams* params = builder.alloc_params<ScenePassParams>();
+        params->scene_texture = scene_texture;
 
-        for (const FrameDrawItem& item : m_opaque)
-            emit(item);
-        for (const FrameDrawItem& item : m_transparent)
-            emit(item);
+        builder.write_render_target(0, backbuffer, RGColorAttachmentDesc::clear({ 0.1f, 0.1f, 0.1f, 1.0f }));
+        builder.add_pass("ForwardScene", params,
+            [this](ScenePassParams* p, GRICommandList& cmd)
+            {
+                cmd.set_texture(p->scene_texture, 0, GRIShaderStage::Pixel);
+
+                for (const FrameDrawItem& item : m_opaque)
+                    Utils::emit(cmd, item);
+                for (const FrameDrawItem& item : m_transparent)
+                    Utils::emit(cmd, item);
+            });
     }
 
 } // namespace Ignis

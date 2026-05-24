@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Ignis/Rendering/ShaderTarget.h"
+#include "Ignis/Rendering/Shaders/ShaderTarget.h"
 #include "Ignis/Rendering/GRI/GRIDefinitions.h"
 
 #include <spirv.hpp>

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Ignis.h>
+#include <Ignis/Rendering/RenderGraph/RGBuilder.h>
 
 namespace Ignis
 {
@@ -20,9 +21,9 @@ namespace Ignis
 
     private:
         SharedPtr<AssetTexture2D> m_texture;
-        GRIRenderPassInfo         m_forward_pass;
 
         Scene         m_active_scene;
         SceneRenderer m_scene_renderer;
+        RGBuilder      m_builder;
     };
 }

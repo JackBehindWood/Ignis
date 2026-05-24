@@ -5,8 +5,8 @@
 #include "AssetManager.h"
 #include "Ignis/Rendering/Material.h"
 #include "Ignis/Rendering/RenderSystem.h"
-#include "Ignis/Rendering/ShaderCache.h"
-#include "Ignis/Rendering/ShaderCompiler.h"
+#include "Ignis/Rendering/Shaders/ShaderCache.h"
+#include "Ignis/Rendering/Shaders/ShaderCompiler.h"
 #include "Ignis/Rendering/VertexDeclarationRegistry.h"
 
 namespace Ignis

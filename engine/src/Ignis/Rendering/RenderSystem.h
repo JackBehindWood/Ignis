@@ -2,6 +2,7 @@
 
 #include "GRI/GRI.h"
 #include "GRI/GRICommandList.h"
+#include "Renderer.h"
 
 namespace Ignis
 {
@@ -25,10 +26,14 @@ namespace Ignis
             s_GRI = GRI::create(api);
             s_GRI->init();
             get_command_list().initialise_context(s_GRI->get_context());
+
+            Renderer::init();
         }
 
         static void shutdown()
         {
+            Renderer::shutdown();
+
             if (!s_GRI)
             {
                 IG_CORE_WARN("RenderSystem not initialized!");

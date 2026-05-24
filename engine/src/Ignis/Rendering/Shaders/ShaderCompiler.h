@@ -2,7 +2,7 @@
 
 #include "ShaderTarget.h"
 #include "ShaderReflection.h"
-#include "GRI/GRIDefinitions.h"
+#include "Ignis/Rendering/GRI/GRIDefinitions.h"
 
 namespace Ignis
 {

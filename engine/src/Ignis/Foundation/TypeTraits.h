@@ -33,6 +33,9 @@ namespace Ignis
     template <bool B, typename T = void>
     using EnableIf = std::enable_if_t<B, T>;
 
+    template <typename T>
+    using Decay = std::decay_t<T>;
+
 
     // --- Type Properties & Relations (Constants) ---
 
@@ -50,6 +53,9 @@ namespace Ignis
 
     template <typename T>
     inline constexpr bool IsTriviallyCopyable = std::is_trivially_copyable_v<T>;
+
+    template <typename T>
+    inline constexpr bool IsTriviallyDestructible = std::is_trivially_destructible_v<T>;
 
 
     // --- Primary Type Categories ---

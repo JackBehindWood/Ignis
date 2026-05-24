@@ -4,7 +4,7 @@
 #include "Platform.h"
 
 #include "Ignis/Rendering/RenderSystem.h"
-#include "Ignis/Rendering/ShaderCache.h"
+#include "Ignis/Rendering/Shaders/ShaderCache.h"
 
 
 namespace Ignis

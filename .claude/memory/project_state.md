@@ -12,20 +12,17 @@ metadata:
 * **Editor host** — EditorLayer, EditorAssetManager, import UI
 * **SPIRV toolchain** — DXC (HLSL→SPIR-V) + SPIRV-Cross (SPIR-V→MSL)
 * **Renderer architecture (Complete, v2)** — `Renderer` is a **pass-agnostic** coordinator. 
-* **Math Library** - in Math namespace.
-* **Scene System** - ECS scene with renderer and components.
+* **Math Library** — in Math namespace.
+* **Scene System (Complete, v1)** — ECS scene layer utilizing EnTT with a dedicated, asset-decoupled `SceneRenderer` that builds sorted draw-lists and emits GRI commands.
 
 ## Branch layout
-* `dev` — stable baseline (now includes the complete `asset-system`)
-* `renderer-architecture` — active; core pass-agnostic architecture complete, pending final merge
-* `scene-draw-list` — active; implementing the asset-decoupled scene layer that tracks and merges into `renderer-architecture`
-* `Render-graph` - active; implementing a render graph / frame graph (builder style) and merges into `renderer-architecture`
+* `dev` — stable baseline (includes `asset-system` and the newly merged `scene-draw-list`)
+* `render-graph` — active; implementing a builder-style render graph / frame graph architecture.
 
 ## Current focus
-`scene-draw-list` branch audit complete — ready for merge review.
+**Render graph v2 (complete)** — `RGBuilder` is a **persistent member** of the frame driver (e.g. `EditorLayer`). Always owns its `RenderGraph` internally as a direct member (no borrow ctor, no `UniquePtr` duality). `GRICommandList` is injected at `execute(cmd)` time, not at construction. Pool and arena survive across frames. Per-frame transient builders (`RGBuilder scratch`) are still supported for isolated secondary work.
 
 ## Up next (ordered)
-1.  **Merge `scene-draw-list` → `renderer-architecture`** — verify clean compile, then merge
-2.  **Render graph / Frame graph** — graph nodes own `GRIRenderPassInfo` + `GRICommandList`; replaces per-caller manual pass management; `Renderer::bind_*` unchanged
-3.  **Asset System V2** — dependency graph, async loading, hot-reload, streaming
-4.  **Compute passes, ray tracing**
+1. **Asset System V2** — dependency graph, async loading, hot-reload, streaming
+2. **Project System**
+3. **Compute passes, ray tracing**

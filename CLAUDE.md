@@ -8,6 +8,7 @@ Developer: Jack Agterdenbos. Deep systems-level C++, terse style.
 2. **No Filler**: No reasoning narration, no C++/Metal explanations, no post-mortems unless asked.
 3. **Lazy Reads**: Prefer targeted line ranges over whole files. Flag heavy context load immediately.
 4. **Docs Autonomy**: Freely update `.claude/docs/` and `.claude/memory/` as the system evolves.
+5. **Design First:** Always define and update .claude/memory/design.md with the feature objective, approach, and impact before generating any implementation plan or code.
 
 ## Architecture
 - **Asset** `Ignis/Asset/`: No GRI pointers, no Metal headers.

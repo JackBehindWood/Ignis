@@ -1,7 +1,7 @@
 #include "igpch.h"
 #include "ShaderCompiler.h"
 
-#include "Ignis/Rendering/ShaderReflection.h"
+#include "ShaderReflection.h"
 #include "Ignis/Rendering/GRI/GRIDefinitions.h"
 #include "IgnisBackend/spirv/SpirvCompiler.h"
 

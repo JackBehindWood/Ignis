@@ -1,7 +1,6 @@
 #include "igpch.h"
 #include "AssetManager.h"
 
-#include "Ignis/Rendering/ShaderCache.h"
 #include "Ignis/Asset/AssetShaderCompiler.h"
 #include "Ignis/Asset/AssetMeshCompiler.h"
 #include "Ignis/Asset/AssetMaterialCompiler.h"
@@ -10,6 +9,7 @@
 #include "Ignis/Asset/MeshLoader.h"
 #include "Ignis/Asset/MaterialLoader.h"
 #include "Ignis/Asset/TextureLoader.h"
+#include "Ignis/Rendering/Shaders/ShaderCache.h"
 
 namespace Ignis
 {

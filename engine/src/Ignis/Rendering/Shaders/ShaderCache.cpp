@@ -1,7 +1,7 @@
 #include "igpch.h"
 #include "ShaderCache.h"
 #include "ShaderCompiler.h"
-#include "RenderSystem.h"
+#include "Ignis/Rendering/RenderSystem.h"
 
 namespace Ignis
 {

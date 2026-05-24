@@ -1,7 +1,7 @@
 #include "edpch.h"
 #include "EditorLayer.h"
 #include "EditorAssetManager.h"
-#include "Ignis/Rendering/ShaderCache.h"
+#include "Ignis/Rendering/Shaders/ShaderCache.h"
 #include "Ignis/Rendering/Renderer.h"
 #include "Ignis/Rendering/RenderSystem.h"
 
@@ -17,8 +17,6 @@ namespace Ignis
     {
         IG_INFO("EditorLayer attached");
 
-        Renderer::init();
-
         EditorAssetManager& assets = EditorAssetManager::get();
         assets.set_root(Filesystem::current_path() / "resources");
         ShaderCache::get().set_cache_root(Filesystem::current_path() / "resources" / "cache" / "shaders");
@@ -29,10 +27,6 @@ namespace Ignis
 
         const AssetID material_id = assets.import_material("triangle.igmat");
         const AssetID mesh_id     = assets.import_mesh("triangle.obj");
-
-        m_forward_pass.colour_targets[0].load_action  = GRILoadAction::Clear;
-        m_forward_pass.colour_targets[0].store_action = GRIStoreAction::Store;
-        m_forward_pass.colour_targets[0].clear_value  = { 0.1f, 0.1f, 0.1f, 1.0f };
 
         Entity e = m_active_scene.create_entity();
         e.add_component<TransformComponent>();
@@ -45,7 +39,6 @@ namespace Ignis
     void EditorLayer::detach()
     {
         IG_INFO("EditorLayer detached");
-        Renderer::shutdown();
         m_texture = nullptr;
     }
 
@@ -55,13 +48,14 @@ namespace Ignis
         Renderer::begin_frame(viewport);
 
         GRICommandList& cmd = RenderSystem::get_command_list();
-        cmd.begin_render_pass(m_forward_pass);
 
-        cmd.set_texture(m_texture->get_render_texture()->get_texture(), 0, GRIShaderStage::Pixel);
+        RGTextureHandle bb = m_builder.import_backbuffer();
+        m_scene_renderer.render_scene(
+            m_active_scene, m_builder, bb,
+            m_texture->get_render_texture()->get_texture());
 
-        m_scene_renderer.render_scene(m_active_scene, cmd);
+        m_builder.execute(cmd);
 
-        cmd.end_render_pass();
         Renderer::end_frame();
     }
 

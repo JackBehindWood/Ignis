@@ -95,6 +95,21 @@ namespace Ignis
             return ptr;
         }
 
+        // Resets the arena cursor without freeing blocks; keeps the high-water-mark allocation alive for reuse.
+        void soft_reset()
+        {
+            while (m_top && m_top->prev)
+            {
+                MemBlock* old = m_top->prev;
+                m_top->prev   = old->prev;
+                delete old;
+            }
+            if (m_top)
+            {
+                m_top->used = 0;
+            }
+        }
+
         void reset()
         {
             while (m_top)
