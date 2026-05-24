@@ -19,10 +19,9 @@
 // Asset
 #include "Ignis/Asset/Asset.h"
 #include "Ignis/Asset/AssetHandle.h"
-#include "Ignis/Asset/AssetLoader.h"
-#include "Ignis/Asset/AssetCompiler.h"
 #include "Ignis/Asset/AssetRegistry.h"
 #include "Ignis/Asset/AssetManager.h"
+#include "Ignis/Asset/Handlers/AssetHandler.h"
 
 // Rendering
 #include "Ignis/Rendering/Renderer.h"

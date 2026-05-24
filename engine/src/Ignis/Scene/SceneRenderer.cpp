@@ -72,7 +72,14 @@ namespace Ignis
                     Renderer::get_resource_cache().find_mesh(uint64_t(mesh_comp.mesh_id));
                 if (!cached)
                 {
-                    auto asset_mesh = AssetManager::get().load_as<AssetMesh>(mesh_comp.mesh_id);
+                    AssetManager& amv2 = AssetManager::get();
+                    SharedPtr<AssetMesh> asset_mesh = amv2.get_asset_as<AssetMesh>(mesh_comp.mesh_id);
+                    if (!asset_mesh)
+                    {
+                        if (amv2.get_state(mesh_comp.mesh_id) == AssetState::Unloaded)
+                            amv2.load_deferred(mesh_comp.mesh_id);
+                        asset_mesh = static_pointer_cast<AssetMesh>(amv2.get_fallback(AssetType::Mesh));
+                    }
                     if (!asset_mesh)
                         continue;
 
@@ -124,10 +131,15 @@ namespace Ignis
             // --- Material resolve ---
             const Material* mat = nullptr;
             {
-                auto asset_mat = AssetManager::get().load_as<AssetMaterial>(mesh_comp.material_id);
+                AssetManager& amv2 = AssetManager::get();
+                SharedPtr<AssetMaterial> asset_mat = amv2.get_asset_as<AssetMaterial>(mesh_comp.material_id);
                 if (!asset_mat)
+                {
+                    if (amv2.get_state(mesh_comp.material_id) == AssetState::Unloaded)
+                        amv2.load_deferred(mesh_comp.material_id);
                     continue;
-                mat = asset_mat->get_material(); // raw observer; AssetManager holds ownership
+                }
+                mat = asset_mat->get_material();
             }
 
             // --- Depth (view-space Z from world translation) ---

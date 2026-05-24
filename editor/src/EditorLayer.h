@@ -20,7 +20,7 @@ namespace Ignis
 		void update(Timestep ts) override;
 
     private:
-        SharedPtr<AssetTexture2D> m_texture;
+        AssetID       m_texture_id;
 
         Scene         m_active_scene;
         SceneRenderer m_scene_renderer;

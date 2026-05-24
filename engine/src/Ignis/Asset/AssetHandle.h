@@ -16,7 +16,7 @@ namespace Ignis
         AssetHandle() = default;
         explicit AssetHandle(AssetID id) : m_id(id) {}
 
-        SharedPtr<T>    get()           const { return AssetManager::get().load_as<T>(m_id); }
+        SharedPtr<T>    get()           const { return AssetManager::get().get_asset_as<T>(m_id); }
         SharedPtr<T>    operator->()    const { return get(); }
         T&              operator*()     const { return *get(); }
 

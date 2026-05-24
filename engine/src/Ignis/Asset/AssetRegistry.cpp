@@ -18,7 +18,10 @@ namespace Ignis
     {
         auto it = m_registry.find(static_cast<uint64_t>(id));
         if (it == m_registry.end())
+        {
+            IG_CORE_ERROR("AssetRegistry: attempt to remove non-existent asset {0}", static_cast<uint64_t>(id));
             return;
+        }
 
         // Erase whichever source_index entry points to this ID.
         const uint64_t raw = static_cast<uint64_t>(id);
@@ -48,7 +51,9 @@ namespace Ignis
     {
         auto it = m_source_index.find(source_path.string());
         if (it != m_source_index.end())
+        {
             return AssetID(it->second);
+        }
         return AssetID(UUID::s_invalid);
     }
 

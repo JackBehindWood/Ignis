@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Ignis/Asset/AssetMaterial.h"
 #include "Ignis/Rendering/GRI/GRIDefinitions.h"
 #include "Ignis/Rendering/GRI/GRICommandList.h"
 #include "Ignis/Rendering/RenderResourceCache.h"
@@ -35,9 +34,13 @@ namespace Ignis
         static void begin_frame(GRIViewport* viewport);
         static void end_frame();
 
-        static void bind_mesh(GRICommandListBase& cmd_list, AssetID mesh_id);
-        static void bind_material(GRICommandListBase& cmd_list, AssetID material_id);
         static void bind_transform(GRICommandListBase& cmd_list, const void* data, uint32_t size);
+
+        // Evict a cached GPU resource by opaque cache key (derived from AssetID by the caller).
+        static void evict(uint64_t key);
+
+        // Invalidate all PSO cache entries (call when any shader is reloaded).
+        static void clear_pipeline_cache();
 
         static RenderResourceCache& get_resource_cache()   { return s_resource_cache; }
         static MaterialFactory&     get_material_factory() { return s_material_factory; }
@@ -47,6 +50,5 @@ namespace Ignis
         inline static RenderResourceCache   s_resource_cache;
         inline static MaterialFactory       s_material_factory;
         inline static FrameUniformAllocator s_frame_alloc;
-        inline static UnorderedMap<uint64_t, SharedPtr<AssetMaterial>> s_material_cache;
     };
 } // namespace Ignis

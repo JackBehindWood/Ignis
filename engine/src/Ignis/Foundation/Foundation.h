@@ -10,5 +10,6 @@
 #include "String.h"
 #include "Vector.h"
 #include "UnorderedMap.h"
+#include "UnorderedSet.h"
 #include "Array.h"
 #include "Pair.h"
