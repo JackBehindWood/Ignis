@@ -1,2 +1,1 @@
 # Claude Code Active Scratchpad
-

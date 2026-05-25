@@ -140,8 +140,8 @@ def cmd_setup_hooks(args):
     try:
         subprocess.check_call(["git", "config", "core.hooksPath", ".githooks"], cwd=get_cfg().project_dir)
         print("✓ Git hooks installed at .githooks/")
-        print("  Pre-commit hook: auto-checks formatting with clang-format")
-        print("  Tip: install clang-format and clang-tidy for full checks")
+        print("  Pre-commit hook: auto-formats staged files with clang-format and re-stages them")
+        print("  Tip: install clang-format if not present: brew install clang-format")
     except subprocess.CalledProcessError:
         print("✗ Failed to set up git hooks")
         sys.exit(1)

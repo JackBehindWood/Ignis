@@ -1,42 +1,27 @@
-#!/bin/bash
-# Pre-commit hook: check code formatting with clang-format and lint with clang-tidy
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -e
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(cpp|h|hpp|mm)$' || true)
+[ -z "$STAGED" ] && exit 0
 
-# Get list of staged C++ files
-STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h|hpp|c)$' || true)
-
-if [ -z "$STAGED_FILES" ]; then
+if ! command -v clang-format &>/dev/null; then
+    echo "pre-commit: clang-format not found — skipping (brew install clang-format)"
     exit 0
 fi
 
-# Check formatting with clang-format
-if command -v clang-format &> /dev/null; then
-    echo "Checking code formatting with clang-format..."
-    for file in $STAGED_FILES; do
-        if [ -f "$file" ]; then
-            clang-format --dry-run -Werror "$file" || {
-                echo "❌ $file has formatting issues. Run: clang-format -i $file"
-                exit 1
-            }
-        fi
-    done
-    echo "✓ Code formatting check passed"
-else
-    echo "⚠ clang-format not found, skipping format check"
-fi
+CHANGED=()
+for file in $STAGED; do
+    [ -f "$file" ] || continue
+    orig=$(git show ":$file")
+    formatted=$(clang-format "$file")
+    if [ "$orig" != "$formatted" ]; then
+        echo "$formatted" > "$file"
+        git add "$file"
+        CHANGED+=("$file")
+    fi
+done
 
-# Lint with clang-tidy (optional)
-if command -v clang-tidy &> /dev/null; then
-    echo "Running clang-tidy..."
-    for file in $STAGED_FILES; do
-        if [ -f "$file" ]; then
-            clang-tidy "$file" -- -Iengine/src -std=c++20 || {
-                echo "⚠ clang-tidy found issues in $file (non-blocking)"
-            }
-        fi
-    done
-    echo "✓ Linting check completed"
+if [ ${#CHANGED[@]} -gt 0 ]; then
+    echo "pre-commit: auto-formatted ${#CHANGED[@]} file(s):"
+    printf '  %s\n' "${CHANGED[@]}"
 fi
-
-exit 0

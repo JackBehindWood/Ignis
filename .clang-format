@@ -1,0 +1,52 @@
+BasedOnStyle: LLVM
+Language: Cpp
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+ColumnLimit: 120
+
+# Allman braces (opening brace on its own line)
+BreakBeforeBraces: Allman
+
+# Always require braces for if/for/while/do — the key setting
+InsertBraces: true
+
+# Pointer/ref alignment
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Access modifiers flush with class
+AccessModifierOffset: -4
+
+# Constructor initializers — always break, never pack onto one line
+BreakConstructorInitializers: BeforeColon
+ConstructorInitializerIndentWidth: 4
+PackConstructorInitializers: Never
+
+# Alignment — preserve the column-aligned assignment style used throughout
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+
+# Templates
+AlwaysBreakTemplateDeclarations: Yes
+
+# Includes
+IncludeBlocks: Preserve
+SortIncludes: false
+
+# Misc
+IndentCaseLabels: true
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+SpaceBeforeParens: ControlStatements
+Cpp11BracedListStyle: true

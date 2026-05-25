@@ -146,7 +146,9 @@ Requires the [LunarG Vulkan SDK](https://vulkan.lunarg.com/sdk/home#mac). Instal
 make setup-hooks
 ```
 
-Installs `.githooks/pre-commit`: runs `clang-format --dry-run` on staged files (blocks commit on violations). Install tools: `brew install clang-format clang-tools`. Fix in-place: `clang-format -i <file>`.
+Installs `.githooks/pre-commit`: runs `clang-format -i` on staged `.cpp`/`.h`/`.mm` files and re-stages them automatically. Commit proceeds with formatted code — no manual fix step. Requires `clang-format` (`brew install clang-format`); silently skips if not installed.
+
+Formatting rules are defined in `.clang-format` at the repo root (Allman braces, 4-space indent, `InsertBraces: true` to enforce curly braces on all control flow).
 
 ## File layout
 
@@ -208,5 +210,4 @@ GNUmakefile           dev wrapper (GNU Make picks this over premake's Makefile)
 - **`iwyu`** (python): include-what-you-use pass on demand (`make iwyu`).
 
 ### Quality of life
-- `make format` target: run `clang-format -i` on all staged files (complement to the pre-commit dry-run hook).
 - `make compile-commands` target: regenerate compile commands without a full rebuild (useful after adding files without changing source).
