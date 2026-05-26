@@ -1,28 +1,50 @@
+# Ignis Engine — Project State
+
+## Current Focus
+**Project & Settings System — In-Memory Phase COMPLETE.** Ready to move to the next major feature.
+
 ---
-name: project-state
-description: Ignis engine — milestone-level status and active focus area
-metadata:
-  type: project
+
+## Standing Systems
+
+### Project & Settings (editor-only, in-memory phase complete)
+Observer-pattern project dispatch (`IProjectObserver`/`ProjectContext`), mode-aware validate, `EditorAssetManager` as sole engine gateway + project observer, `EditorSettingsManager`, `EngineSettingsManager`, settings-agnostic `Application`, deterministic bootstrap in `Editor::Editor()`.
+
+### Renderer
+- Pass-agnostic GRI API with `RenderResourceCache`, `FrameUniformAllocator`, bind helpers, uniform slots
+- `RenderGraph` + `RGBuilder` integration — declarative pass graph, barrier inference
+- `RenderMesh` pipeline: vertex layout, upload, `MetalGRI` backend
+- `RenderShader` / `ShaderCache` / SPIR-V→MSL compilation via SPIRV-Cross
+- `MetalCommandContext`, metal-cpp ownership discipline
+
+### Math & Scene
+- Foundation math library (Vec2/3/4, Mat4, Quat)
+- ECS scene renderer integration — entity → draw call path
+
+### Asset System V2 *(completed, stable baseline)*
+- `AssetManager` v2: binary `.igasset` format, cook pipeline, `AssetHandle<T>`, `AssetType` registry
+- `RuntimePathId`: interned 64-bit hash of virtual path string; zero heap per frame after warm-up
+- FSEvents watcher (macOS): physical file change → virtual path invalidation via `RuntimePathId`
+- `EditorAssetManager` isolation: cook + import tooling stays editor-only, engine sees handle/stream API only
+
 ---
 
-## Standing systems (functional baseline, will grow)
-* **Metal GRI backend** — device, command context, viewport, textures, buffers, pipeline state
-* **GRI abstraction layer** — full RHI interface + resource type hierarchy
-* **Asset pipeline (v1 Complete)** — manager, registry, binary stream, and cook infrastructure. Fully integrated with complete subsystems for **Shaders, Meshes, Materials, and Textures**.
-* **Editor host** — EditorLayer, EditorAssetManager, import UI
-* **SPIRV toolchain** — DXC (HLSL→SPIR-V) + SPIRV-Cross (SPIR-V→MSL)
-* **Renderer architecture (Complete, v2)** — `Renderer` is a **pass-agnostic** coordinator.
-* **Math Library** — in Math namespace.
-* **Scene System (Complete, v1)** — ECS scene layer utilizing EnTT with a dedicated, asset-decoupled `SceneRenderer` that builds sorted draw-lists and emits GRI commands.
-* **Render graph v2 (Complete)** — `RGBuilder` is a **persistent member** of the frame driver (e.g. `EditorLayer`). Always owns its `RenderGraph` internally as a direct member (no borrow ctor, no `UniquePtr` duality). `GRICommandList` is injected at `execute(cmd)` time, not at construction. Pool and arena survive across frames. Per-frame transient builders (`RGBuilder scratch`) are still supported for isolated secondary work.
+## Completed but Pre-Baseline
+- Initial renderer scaffolding (pass 1 – pre-RenderGraph)
+- Initial scene system and scene renderer
 
-## Branch layout
-* `dev` — stable baseline (includes `asset-system` and the newly merged `scene-draw-list`)
-* `render-graph` — active; implementing a builder-style render graph / frame graph architecture.
+---
 
-## Current focus
-**Asset System V2** — dependency graph, time-sliced deferred loading, incremental file streaming, hot-reload with GPU-side invalidation. Single-threaded execution model with explicit frame-budget coordination.
+## Upcoming
+- Scene serialization (YAML-backed and binary)
+- Overhauling the scene system, especially tthe scene renderer (including culling, sorting and batching)! Also each component should be optional! The entity should probably have some ID and/or tag component!
 
-## Up next (ordered)
-1. **Project System**
-2. **Compute passes, ray tracing**
+---
+
+## Key Invariants (quick ref)
+- Engine TUs: no Metal headers, no `EditorSettings`, no heavy YAML dependency in hot paths
+- `IgnisBackend/Metal/`: only TUs here include `<Metal/Metal.hpp>`
+- Foundation aliases always; never raw `std::` in TUs
+- All new public types: alias in `Foundation/X.h`, added to `igpch.h`
+- **Editor invariant**: only `EditorAssetManager.cpp` may include/call `AssetManager` directly
+- **Project invariant**: `IProjectObserver` and all project system types are editor-module-only

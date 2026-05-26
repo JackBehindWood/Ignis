@@ -1,0 +1,4 @@
+project_version: 1
+name: TestProject
+asset_source_dir: assets
+compiled_cache_dir: cache

@@ -5,25 +5,25 @@
 
 namespace Ignis
 {
-    class EditorLayer : public Layer
-	{
-	public:
-		EditorLayer();
-		virtual ~EditorLayer() = default;
+class EditorLayer : public Layer
+{
+private:
+    Scene         m_active_scene;
+    SceneRenderer m_scene_renderer;
+    RGBuilder     m_builder;
+    AssetID       m_scene_texture_id{UUID::s_invalid};
+    bool          m_scene_ready = false;
 
-		virtual void attach() override;
-		virtual void detach() override;
-		virtual void event(Event& event) override;
+public:
+    EditorLayer();
+    virtual ~EditorLayer() = default;
 
-		bool key_pressed(KeyPressedEvent& e);
+    virtual void attach() override;
+    virtual void detach() override;
+    virtual void event(Event& event) override;
 
-		void update(Timestep ts) override;
+    bool key_pressed(KeyPressedEvent& e);
 
-    private:
-        AssetID       m_texture_id;
-
-        Scene         m_active_scene;
-        SceneRenderer m_scene_renderer;
-        RGBuilder      m_builder;
-    };
-}
+    void update(Timestep ts) override;
+};
+} // namespace Ignis

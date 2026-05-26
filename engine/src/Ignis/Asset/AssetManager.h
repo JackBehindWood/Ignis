@@ -54,6 +54,10 @@ struct AssetDependencyNode
     uint64_t payload_offset = 0;
     uint64_t payload_size   = 0;
 
+    // Resolved during metadata scan: the binary that was actually found (may be in
+    // engine_compiled_root rather than meta->compiled_path). Consumed by process_stream_tick.
+    Path resolved_binary_path;
+
     bool hot_reload_pending = false;
     bool dependency_dirty   = false;
 };
@@ -81,7 +85,8 @@ struct AssetManagerConfig
     uint32_t stream_chunk_bytes         = 65536;
     uint32_t max_finalizations_per_tick = 2;
     bool     enable_file_watcher        = true;
-    Path     compiled_root              = "cache/";
+    Path     compiled_root              = "cache/"; // project compiled asset cache
+    Path     engine_compiled_root       = {};       // engine bundled compiled cache; empty = unused
 };
 
 class AssetManager

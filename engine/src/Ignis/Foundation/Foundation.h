@@ -14,4 +14,7 @@
 #include "UnorderedSet.h"
 #include "Array.h"
 #include "Pair.h"
+#include "Optional.h"
+#include "Atomic.h"
 #include "RuntimePathId.h"
+#include "Threading.h"

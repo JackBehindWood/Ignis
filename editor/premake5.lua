@@ -15,21 +15,23 @@ project "IgnisEditor"
         "src/**.cpp"
     }
 
-    includedirs 
-    { 
+    includedirs
+    {
         "%{wks.location}/engine/src",
         "%{wks.location}/engine/vendor",
         "%{include_dirs.spdlog}",
         "%{include_dirs.GLFW}",
+        "%{include_dirs.yaml_cpp}",
         "src",
         "vendor",
     }
 
-    links { "IgnisEngine", "GLFW", "SPIRV-Cross" }
+    links { "IgnisEngine", "GLFW", "SPIRV-Cross", "yaml-cpp" }
 
     defines
     {
         "_CRT_SECURE_NO_WARNINGS",
+        "YAML_CPP_STATIC_DEFINE",
     }
 
     filter "system:macosx"

@@ -337,9 +337,9 @@ void AssetManager::process_metadata_scan(AssetDependencyNode& node)
 
     node.type = meta->Type;
 
-    auto try_read_header = [&]() -> bool
+    auto try_read_header = [&](const Path& bin_path) -> bool
     {
-        BinaryReader raw(meta->compiled_path);
+        BinaryReader raw(bin_path);
         if (!raw.is_open())
         {
             return false;
@@ -368,7 +368,31 @@ void AssetManager::process_metadata_scan(AssetDependencyNode& node)
         return raw.good();
     };
 
-    if (!try_read_header())
+    // Lookup order: engine_compiled_root (pre-built, read-only) → compiled_root (project cache).
+    // Engine root is checked first so engine assets don't get redundantly recompiled into the
+    // project cache.
+    auto resolve_binary = [&]() -> bool
+    {
+        if (meta->cache_compiled && !m_config.engine_compiled_root.empty())
+        {
+            const Path engine_bin = m_config.engine_compiled_root / meta->compiled_path.filename();
+            if (try_read_header(engine_bin))
+            {
+                node.resolved_binary_path = engine_bin;
+                return true;
+            }
+        }
+
+        if (try_read_header(meta->compiled_path))
+        {
+            node.resolved_binary_path = meta->compiled_path;
+            return true;
+        }
+
+        return false;
+    };
+
+    if (!resolve_binary())
     {
         AssetHandler* handler = AssetHandler::get(meta->Type);
         if (!handler || !handler->compile(*meta))
@@ -377,9 +401,11 @@ void AssetManager::process_metadata_scan(AssetDependencyNode& node)
             mark_failed(node);
             return;
         }
-        if (!try_read_header())
+        node.resolved_binary_path = meta->compiled_path;
+        if (!try_read_header(node.resolved_binary_path))
         {
-            IG_CORE_ERROR("AssetManager: cannot read V2 header after cook for '{0}'", meta->compiled_path.string());
+            IG_CORE_ERROR("AssetManager: cannot read V2 header after cook for '{0}'",
+                          node.resolved_binary_path.string());
             mark_failed(node);
             return;
         }
@@ -483,10 +509,10 @@ void AssetManager::process_stream_tick(AssetDependencyNode& node)
         node.read_ctx = create_unique<StreamingReadContext>();
         auto& ctx     = *node.read_ctx;
 
-        ctx.stream.open(meta->compiled_path);
+        ctx.stream.open(node.resolved_binary_path);
         if (!ctx.stream.is_open())
         {
-            IG_CORE_ERROR("AssetManager: failed to open '{0}' for streaming", meta->compiled_path.string());
+            IG_CORE_ERROR("AssetManager: failed to open '{0}' for streaming", node.resolved_binary_path.string());
             node.read_ctx.reset();
             mark_failed(node);
             return;

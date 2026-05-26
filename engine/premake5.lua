@@ -24,17 +24,20 @@ project "IgnisEngine"
       "%{include_dirs.GLFW}",
       "%{include_dirs.SPIRV_Cross}",
       "%{include_dirs.DXC}",
+      "%{include_dirs.yaml_cpp}",
    }
 
    links
    {
       "GLFW",
       "SPIRV-Cross",
+      "yaml-cpp",
    }
 
    defines
    {
       "_CRT_SECURE_NO_WARNINGS",
+      "YAML_CPP_STATIC_DEFINE",
    }
 
    filter "system:macosx"

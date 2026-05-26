@@ -4,9 +4,11 @@
 #include "Ignis/Asset/AssetManager.h"
 #include "Ignis/Asset/AssetMesh.h"
 #include "Ignis/Asset/AssetMaterial.h"
+#include "Ignis/Asset/AssetTexture2D.h"
 #include "Ignis/Rendering/Material.h"
 #include "Ignis/Rendering/Renderer.h"
 #include "Ignis/Rendering/RenderSystem.h"
+#include "Ignis/Rendering/RenderTexture2D.h"
 #include "Ignis/Rendering/RenderGraph/RGBuilder.h"
 #include "Ignis/Rendering/Shaders/ShaderCache.h"
 #include "Ignis/Rendering/Shaders/ShaderCompiler.h"
@@ -14,13 +16,6 @@
 
 namespace Ignis
 {
-namespace
-{
-struct ScenePassParams
-{
-    GRITexture2D* scene_texture;
-};
-} // namespace
 
 namespace Utils
 {
@@ -39,8 +34,41 @@ static void emit(GRICommandList& cmd, const FrameDrawItem& item)
 };
 } // namespace Utils
 
-void SceneRenderer::render_scene(Scene& scene, RGBuilder& builder, RGTextureHandle backbuffer,
-                                 GRITexture2D* scene_texture)
+GRITexture2D* SceneRenderer::resolve_texture(AssetID id)
+{
+    AssetManager&             am  = AssetManager::get();
+    SharedPtr<AssetTexture2D> tex = am.get_asset_as<AssetTexture2D>(id);
+    if (!tex)
+    {
+        tex = static_pointer_cast<AssetTexture2D>(am.get_fallback(AssetType::Texture2D));
+    }
+    if (!tex)
+    {
+        return nullptr;
+    }
+
+    const uint64_t             key    = static_cast<uint64_t>(tex->get_id());
+    SharedPtr<RenderTexture2D> cached = Renderer::get_resource_cache().find_texture(key);
+    if (!cached)
+    {
+        GRITexture2DDesc desc;
+        desc.width             = tex->get_width();
+        desc.height            = tex->get_height();
+        desc.num_mip_levels    = 1;
+        desc.format            = static_cast<GRIPixelFormat>(tex->get_format());
+        desc.initial_data      = tex->get_pixels().data();
+        desc.initial_data_size = static_cast<uint32_t>(tex->get_pixels().size());
+
+        if (GRITexture2DPtr gri_tex = RenderSystem::get_gri()->create_texture2d(desc))
+        {
+            cached = create_shared<RenderTexture2D>(std::move(gri_tex), desc.width, desc.height, desc.format);
+            Renderer::get_resource_cache().register_texture(key, cached);
+        }
+    }
+    return cached ? cached->get_texture() : nullptr;
+}
+
+void SceneRenderer::render_scene(Scene& scene, RGBuilder& builder, RGTextureHandle backbuffer, AssetID scene_texture_id)
 {
     m_opaque.clear();
     m_transparent.clear();
@@ -235,7 +263,7 @@ void SceneRenderer::render_scene(Scene& scene, RGBuilder& builder, RGTextureHand
 
     // --- Register pass ---
     ScenePassParams* params = builder.alloc_params<ScenePassParams>();
-    params->scene_texture   = scene_texture;
+    params->scene_texture   = resolve_texture(scene_texture_id);
 
     builder.write_render_target(0, backbuffer, RGColorAttachmentDesc::clear({0.1f, 0.1f, 0.1f, 1.0f}));
     builder.add_pass("ForwardScene", params,
