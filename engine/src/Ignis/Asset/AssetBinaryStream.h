@@ -26,29 +26,52 @@ struct AssetBlobHeader
 struct AssetBinaryWriter
 {
 
-    static AssetBinaryWriter open(const AssetMetadata& metadata, const AssetBlobHeader& header, AssetType type, const Vector<AssetID>& deps = {});
+    static AssetBinaryWriter open(const AssetMetadata& metadata, const AssetBlobHeader& header, AssetType type,
+                                  const Vector<AssetID>& deps = {});
 
-    static AssetBinaryWriter open(const Path& path, const AssetBlobHeader& header, AssetType type, const Vector<AssetID>& deps = {});
+    static AssetBinaryWriter open(const Path& path, const AssetBlobHeader& header, AssetType type,
+                                  const Vector<AssetID>& deps = {});
 
     // Seeks back and writes the real payload_size into the header placeholder.
     // Must be called after all payload has been written. Returns good().
     bool finalize();
 
-    bool is_open() const { return m_writer.is_open(); }
-    bool good()    const { return m_writer.good(); }
+    bool is_open() const
+    {
+        return m_writer.is_open();
+    }
+    bool good() const
+    {
+        return m_writer.good();
+    }
 
-    void write_u8   (uint8_t  v)                    { m_writer.write_u8(v);             }
-    void write_u16  (uint16_t v)                    { m_writer.write_u16(v);            }
-    void write_u32  (uint32_t v)                    { m_writer.write_u32(v);            }
-    void write_u64  (uint64_t v)                    { m_writer.write_u64(v);            }
-    void write_bytes(const void* data, size_t size) { m_writer.write_bytes(data, size); }
+    void write_u8(uint8_t v)
+    {
+        m_writer.write_u8(v);
+    }
+    void write_u16(uint16_t v)
+    {
+        m_writer.write_u16(v);
+    }
+    void write_u32(uint32_t v)
+    {
+        m_writer.write_u32(v);
+    }
+    void write_u64(uint64_t v)
+    {
+        m_writer.write_u64(v);
+    }
+    void write_bytes(const void* data, size_t size)
+    {
+        m_writer.write_bytes(data, size);
+    }
 
-    AssetBinaryWriter()                              = default;
+    AssetBinaryWriter()                               = default;
     AssetBinaryWriter(AssetBinaryWriter&&)            = default;
     AssetBinaryWriter& operator=(AssetBinaryWriter&&) = default;
 
 private:
-    BinaryWriter   m_writer;
+    BinaryWriter            m_writer;
     BinaryWriter::StreamPos m_payload_size_pos{-1};
     BinaryWriter::StreamPos m_payload_start{-1};
 };
@@ -58,17 +81,38 @@ struct AssetBinaryReader
     static AssetBinaryReader open(const AssetMetadata& metadata, const AssetBlobHeader& header);
     static AssetBinaryReader open(const Path& path, const AssetBlobHeader& header);
 
-    bool is_open() const { return m_reader.is_open(); }
-    bool good()    const { return m_reader.good(); }
+    bool is_open() const
+    {
+        return m_reader.is_open();
+    }
+    bool good() const
+    {
+        return m_reader.good();
+    }
 
-    uint8_t  read_u8   ()  { return m_reader.read_u8(); }
-    uint16_t read_u16  ()  { return m_reader.read_u16(); }
-    uint32_t read_u32  ()  { return m_reader.read_u32(); }
-    uint64_t read_u64  ()  { return m_reader.read_u64(); }
-    void     read_bytes(void* data, size_t size) { m_reader.read_bytes(data, size); }
+    uint8_t read_u8()
+    {
+        return m_reader.read_u8();
+    }
+    uint16_t read_u16()
+    {
+        return m_reader.read_u16();
+    }
+    uint32_t read_u32()
+    {
+        return m_reader.read_u32();
+    }
+    uint64_t read_u64()
+    {
+        return m_reader.read_u64();
+    }
+    void read_bytes(void* data, size_t size)
+    {
+        m_reader.read_bytes(data, size);
+    }
 
-    AssetBinaryReader() = default;
-    AssetBinaryReader(AssetBinaryReader&&) = default;
+    AssetBinaryReader()                               = default;
+    AssetBinaryReader(AssetBinaryReader&&)            = default;
     AssetBinaryReader& operator=(AssetBinaryReader&&) = default;
 
 private:

@@ -28,4 +28,5 @@ engine/vendor/dxc/
 /editor/resources/cache
 *.igasset
 
-
+# Generated files!
+/engine/generated

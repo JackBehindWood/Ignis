@@ -27,7 +27,7 @@ RGTextureHandle RGBuilder::import_backbuffer()
 {
     RGInternal::VirtualTexture vt;
     vt.name        = "Backbuffer";
-    vt.physical    = nullptr;   // Metal backend resolves nullptr → current drawable
+    vt.physical    = nullptr; // Metal backend resolves nullptr → current drawable
     vt.is_imported = true;
     vt.ref_count   = 1;
     return m_graph.register_texture(std::move(vt));
@@ -79,13 +79,15 @@ void RGBuilder::write_render_target(uint32_t slot, RGTextureHandle h, const RGCo
     IG_CORE_ASSERT(slot < max_simultaneous_render_targets, "Color slot out of range");
 
     RGInternal::AttachmentSlot& s = m_current_deps.color_slots[slot];
-    s.texture_id   = h.id;
-    s.load_action  = desc.load_action;
-    s.store_action = desc.store_action;
-    s.clear_value  = desc.clear_value;
+    s.texture_id                  = h.id;
+    s.load_action                 = desc.load_action;
+    s.store_action                = desc.store_action;
+    s.clear_value                 = desc.clear_value;
 
     if (slot + 1 > m_current_deps.num_color_slots)
+    {
         m_current_deps.num_color_slots = slot + 1;
+    }
 }
 
 void RGBuilder::write_depth_stencil(RGTextureHandle h, const RGDepthAttachmentDesc& desc)
@@ -142,7 +144,7 @@ void RGBuilder::execute(GRICommandList& cmd)
 
     for (uint16_t idx : m_graph.m_sorted_passes)
     {
-        RGPassBase* pass = m_graph.m_passes[idx];
+        RGPassBase*       pass = m_graph.m_passes[idx];
         GRIRenderPassInfo info = m_graph.build_pass_info(*pass);
         cmd.begin_render_pass(info);
         pass->run_execute(cmd);
@@ -150,7 +152,9 @@ void RGBuilder::execute(GRICommandList& cmd)
     }
 
     for (RGPassBase* pass : m_graph.m_passes)
+    {
         pass->run_destructor();
+    }
 
     m_graph.reset();
 }

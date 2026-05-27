@@ -5,10 +5,10 @@
 
 namespace Ignis
 {
-    GRI* GRI::create(GRIRenderAPI api)
+GRI* GRI::create(GRIRenderAPI api)
+{
+    switch (api)
     {
-        switch (api)
-        {
         case GRIRenderAPI::None:
             IG_CORE_ASSERT(false, "No rendering API selected!");
             return nullptr;
@@ -26,6 +26,6 @@ namespace Ignis
         default:
             IG_CORE_ASSERT(false, "Unknown rendering API!");
             return nullptr;
-        }
     }
+}
 } // namespace Ignis

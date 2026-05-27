@@ -5,5 +5,5 @@
 #include <Metal/Metal.hpp>
 #include <QuartzCore/QuartzCore.hpp>
 
-//Objective-C NS classes Wrapper
+// Objective-C NS classes Wrapper
 #include "wrapper/wNSWrapper.hpp"

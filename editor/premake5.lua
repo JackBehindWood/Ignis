@@ -19,6 +19,7 @@ project "IgnisEditor"
     {
         "%{wks.location}/engine/src",
         "%{wks.location}/engine/vendor",
+        "%{wks.location}/engine/generated",
         "%{include_dirs.spdlog}",
         "%{include_dirs.GLFW}",
         "%{include_dirs.yaml_cpp}",
@@ -63,7 +64,7 @@ project "IgnisEditor"
 		runtime "Release"
 		optimize "on"
 
-	filter "configurations:Dist"
+	filter "configurations:Distribution"
 		defines "IG_DIST"
 		runtime "Release"
 		optimize "on"

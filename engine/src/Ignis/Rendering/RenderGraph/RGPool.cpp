@@ -6,19 +6,16 @@
 namespace Ignis
 {
 
-GRITexture2D* RenderGraphResourcePool::acquire(
-    const GRITexture2DDesc& desc,
-    uint16_t                first_used,
-    uint16_t                last_used,
-    uint32_t                current_frame)
+GRITexture2D* RenderGraphResourcePool::acquire(const GRITexture2DDesc& desc, uint16_t first_used, uint16_t last_used,
+                                               uint32_t current_frame)
 {
     for (TextureEntry& e : m_texture_entries)
     {
-        if (e.desc.width          != desc.width          ||
-            e.desc.height         != desc.height         ||
-            e.desc.format         != desc.format         ||
+        if (e.desc.width != desc.width || e.desc.height != desc.height || e.desc.format != desc.format ||
             e.desc.num_mip_levels != desc.num_mip_levels)
+        {
             continue;
+        }
 
         bool overlaps = false;
         for (const Interval& iv : e.committed)
@@ -32,7 +29,7 @@ GRITexture2D* RenderGraphResourcePool::acquire(
 
         if (!overlaps)
         {
-            e.committed.push_back({ first_used, last_used });
+            e.committed.push_back({first_used, last_used});
             e.last_frame_used = current_frame;
             return e.resource.get();
         }
@@ -41,25 +38,23 @@ GRITexture2D* RenderGraphResourcePool::acquire(
     // Note: only acquiring the gri is allowed from the render system!
     GRI* gri = RenderSystem::get_gri();
 
-    TextureEntry& entry  = m_texture_entries.emplace_back();
+    TextureEntry& entry   = m_texture_entries.emplace_back();
     entry.desc            = desc;
     entry.last_frame_used = current_frame;
     entry.resource        = gri->create_texture2d(desc);
-    entry.committed.push_back({ first_used, last_used });
+    entry.committed.push_back({first_used, last_used});
     return entry.resource.get();
 }
 
-GRIBuffer* RenderGraphResourcePool::acquire_buffer(
-    const GRIBufferDesc&  desc,
-    uint16_t              first_used,
-    uint16_t              last_used,
-    uint32_t              current_frame)
+GRIBuffer* RenderGraphResourcePool::acquire_buffer(const GRIBufferDesc& desc, uint16_t first_used, uint16_t last_used,
+                                                   uint32_t current_frame)
 {
     for (BufferEntry& e : m_buffer_entries)
     {
-        if (e.desc.size  != desc.size ||
-            e.desc.usage != desc.usage)
+        if (e.desc.size != desc.size || e.desc.usage != desc.usage)
+        {
             continue;
+        }
 
         bool overlaps = false;
         for (const Interval& iv : e.committed)
@@ -73,7 +68,7 @@ GRIBuffer* RenderGraphResourcePool::acquire_buffer(
 
         if (!overlaps)
         {
-            e.committed.push_back({ first_used, last_used });
+            e.committed.push_back({first_used, last_used});
             e.last_frame_used = current_frame;
             return e.resource.get();
         }
@@ -86,7 +81,7 @@ GRIBuffer* RenderGraphResourcePool::acquire_buffer(
     entry.desc            = desc;
     entry.last_frame_used = current_frame;
     entry.resource        = gri->create_buffer(desc);
-    entry.committed.push_back({ first_used, last_used });
+    entry.committed.push_back({first_used, last_used});
     return entry.resource.get();
 }
 
@@ -98,11 +93,15 @@ void RenderGraphResourcePool::begin_frame(uint32_t current_frame)
         for (size_t i = 0; i < entries.size(); ++i)
         {
             if (current_frame <= entries[i].last_frame_used + k_eviction_age)
+            {
                 entries[write++] = std::move(entries[i]);
+            }
         }
         entries.resize(write);
         for (auto& e : entries)
+        {
             e.committed.clear();
+        }
     };
 
     evict(m_texture_entries);

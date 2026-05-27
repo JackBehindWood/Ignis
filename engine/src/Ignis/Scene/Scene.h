@@ -4,19 +4,22 @@
 
 namespace Ignis
 {
-    class Entity;
+class Entity;
 
-    class Scene
+class Scene
+{
+public:
+    Entity create_entity();
+    void   destroy_entity(Entity entity);
+    void   update(float ts);
+
+    entt::registry& registry()
     {
-    public:
-        Entity create_entity();
-        void   destroy_entity(Entity entity);
-        void  update(float ts);
+        return m_registry;
+    }
 
-        entt::registry& registry() { return m_registry; }
-
-    private:
-        entt::registry m_registry;
-    };
+private:
+    entt::registry m_registry;
+};
 
 } // namespace Ignis

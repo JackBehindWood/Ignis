@@ -20,9 +20,9 @@ include_dirs["DXC"]         = "%{wks.location}/engine/vendor/dxc/include"
 include_dirs["yaml_cpp"]    = "%{wks.location}/engine/vendor/yaml-cpp/include"
 
 group "Dependencies"
-   include "engine/vendor/GLFW"
-   include "engine/vendor/SPIRV-Cross"
-   include "engine/vendor/yaml-cpp"
+   dofile "engine/vendor/premake/glfw.lua"
+   dofile "engine/vendor/premake/spirv_cross.lua"
+   dofile "engine/vendor/premake/yaml_cpp.lua"
 group ""
 
 -- Include engine and editor premake files

@@ -5,24 +5,30 @@
 namespace Ignis
 {
 
-    class RefCounted
+class RefCounted
+{
+public:
+    void add_ref() const
     {
-    public:
-        void add_ref() const { ++m_ref_count; }
-        void release() const
+        ++m_ref_count;
+    }
+    void release() const
+    {
+        if (--m_ref_count == 0)
         {
-            if (--m_ref_count == 0)
-            {
-                delete this;
-            }
+            delete this;
         }
-        uint32_t ref_count() const { return m_ref_count.load(); }
+    }
+    uint32_t ref_count() const
+    {
+        return m_ref_count.load();
+    }
 
-    protected:
-        RefCounted() = default;
-        virtual ~RefCounted() = default;
+protected:
+    RefCounted()          = default;
+    virtual ~RefCounted() = default;
 
-    private:
-        mutable std::atomic<uint32_t> m_ref_count { 0 };
-    };
-}
+private:
+    mutable std::atomic<uint32_t> m_ref_count{0};
+};
+} // namespace Ignis

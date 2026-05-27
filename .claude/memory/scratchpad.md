@@ -1,7 +1,7 @@
-# Claude Code Active Scratchpad
+# Scratchpad
 
-## Current Objective
+## Objective
 
-### Step Checklist
+## Steps
 
-## Active Progress Notes
+## Notes

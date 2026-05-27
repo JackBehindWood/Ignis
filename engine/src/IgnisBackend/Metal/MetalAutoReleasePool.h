@@ -1,21 +1,20 @@
 
 namespace NS
 {
-    class AutoreleasePool;
+class AutoreleasePool;
 } // namespace NS
-
 
 namespace Ignis
 {
-    class MetalScopedAutoreleasePool
-    {
-    private:
-        NS::AutoreleasePool* m_autorelease_pool;
-    public:
-        MetalScopedAutoreleasePool();
-        ~MetalScopedAutoreleasePool();
-    };
+class MetalScopedAutoreleasePool
+{
+private:
+    NS::AutoreleasePool* m_autorelease_pool;
 
-    #define MTL_AUTORELEASE_POOL MetalScopedAutoreleasePool m_autorelease_pool_instance;
+public:
+    MetalScopedAutoreleasePool();
+    ~MetalScopedAutoreleasePool();
+};
+
+#define MTL_AUTORELEASE_POOL MetalScopedAutoreleasePool m_autorelease_pool_instance;
 } // namespace Ignis
-

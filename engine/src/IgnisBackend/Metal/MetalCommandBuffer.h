@@ -3,22 +3,26 @@
 
 namespace Ignis
 {
-    class MetalCommandBuffer
+class MetalCommandBuffer
+{
+private:
+    MTL::CommandBuffer* m_command_buffer;
+
+public:
+    MetalCommandBuffer(MTL::CommandBuffer* command_buffer)
+        : m_command_buffer(command_buffer)
     {
-    private:
-        MTL::CommandBuffer* m_command_buffer;
-    public:
-        MetalCommandBuffer(MTL::CommandBuffer* command_buffer) : m_command_buffer(command_buffer) 
-        {
-            m_command_buffer->retain();
-        }
+        m_command_buffer->retain();
+    }
 
-        ~MetalCommandBuffer()
-        {
-            m_command_buffer->release();
-        }
+    ~MetalCommandBuffer()
+    {
+        m_command_buffer->release();
+    }
 
-        inline MTL::CommandBuffer* get_buffer() { return m_command_buffer; }
-
-    };
-}
+    inline MTL::CommandBuffer* get_buffer()
+    {
+        return m_command_buffer;
+    }
+};
+} // namespace Ignis

@@ -5,27 +5,27 @@
 
 namespace Ignis
 {
-	void init()
-	{
-		Log::init(false); // Initialize the logger without file logging
+void init()
+{
+    Log::init(false); // Initialize the logger without file logging
 
-		Platform::init();
-	}
-
-	extern Application* create_application(const ApplicationCommandLineArgs& spec);
+    Platform::init();
 }
+
+extern Application* create_application(const ApplicationCommandLineArgs& spec);
+} // namespace Ignis
 
 int main(int argc, char** argv)
 {
-	Ignis::init();
+    Ignis::init();
 
-	Ignis::Application* app = Ignis::create_application(Ignis::ApplicationCommandLineArgs{ argc, argv });
+    Ignis::Application* app = Ignis::create_application(Ignis::ApplicationCommandLineArgs{argc, argv});
 
-	app->run();
+    app->run();
 
-	app->close();
+    app->close();
 
-	delete app;
+    delete app;
 
-	Ignis::Platform::shutdown();
+    Ignis::Platform::shutdown();
 }

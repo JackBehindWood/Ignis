@@ -13,21 +13,25 @@ static const wchar_t* hlsl_target_profile(spv::ExecutionModel exec_model)
 {
     switch (exec_model)
     {
-        case spv::ExecutionModelVertex:    return L"vs_6_0";
-        case spv::ExecutionModelFragment:  return L"ps_6_0";
-        case spv::ExecutionModelGLCompute: return L"cs_6_0";
+        case spv::ExecutionModelVertex:
+            return L"vs_6_0";
+        case spv::ExecutionModelFragment:
+            return L"ps_6_0";
+        case spv::ExecutionModelGLCompute:
+            return L"cs_6_0";
         default:
             IG_CORE_ASSERT(false, "HlslSpirvCompiler: unsupported execution model");
             return L"vs_6_0";
     }
 }
 
-Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, const char* entry_point, spv::ExecutionModel exec_model,
-                                                       const Vector<Pair<String, String>>& defines)
+Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, const char* entry_point,
+                                                      spv::ExecutionModel                 exec_model,
+                                                      const Vector<Pair<String, String>>& defines)
 {
     CComPtr<IDxcUtils>     dxc_utils;
     CComPtr<IDxcCompiler3> dxc_compiler;
-    DxcCreateInstance(CLSID_DxcUtils,    IID_PPV_ARGS(&dxc_utils));
+    DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxc_utils));
     DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxc_compiler));
 
     if (!dxc_utils || !dxc_compiler)
@@ -47,15 +51,14 @@ Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, cons
     {
         std::wstring w(d.first.begin(), d.first.end());
         if (!d.second.empty())
+        {
             w += L'=' + std::wstring(d.second.begin(), d.second.end());
+        }
         define_strs.push_back(std::move(w));
     }
 
     Vector<LPCWSTR> args = {
-        L"-spirv",
-        L"-fspv-target-env=vulkan1.1",
-        L"-T", hlsl_target_profile(exec_model),
-        L"-E", wide_entry.c_str(),
+        L"-spirv", L"-fspv-target-env=vulkan1.1", L"-T", hlsl_target_profile(exec_model), L"-E", wide_entry.c_str(),
         L"-Zpc",
     };
     for (const auto& d : define_strs)
@@ -64,14 +67,11 @@ Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, cons
         args.push_back(d.c_str());
     }
 
-    DxcBuffer source_buf = { source_blob->GetBufferPointer(), source_blob->GetBufferSize(), DXC_CP_ACP };
+    DxcBuffer source_buf = {source_blob->GetBufferPointer(), source_blob->GetBufferSize(), DXC_CP_ACP};
 
     CComPtr<IDxcResult> result;
-    HRESULT hr = dxc_compiler->Compile(
-        &source_buf,
-        args.data(), static_cast<UINT32>(args.size()),
-        nullptr,
-        IID_PPV_ARGS(&result));
+    HRESULT             hr = dxc_compiler->Compile(&source_buf, args.data(), static_cast<UINT32>(args.size()), nullptr,
+                                                   IID_PPV_ARGS(&result));
 
     if (FAILED(hr))
     {
@@ -82,12 +82,16 @@ Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, cons
     CComPtr<IDxcBlobUtf8> errors;
     result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&errors), nullptr);
     if (errors && errors->GetStringLength() > 0)
+    {
         IG_CORE_ERROR("HlslSpirvCompiler: DXC:\n{0}", errors->GetStringPointer());
+    }
 
     HRESULT status;
     result->GetStatus(&status);
     if (FAILED(status))
+    {
         return {};
+    }
 
     CComPtr<IDxcBlob> spv;
     result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&spv), nullptr);

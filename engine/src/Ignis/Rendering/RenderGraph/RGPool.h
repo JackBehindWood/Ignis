@@ -11,16 +11,22 @@ namespace Ignis
 class RenderGraphResourcePool
 {
 public:
-    GRITexture2D* acquire( const GRITexture2DDesc& desc, uint16_t first_used, uint16_t last_used, uint32_t current_frame);
+    GRITexture2D* acquire(const GRITexture2DDesc& desc, uint16_t first_used, uint16_t last_used,
+                          uint32_t current_frame);
 
-    GRIBuffer*    acquire_buffer(const GRIBufferDesc& desc, uint16_t first_used, uint16_t last_used, uint32_t current_frame);
+    GRIBuffer* acquire_buffer(const GRIBufferDesc& desc, uint16_t first_used, uint16_t last_used,
+                              uint32_t current_frame);
 
     void begin_frame(uint32_t current_frame);
 
 private:
     static constexpr uint32_t k_eviction_age = 4;
 
-    struct Interval { uint16_t first; uint16_t last; };
+    struct Interval
+    {
+        uint16_t first;
+        uint16_t last;
+    };
 
     struct TextureEntry
     {

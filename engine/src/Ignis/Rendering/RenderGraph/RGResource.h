@@ -14,9 +14,18 @@ struct RGTextureHandle
 {
     uint16_t id = k_rg_invalid_id;
 
-    constexpr bool is_valid()                    const { return id != k_rg_invalid_id; }
-    constexpr bool operator==(RGTextureHandle o) const { return id == o.id; }
-    constexpr bool operator!=(RGTextureHandle o) const { return id != o.id; }
+    constexpr bool is_valid() const
+    {
+        return id != k_rg_invalid_id;
+    }
+    constexpr bool operator==(RGTextureHandle o) const
+    {
+        return id == o.id;
+    }
+    constexpr bool operator!=(RGTextureHandle o) const
+    {
+        return id != o.id;
+    }
 };
 
 struct RGTextureDesc
@@ -31,15 +40,15 @@ struct RGColorAttachmentDesc
 {
     GRILoadAction  load_action  = GRILoadAction::Clear;
     GRIStoreAction store_action = GRIStoreAction::Store;
-    GRIClearValue  clear_value  = { 0.f, 0.f, 0.f, 1.f };
+    GRIClearValue  clear_value  = {0.f, 0.f, 0.f, 1.f};
 
-    static RGColorAttachmentDesc clear(GRIClearValue cv = { 0.f, 0.f, 0.f, 1.f })
+    static RGColorAttachmentDesc clear(GRIClearValue cv = {0.f, 0.f, 0.f, 1.f})
     {
-        return { GRILoadAction::Clear, GRIStoreAction::Store, cv };
+        return {GRILoadAction::Clear, GRIStoreAction::Store, cv};
     }
     static RGColorAttachmentDesc load()
     {
-        return { GRILoadAction::Load, GRIStoreAction::Store, {} };
+        return {GRILoadAction::Load, GRIStoreAction::Store, {}};
     }
 };
 
@@ -51,7 +60,7 @@ struct RGDepthAttachmentDesc
 
     static RGDepthAttachmentDesc clear(float d = 1.f)
     {
-        return { GRILoadAction::Clear, GRIStoreAction::DontCare, d };
+        return {GRILoadAction::Clear, GRIStoreAction::DontCare, d};
     }
 };
 
@@ -61,9 +70,18 @@ struct RGBufferHandle
 {
     uint16_t id = k_rg_invalid_id;
 
-    constexpr bool is_valid()                   const { return id != k_rg_invalid_id; }
-    constexpr bool operator==(RGBufferHandle o) const { return id == o.id; }
-    constexpr bool operator!=(RGBufferHandle o) const { return id != o.id; }
+    constexpr bool is_valid() const
+    {
+        return id != k_rg_invalid_id;
+    }
+    constexpr bool operator==(RGBufferHandle o) const
+    {
+        return id == o.id;
+    }
+    constexpr bool operator!=(RGBufferHandle o) const
+    {
+        return id != o.id;
+    }
 };
 
 struct RGBufferDesc
@@ -86,26 +104,26 @@ struct AttachmentSlot
 
 struct VirtualTexture
 {
-    const char*   name           = nullptr;
-    RGTextureDesc desc           = {};
-    GRITexture2D* physical       = nullptr;
-    bool          is_imported    = false;
-    uint16_t      ref_count      = 0;
-    uint16_t      writer_pass_idx  = k_rg_invalid_id;
-    uint16_t      first_used_pass  = k_rg_invalid_id;
-    uint16_t      last_used_pass   = k_rg_invalid_id;
+    const char*   name            = nullptr;
+    RGTextureDesc desc            = {};
+    GRITexture2D* physical        = nullptr;
+    bool          is_imported     = false;
+    uint16_t      ref_count       = 0;
+    uint16_t      writer_pass_idx = k_rg_invalid_id;
+    uint16_t      first_used_pass = k_rg_invalid_id;
+    uint16_t      last_used_pass  = k_rg_invalid_id;
 };
 
 struct VirtualBuffer
 {
-    const char*   name           = nullptr;
-    RGBufferDesc  desc           = {};
-    GRIBuffer*    physical       = nullptr;
-    bool          is_imported    = false;
-    uint16_t      ref_count      = 0;
-    uint16_t      writer_pass_idx  = k_rg_invalid_id;
-    uint16_t      first_used_pass  = k_rg_invalid_id;
-    uint16_t      last_used_pass   = k_rg_invalid_id;
+    const char*  name            = nullptr;
+    RGBufferDesc desc            = {};
+    GRIBuffer*   physical        = nullptr;
+    bool         is_imported     = false;
+    uint16_t     ref_count       = 0;
+    uint16_t     writer_pass_idx = k_rg_invalid_id;
+    uint16_t     first_used_pass = k_rg_invalid_id;
+    uint16_t     last_used_pass  = k_rg_invalid_id;
 };
 
 } // namespace RGInternal

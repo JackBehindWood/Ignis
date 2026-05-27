@@ -26,9 +26,8 @@ String MslSpirvCompiler::compile_from_target(const uint32_t* spirv, uint32_t wor
     }
 
     spirv_cross::CompilerMSL::Options opts;
-    opts.platform    = (m_options.platform == MslCompileOptions::Platform::iOS)
-                           ? spirv_cross::CompilerMSL::Options::iOS
-                           : spirv_cross::CompilerMSL::Options::macOS;
+    opts.platform = (m_options.platform == MslCompileOptions::Platform::iOS) ? spirv_cross::CompilerMSL::Options::iOS
+                                                                             : spirv_cross::CompilerMSL::Options::macOS;
     opts.msl_version = m_options.msl_version;
     msl.set_msl_options(opts);
 
@@ -43,11 +42,14 @@ String MslSpirvCompiler::compile_from_target(const uint32_t* spirv, uint32_t wor
     }
 }
 
-Vector<uint8_t> MslSpirvCompiler::compile_to_backend(const uint32_t* spirv, uint32_t word_count, spv::ExecutionModel exec_model)
+Vector<uint8_t> MslSpirvCompiler::compile_to_backend(const uint32_t* spirv, uint32_t word_count,
+                                                     spv::ExecutionModel exec_model)
 {
     const String msl = compile_from_target(spirv, word_count, exec_model);
     if (msl.empty())
+    {
         return {};
+    }
 
     const String uid        = to_string(reinterpret_cast<uintptr_t>(spirv));
     const Path   metal_path = Path("/tmp") / ("ig_" + uid + ".metal");

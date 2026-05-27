@@ -3,18 +3,18 @@
 
 namespace Ignis
 {
-    Entity Scene::create_entity()
-    {
-        return Entity(m_registry.create(), this);
-    }
+Entity Scene::create_entity()
+{
+    return Entity(m_registry.create(), this);
+}
 
-    void Scene::destroy_entity(Entity entity)
-    {
-        m_registry.destroy(entity);
-    }
+void Scene::destroy_entity(Entity entity)
+{
+    m_registry.destroy(entity);
+}
 
-    void Scene::update(float ts)
-    {
-    }
+void Scene::update(float ts)
+{
+}
 
 } // namespace Ignis

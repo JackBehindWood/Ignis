@@ -19,7 +19,7 @@ public:
     RGBuilder();
     ~RGBuilder() = default;
 
-    RGBuilder(const RGBuilder&) = delete;
+    RGBuilder(const RGBuilder&)            = delete;
     RGBuilder& operator=(const RGBuilder&) = delete;
 
     // --- Resource Declaration ---
@@ -27,8 +27,8 @@ public:
     RGTextureHandle import_backbuffer();
     RGTextureHandle import_texture(const char* name, GRITexture2D* physical);
 
-    RGBufferHandle  create_buffer(const char* name, const RGBufferDesc& desc);
-    RGBufferHandle  import_buffer(const char* name, GRIBuffer* physical);
+    RGBufferHandle create_buffer(const char* name, const RGBufferDesc& desc);
+    RGBufferHandle import_buffer(const char* name, GRIBuffer* physical);
 
     // --- Stateful Dependency Bindings ---
     void read_texture(RGTextureHandle h);
@@ -41,38 +41,36 @@ public:
 
     // --- Arena Parameter Allocation ---
     // T must be trivially destructible; arena is soft-reset without calling destructors.
-    template<typename T>
+    template <typename T>
     T* alloc_params()
     {
         static_assert(IsTriviallyDestructible<T>,
-            "alloc_params<T>: T must be trivially destructible (arena-allocated, no destructor called)");
+                      "alloc_params<T>: T must be trivially destructible (arena-allocated, no destructor called)");
         void* mem = arena_alloc(sizeof(T), alignof(T));
         return new (mem) T{};
     }
 
     // --- Single Execute Lambda Registration ---
-    template<typename ExecuteFn>
+    template <typename ExecuteFn>
     void add_pass(const char* name, ExecuteFn&& execute)
     {
         using PassType = TypedRGPass<Decay<ExecuteFn>>;
-        void* mem  = arena_alloc(sizeof(PassType), alignof(PassType));
-        auto* pass = new (mem) PassType(std::forward<ExecuteFn>(execute));
+        void* mem      = arena_alloc(sizeof(PassType), alignof(PassType));
+        auto* pass     = new (mem) PassType(std::forward<ExecuteFn>(execute));
         commit_pass(name, pass);
     }
 
     // --- Params-Style Pass Registration ---
     // execute signature: void(T*, GRICommandList&)
-    template<typename T, typename ExecuteFn>
+    template <typename T, typename ExecuteFn>
     void add_pass(const char* name, T* params, ExecuteFn&& execute)
     {
-        add_pass(name, [params, fn = std::forward<ExecuteFn>(execute)](GRICommandList& cmd) {
-            fn(params, cmd);
-        });
+        add_pass(name, [params, fn = std::forward<ExecuteFn>(execute)](GRICommandList& cmd) { fn(params, cmd); });
     }
 
     // --- Physical Resource Access (valid during execute) ---
     GRITexture2D* get_physical(RGTextureHandle h) const;
-    GRIBuffer*    get_physical(RGBufferHandle h)  const;
+    GRIBuffer*    get_physical(RGBufferHandle h) const;
 
     // --- Frame Pipeline Entry Point ---
     void execute(GRICommandList& cmd);
@@ -90,7 +88,7 @@ private:
         Vector<uint16_t>           texture_writes;
         Vector<uint16_t>           buffer_writes;
         RGInternal::AttachmentSlot color_slots[max_simultaneous_render_targets];
-        RGInternal::AttachmentSlot depth_slot    = {};
+        RGInternal::AttachmentSlot depth_slot      = {};
         uint32_t                   num_color_slots = 0;
         bool                       has_depth       = false;
 

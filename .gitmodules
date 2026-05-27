@@ -4,7 +4,7 @@
 	ignore = dirty
 [submodule "engine/vendor/GLFW"]
 	path = engine/vendor/GLFW
-	url = https://github.com/JackBehindWood/glfw.git
+	url = https://github.com/glfw/glfw.git
 	ignore = dirty
 [submodule "engine/vendor/SPIRV-Cross"]
 	path = engine/vendor/SPIRV-Cross
@@ -13,3 +13,4 @@
 [submodule "engine/vendor/yaml-cpp"]
 	path = engine/vendor/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp.git
+	ignore = dirty

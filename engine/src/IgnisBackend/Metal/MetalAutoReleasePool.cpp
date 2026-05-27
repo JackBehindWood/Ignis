@@ -4,13 +4,13 @@
 
 namespace Ignis
 {
-    MetalScopedAutoreleasePool::MetalScopedAutoreleasePool()
-    {
-        m_autorelease_pool = NS::AutoreleasePool::alloc()->init();
-    }
-
-    MetalScopedAutoreleasePool::~MetalScopedAutoreleasePool()
-    {
-        m_autorelease_pool->release();
-    }
+MetalScopedAutoreleasePool::MetalScopedAutoreleasePool()
+{
+    m_autorelease_pool = NS::AutoreleasePool::alloc()->init();
 }
+
+MetalScopedAutoreleasePool::~MetalScopedAutoreleasePool()
+{
+    m_autorelease_pool->release();
+}
+} // namespace Ignis

@@ -10,16 +10,17 @@ if ! command -v clang-format &>/dev/null; then
 fi
 
 CHANGED=()
-for file in $STAGED; do
+while IFS= read -r file; do
     [ -f "$file" ] || continue
-    orig=$(git show ":$file")
-    formatted=$(clang-format "$file")
-    if [ "$orig" != "$formatted" ]; then
-        echo "$formatted" > "$file"
+    # Format the staged blob, not the on-disk file — avoids staging unstaged edits
+    staged=$(git show ":$file")
+    formatted=$(printf '%s\n' "$staged" | clang-format --assume-filename="$file")
+    if [ "$staged" != "$formatted" ]; then
+        printf '%s\n' "$formatted" > "$file"
         git add "$file"
         CHANGED+=("$file")
     fi
-done
+done <<< "$STAGED"
 
 if [ ${#CHANGED[@]} -gt 0 ]; then
     echo "pre-commit: auto-formatted ${#CHANGED[@]} file(s):"

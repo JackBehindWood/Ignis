@@ -5,7 +5,7 @@ editor/vendor/
 # Build, Object, and Output Directories
 bin/
 bin-int/
-build/__pycache__/
+**/__pycache__/
 premake/output/
 
 # Generated Build Metadata
@@ -16,7 +16,14 @@ cache/
 *.igasset
 
 # IDE Artifacts
-.vscode/*.db
+.vscode/
+
+# Binary Assets
+*.png
+*.ttf
+*.obj
+*.gltf
+*.metallib
 
 # System and Git Repositories
 .git/

@@ -22,7 +22,7 @@ public:
     explicit RenderGraph(size_t arena_size = 64 * 1024);
     ~RenderGraph();
 
-    void reset();
+    void        reset();
     const char* intern_string(const char* src);
 
 private:
@@ -33,9 +33,9 @@ private:
     RGInternal::VirtualTexture&       get_virtual_texture(uint16_t id);
     const RGInternal::VirtualTexture& get_virtual_texture(uint16_t id) const;
 
-    RGBufferHandle                    register_buffer(RGInternal::VirtualBuffer&& vb);
-    RGInternal::VirtualBuffer&        get_virtual_buffer(uint16_t id);
-    const RGInternal::VirtualBuffer&  get_virtual_buffer(uint16_t id) const;
+    RGBufferHandle                   register_buffer(RGInternal::VirtualBuffer&& vb);
+    RGInternal::VirtualBuffer&       get_virtual_buffer(uint16_t id);
+    const RGInternal::VirtualBuffer& get_virtual_buffer(uint16_t id) const;
 
     GRIRenderPassInfo build_pass_info(const RGPassBase& pass) const;
 

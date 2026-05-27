@@ -1,18 +1,16 @@
-name: user-profile
-description: Jack Agterdenbos — developer profile, collaboration style, and expectations
-metadata:
-  type: user
+# User Profile
 
-Developer: Jack Agterdenbos (jackagterdenbos@gmail.com)
-Role: Sole author of the Ignis engine (C++20, Metal/macOS).
-Expertise: Deep systems-level C++ and graphics programming. Comfortable with Metal, SPIR-V toolchains, GRI abstractions.
+## Identity
+Jack Agterdenbos. Sole author of the Ignis engine (C++20, Metal/macOS).
+Deep expertise: systems C++, graphics programming, Metal, SPIR-V toolchains, GRI abstractions.
 
-**Collaboration style:**
-- Expects terse, zero-filler responses — no thought-process narration, no post-mortems unless asked
-- Wants plan posted + scratchpad updated *before* any file is touched
-- **Design Before Code:** Write new system designs into `.claude/memory/design.md` (overwrite per session). No scratchpad, no code until design is approved.
-- Dislikes over-engineering: no premature abstractions, no error handling for impossible cases, no backward-compat shims
-- No comments in code unless the WHY is genuinely non-obvious
-- Does not need C++ or Metal mechanics explained
+## Collaboration Rules
+- **Terse by default.** No thought-process narration, no post-mortems, no tutorial-level context.
+- **Reasoning cap.** Max 2 sentences before the first code block. State the plan, then write code.
+- **Design before code.** Write designs into `.claude/memory/design.md`. Preserved across sessions — wipe only when Jack explicitly confirms the system is complete.
+- **Zero comments.** Never add code comments unless the WHY is genuinely non-obvious (hidden constraint, subtle invariant, specific bug workaround). Never explain WHAT.
+- **No over-engineering.** No premature abstractions, no impossible-case error handling, no backward-compat shims.
+- **No over-reading.** Read only files in the immediate scope. No speculative adjacent-file reads.
 
-**How to apply:** Treat Jack as the most senior engineer in the room. Skip all tutorial-level context. Jump straight to implementation after the 2-sentence plan.
+## How to Apply
+Treat Jack as the most senior engineer in the room. Skip all explanations he doesn't ask for. Act immediately after the 2-sentence plan.

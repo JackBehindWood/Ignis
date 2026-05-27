@@ -5,97 +5,121 @@
 
 namespace Ignis
 {
-	class MouseMovedEvent : public Event
-	{
-	private:
-		float m_mouse_x, m_mouse_y;
-	public:
-		MouseMovedEvent(const float x, const float y)
-			: m_mouse_x(x), m_mouse_y(y) {
-		}
+class MouseMovedEvent : public Event
+{
+private:
+    float m_mouse_x, m_mouse_y;
 
-		float get_x() const { return m_mouse_x; }
-		float get_y() const { return m_mouse_y; }
+public:
+    MouseMovedEvent(const float x, const float y)
+        : m_mouse_x(x),
+          m_mouse_y(y)
+    {
+    }
 
-		String to_string() const override
-		{
-			Stringstream ss;
-			ss << "MouseMovedEvent: " << m_mouse_x << ", " << m_mouse_y;
-			return ss.str();
-		}
+    float get_x() const
+    {
+        return m_mouse_x;
+    }
+    float get_y() const
+    {
+        return m_mouse_y;
+    }
 
-		EVENT_CLASS_TYPE(MouseMoved)
-		EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput)
-	};
+    String to_string() const override
+    {
+        Stringstream ss;
+        ss << "MouseMovedEvent: " << m_mouse_x << ", " << m_mouse_y;
+        return ss.str();
+    }
 
-	class MouseScrolledEvent : public Event
-	{
-	private:
-		float m_x_offset, m_y_offset;
-	public:
-		MouseScrolledEvent(const float x_offset, const float y_offset)
-			: m_x_offset(x_offset), m_y_offset(y_offset) {
-		}
+    EVENT_CLASS_TYPE(MouseMoved)
+    EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput)
+};
 
-		float get_x_offset() const { return m_x_offset; }
-		float get_y_offset() const { return m_y_offset; }
+class MouseScrolledEvent : public Event
+{
+private:
+    float m_x_offset, m_y_offset;
 
-		String to_string() const override
-		{
-			Stringstream ss;
-			ss << "MouseScrolledEvent: " << m_x_offset << ", " << m_y_offset;
-			return ss.str();
-		}
+public:
+    MouseScrolledEvent(const float x_offset, const float y_offset)
+        : m_x_offset(x_offset),
+          m_y_offset(y_offset)
+    {
+    }
 
-		EVENT_CLASS_TYPE(MouseScrolled)
-		EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput)
-	};
+    float get_x_offset() const
+    {
+        return m_x_offset;
+    }
+    float get_y_offset() const
+    {
+        return m_y_offset;
+    }
 
-	class MouseButtonEvent : public Event
-	{
-	public:
-		MouseCode get_mouse_button() const { return m_button; }
+    String to_string() const override
+    {
+        Stringstream ss;
+        ss << "MouseScrolledEvent: " << m_x_offset << ", " << m_y_offset;
+        return ss.str();
+    }
 
-		EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput | EventCategoryMouseButton)
-	protected:
-		MouseButtonEvent(const MouseCode button)
-			: m_button(button) {
-		}
+    EVENT_CLASS_TYPE(MouseScrolled)
+    EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput)
+};
 
-		MouseCode m_button;
-	};
+class MouseButtonEvent : public Event
+{
+public:
+    MouseCode get_mouse_button() const
+    {
+        return m_button;
+    }
 
-	class MouseButtonPressedEvent : public MouseButtonEvent
-	{
-	public:
-		MouseButtonPressedEvent(const MouseCode button)
-			: MouseButtonEvent(button) {
-		}
+    EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput | EventCategoryMouseButton)
+protected:
+    MouseButtonEvent(const MouseCode button)
+        : m_button(button)
+    {
+    }
 
-		String to_string() const override
-		{
-			Stringstream ss;
-			ss << "MouseButtonPressedEvent: " << m_button;
-			return ss.str();
-		}
+    MouseCode m_button;
+};
 
-		EVENT_CLASS_TYPE(MouseButtonPressed)
-	};
+class MouseButtonPressedEvent : public MouseButtonEvent
+{
+public:
+    MouseButtonPressedEvent(const MouseCode button)
+        : MouseButtonEvent(button)
+    {
+    }
 
-	class MouseButtonReleasedEvent : public MouseButtonEvent
-	{
-	public:
-		MouseButtonReleasedEvent(const MouseCode button)
-			: MouseButtonEvent(button) {
-		}
+    String to_string() const override
+    {
+        Stringstream ss;
+        ss << "MouseButtonPressedEvent: " << m_button;
+        return ss.str();
+    }
 
-		String to_string() const override
-		{
-			Stringstream ss;
-			ss << "MouseButtonReleasedEvent: " << m_button;
-			return ss.str();
-		}
+    EVENT_CLASS_TYPE(MouseButtonPressed)
+};
 
-		EVENT_CLASS_TYPE(MouseButtonReleased)
-	};
-}
+class MouseButtonReleasedEvent : public MouseButtonEvent
+{
+public:
+    MouseButtonReleasedEvent(const MouseCode button)
+        : MouseButtonEvent(button)
+    {
+    }
+
+    String to_string() const override
+    {
+        Stringstream ss;
+        ss << "MouseButtonReleasedEvent: " << m_button;
+        return ss.str();
+    }
+
+    EVENT_CLASS_TYPE(MouseButtonReleased)
+};
+} // namespace Ignis

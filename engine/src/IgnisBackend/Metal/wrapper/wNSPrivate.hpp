@@ -1,57 +1,59 @@
 
 #pragma once
 
-
 #include <objc/runtime.h>
 
-#define _NSWRAPPER_PRIVATE_CLS( symbol )                   ( wNSPrivate::Class::s_k ## symbol )
-#define _NSWRAPPER_PRIVATE_SEL( accessor )                 ( wNSPrivate::Selector::s_k ## accessor )
+#define _NSWRAPPER_PRIVATE_CLS(symbol) (wNSPrivate::Class::s_k##symbol)
+#define _NSWRAPPER_PRIVATE_SEL(accessor) (wNSPrivate::Selector::s_k##accessor)
 
-#if defined( NS_PRIVATE_IMPLEMENTATION )
+#if defined(NS_PRIVATE_IMPLEMENTATION)
 
-#define _NSWRAPPER_PRIVATE_VISIBILITY                        __attribute__( ( visibility( "default" ) ) )
-#define _NSWRAPPER_PRIVATE_IMPORT                          __attribute__( ( weak_import ) )
+#define _NSWRAPPER_PRIVATE_VISIBILITY __attribute__((visibility("default")))
+#define _NSWRAPPER_PRIVATE_IMPORT __attribute__((weak_import))
 
 #if __OBJC__
-#define  _NSWRAPPER_PRIVATE_OBJC_LOOKUP_CLASS( symbol  )   ( ( __bridge void* ) objc_lookUpClass( # symbol ) )
+#define _NSWRAPPER_PRIVATE_OBJC_LOOKUP_CLASS(symbol) ((__bridge void*)objc_lookUpClass(#symbol))
 #else
-#define  _NSWRAPPER_PRIVATE_OBJC_LOOKUP_CLASS( symbol  )   objc_lookUpClass( # symbol )
+#define _NSWRAPPER_PRIVATE_OBJC_LOOKUP_CLASS(symbol) objc_lookUpClass(#symbol)
 #endif // __OBJC__
 
-#define _NSWRAPPER_PRIVATE_DEF_CLS( symbol )                void* s_k ## symbol _NS_PRIVATE_VISIBILITY = _NS_PRIVATE_OBJC_LOOKUP_CLASS( symbol );
-#define _NSWRAPPER_PRIVATE_DEF_SEL( accessor, symbol )     SEL s_k ## accessor _NS_PRIVATE_VISIBILITY = sel_registerName( symbol );
-#define _NSWRAPPER_PRIVATE_DEF_CONST( type, symbol )       _NS_EXTERN type const   NS ## symbol   _NS_PRIVATE_IMPORT; \
-                                                    type const NS::symbol = ( nullptr != &NS ## symbol ) ? NS ## symbol : nullptr;
+#define _NSWRAPPER_PRIVATE_DEF_CLS(symbol)                                                                             \
+    void* s_k##symbol _NS_PRIVATE_VISIBILITY = _NS_PRIVATE_OBJC_LOOKUP_CLASS(symbol);
+#define _NSWRAPPER_PRIVATE_DEF_SEL(accessor, symbol)                                                                   \
+    SEL s_k##accessor _NS_PRIVATE_VISIBILITY = sel_registerName(symbol);
+#define _NSWRAPPER_PRIVATE_DEF_CONST(type, symbol)                                                                     \
+    _NS_EXTERN type const NS##symbol _NS_PRIVATE_IMPORT;                                                               \
+    type const                       NS::symbol = (nullptr != &NS##symbol) ? NS##symbol : nullptr;
 #else
 
-#define _NSWRAPPER_PRIVATE_DEF_CLS( symbol )                extern void* s_k ## symbol;
-#define _NSWRAPPER_PRIVATE_DEF_SEL( accessor, symbol )     extern SEL s_k ## accessor;
-#define _NSWRAPPER_PRIVATE_DEF_CONST( type, symbol )
-
+#define _NSWRAPPER_PRIVATE_DEF_CLS(symbol) extern void* s_k##symbol;
+#define _NSWRAPPER_PRIVATE_DEF_SEL(accessor, symbol) extern SEL s_k##accessor;
+#define _NSWRAPPER_PRIVATE_DEF_CONST(type, symbol)
 
 #endif // NS_PRIVATE_IMPLEMENTATION
 
 namespace wNSPrivate::Class
 {
-    _NSWRAPPER_PRIVATE_DEF_CLS(NSView);
-    _NSWRAPPER_PRIVATE_DEF_CLS(NSWindow);
-}
+_NSWRAPPER_PRIVATE_DEF_CLS(NSView);
+_NSWRAPPER_PRIVATE_DEF_CLS(NSWindow);
+} // namespace wNSPrivate::Class
 
 namespace wNSPrivate::Selector
 {
-    _NSWRAPPER_PRIVATE_DEF_SEL(init_with_frame_, "initWithFrame:");
-    _NSWRAPPER_PRIVATE_DEF_SEL(set_layer_, "setLayer:");
-    _NSWRAPPER_PRIVATE_DEF_SEL(set_opaque_, "setOpaque:");
-    _NSWRAPPER_PRIVATE_DEF_SEL(set_wants_layer_, "setWantsLayer:");
-    
-    _NSWRAPPER_PRIVATE_DEF_SEL(alloc_, "alloc");
-    _NSWRAPPER_PRIVATE_DEF_SEL(init_with_content_rect_style_mask_backing_defer_, "initWithContentRect:styleMask:backing:defer:");
-    _NSWRAPPER_PRIVATE_DEF_SEL(content_view_, "contentView");
-    _NSWRAPPER_PRIVATE_DEF_SEL(set_content_view_, "setContentView:");
-    _NSWRAPPER_PRIVATE_DEF_SEL(make_key_and_order_front_, "makeKeyAndOrderFront:");
-    _NSWRAPPER_PRIVATE_DEF_SEL(set_title_, "setTitle:");
-    _NSWRAPPER_PRIVATE_DEF_SEL(close_, "close");
-}
+_NSWRAPPER_PRIVATE_DEF_SEL(init_with_frame_, "initWithFrame:");
+_NSWRAPPER_PRIVATE_DEF_SEL(set_layer_, "setLayer:");
+_NSWRAPPER_PRIVATE_DEF_SEL(set_opaque_, "setOpaque:");
+_NSWRAPPER_PRIVATE_DEF_SEL(set_wants_layer_, "setWantsLayer:");
+
+_NSWRAPPER_PRIVATE_DEF_SEL(alloc_, "alloc");
+_NSWRAPPER_PRIVATE_DEF_SEL(init_with_content_rect_style_mask_backing_defer_,
+                           "initWithContentRect:styleMask:backing:defer:");
+_NSWRAPPER_PRIVATE_DEF_SEL(content_view_, "contentView");
+_NSWRAPPER_PRIVATE_DEF_SEL(set_content_view_, "setContentView:");
+_NSWRAPPER_PRIVATE_DEF_SEL(make_key_and_order_front_, "makeKeyAndOrderFront:");
+_NSWRAPPER_PRIVATE_DEF_SEL(set_title_, "setTitle:");
+_NSWRAPPER_PRIVATE_DEF_SEL(close_, "close");
+} // namespace wNSPrivate::Selector
 
 /*
 
@@ -126,16 +128,16 @@ _NSWRAPPER_PRIVATE_DEF_SEL( initWithTitle_,
 
 _NSWRAPPER_PRIVATE_DEF_SEL( setLayer_,
                         "setLayer:" );
-    
+
 _NSWRAPPER_PRIVATE_DEF_SEL( setOpaque_,
                         "setOpaque:" );
 
 _NSWRAPPER_PRIVATE_DEF_SEL( setWantsLayer_,
                         "setWantsLayer:" );
-    
+
 _NSWRAPPER_PRIVATE_DEF_SEL( contentView,
                         "contentView" );
-    
+
 _NSWRAPPER_PRIVATE_DEF_SEL( setContentView_,
                         "setContentView:" );
 

@@ -3,6 +3,6 @@
 
 namespace Ignis
 {
-    template<typename A, typename B>
-    using Pair = std::pair<A, B>;
+template <typename A, typename B>
+using Pair = std::pair<A, B>;
 }

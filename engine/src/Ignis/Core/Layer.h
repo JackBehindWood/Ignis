@@ -3,25 +3,37 @@
 #include "Timestep.h"
 #include "Ignis/Events/Event.h"
 
-namespace Ignis 
+namespace Ignis
 {
 
-	class Layer
-	{
-	public:
-		Layer(const String& name = "Layer") : m_debug_name(name) {}
-		virtual ~Layer() = default;
+class Layer
+{
+public:
+    Layer(const String& name = "Layer")
+        : m_debug_name(name)
+    {
+    }
+    virtual ~Layer() = default;
 
-		virtual void attach() {}
-		virtual void detach() {}
-		virtual void update(Timestep ts) {}
+    virtual void attach()
+    {
+    }
+    virtual void detach()
+    {
+    }
+    virtual void update(Timestep ts)
+    {
+    }
 
-		virtual void event(Event& event) {};
+    virtual void event(Event& event) {};
 
+    const String& get_name() const
+    {
+        return m_debug_name;
+    }
 
-		const String& get_name() const { return m_debug_name; }
-	protected:
-		String m_debug_name;
-	};
+protected:
+    String m_debug_name;
+};
 
-}
+} // namespace Ignis

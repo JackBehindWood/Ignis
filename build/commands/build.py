@@ -46,13 +46,32 @@ def generate_compile_commands(verbose):
         clangd_generate()
 
 def build_project(configuration, verbose):
-    cmd = ["make", "-f", "Makefile", f"CONFIG={configuration}"]
+    import os
+    cmd = ["make", "-f", "Makefile", f"-j{os.cpu_count() or 4}", f"CONFIG={configuration}"]
     if verbose:
         cmd.append("verbose=1")
     run_command(cmd, cwd=get_cfg().project_dir, verbose=verbose)
 
+def _run_iht(ctx):
+    from pathlib import Path
+    from ..iht import run as iht_run
+
+    project_root = Path(ctx.project_dir)
+    iht_run(
+        project_root=project_root,
+        scan_dirs=[project_root / "engine" / "src"],
+        output_dir=project_root / "engine" / "generated",
+        manifest_path=Path(ctx.obj_dir) / "iht_manifest.json",
+    )
+
 def clean_project():
-    for d in [get_cfg().bin_dir, get_cfg().obj_dir]:
+    cfg = get_cfg()
+    dirs = [
+        cfg.bin_dir,
+        cfg.obj_dir,
+        os.path.join(cfg.project_dir, "engine", "generated"),
+    ]
+    for d in dirs:
         if os.path.exists(d):
             shutil.rmtree(d)
             print(f"Removed {d}")
@@ -103,6 +122,7 @@ def main(clean=False, dev=None, configuration=None, verbose=None):
 
     if clean:
         clean_project()
+    _run_iht(ctx)
     generate_build_files(verbose)
     if dev:
         generate_compile_commands(verbose)

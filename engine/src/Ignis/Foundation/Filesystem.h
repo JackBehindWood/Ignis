@@ -3,6 +3,6 @@
 
 namespace Ignis
 {
-    namespace Filesystem = std::filesystem;
-    using Path = Filesystem::path;
-}
+namespace Filesystem = std::filesystem;
+using Path           = Filesystem::path;
+} // namespace Ignis

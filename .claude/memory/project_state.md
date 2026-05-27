@@ -1,9 +1,7 @@
-# Ignis Engine — Project State
+# Project State
 
 ## Current Focus
 **Project & Settings System — In-Memory Phase COMPLETE.** Ready to move to the next major feature.
-
----
 
 ## Standing Systems
 
@@ -27,21 +25,16 @@ Observer-pattern project dispatch (`IProjectObserver`/`ProjectContext`), mode-aw
 - FSEvents watcher (macOS): physical file change → virtual path invalidation via `RuntimePathId`
 - `EditorAssetManager` isolation: cook + import tooling stays editor-only, engine sees handle/stream API only
 
----
-
 ## Completed but Pre-Baseline
 - Initial renderer scaffolding (pass 1 – pre-RenderGraph)
 - Initial scene system and scene renderer
 
----
-
 ## Upcoming
+- Improve the build system, add code generation, possibly premake generation and more!
+- Scene system overhaul: SceneRenderer with culling/sorting/batching; optional components; Entity ID/Tag component
 - Scene serialization (YAML-backed and binary)
-- Overhauling the scene system, especially tthe scene renderer (including culling, sorting and batching)! Also each component should be optional! The entity should probably have some ID and/or tag component!
 
----
-
-## Key Invariants (quick ref)
+## Key Invariants
 - Engine TUs: no Metal headers, no `EditorSettings`, no heavy YAML dependency in hot paths
 - `IgnisBackend/Metal/`: only TUs here include `<Metal/Metal.hpp>`
 - Foundation aliases always; never raw `std::` in TUs

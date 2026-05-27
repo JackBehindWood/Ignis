@@ -5,13 +5,17 @@
 
 namespace Ignis
 {
-    MetalBuffer::MetalBuffer(MTL::Buffer* buffer, uint32_t size)
-        : m_buffer(buffer), m_size(size)
-    {}
+MetalBuffer::MetalBuffer(MTL::Buffer* buffer, uint32_t size)
+    : m_buffer(buffer),
+      m_size(size)
+{
+}
 
-    MetalBuffer::~MetalBuffer()
+MetalBuffer::~MetalBuffer()
+{
+    if (m_buffer)
     {
-        if (m_buffer)
-            m_buffer->release();
+        m_buffer->release();
     }
+}
 } // namespace Ignis

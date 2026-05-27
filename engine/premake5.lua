@@ -19,6 +19,7 @@ project "IgnisEngine"
    {
       "src",
       "vendor",
+      "%{wks.location}/engine/generated",
 
       "%{include_dirs.spdlog}",
       "%{include_dirs.GLFW}",
@@ -75,7 +76,7 @@ project "IgnisEngine"
 		runtime "Release"
 		optimize "on"
 
-	filter "configurations:Dist"
+	filter "configurations:Distribution"
 		defines "IG_DIST"
 		runtime "Release"
 		optimize "on"
