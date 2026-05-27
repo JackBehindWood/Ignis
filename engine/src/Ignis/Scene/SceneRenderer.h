@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Scene.h"
+#include "Ignis/Scene/CameraData.h"
 #include "Ignis/Asset/AssetManager.h"
 #include "Ignis/Math/Math.h"
 #include "Ignis/Rendering/GRI/GRICommandList.h"
@@ -24,12 +25,15 @@ struct FrameDrawItem
 class SceneRenderer
 {
 public:
-    void render_scene(Scene& scene, RGBuilder& builder, RGTextureHandle backbuffer, AssetID scene_texture_id);
+    // TODO: add a render_scene cersion without CameraData, here we should get the active casmera's CameraData;
+    void render_scene(Scene& scene, const CameraData& camera, RGBuilder& builder, RGTextureHandle backbuffer,
+                      AssetID scene_texture_id);
 
 private:
     struct ScenePassParams
     {
         GRITexture2D* scene_texture;
+        Math::Mat4f   view_projection;
     };
 
     static GRITexture2D* resolve_texture(AssetID id);

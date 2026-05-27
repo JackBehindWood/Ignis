@@ -34,6 +34,7 @@ public:
     static void begin_frame(GRIViewport* viewport);
     static void end_frame();
 
+    static void bind_frame_data(GRICommandListBase& cmd_list, const void* data, uint32_t size);
     static void bind_transform(GRICommandListBase& cmd_list, const void* data, uint32_t size);
 
     // Evict a cached GPU resource by opaque cache key (derived from AssetID by the caller).

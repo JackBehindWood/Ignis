@@ -38,6 +38,13 @@ void Renderer::end_frame()
     s_frame_alloc.end_frame();
 }
 
+void Renderer::bind_frame_data(GRICommandListBase& cmd_list, const void* data, uint32_t size)
+{
+    auto alloc = s_frame_alloc.allocate(data, size);
+    GRICommandList::get(cmd_list).set_uniform_buffer(alloc.buffer, static_cast<uint32_t>(UniformSlot::FrameData),
+                                                     GRIShaderStage::Vertex, alloc.offset);
+}
+
 void Renderer::bind_transform(GRICommandListBase& cmd_list, const void* data, uint32_t size)
 {
     auto alloc = s_frame_alloc.allocate(data, size);

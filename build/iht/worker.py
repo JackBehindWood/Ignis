@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from .generator import emit_placeholder
+from . import generator, scanner
 from .manifest import FileManifest
 
 
@@ -40,10 +40,27 @@ def run(
                 out.unlink()
         manifest.remove(path, project_root)
 
+    # Scan all headers to build the complete component list for SceneRegistry.
+    all_schemas: dict[Path, dict] = {}
+    for path in headers:
+        all_schemas[path] = scanner.scan(path)
+
     for path in changed:
-        out = _output_path(path, scan_dirs, output_dir)
-        emit_placeholder(path, out)
-        manifest.update(path, project_root, [str(out.relative_to(project_root))])
+        schema = all_schemas.get(path, {})
+        out    = _output_path(path, scan_dirs, output_dir)
+        emitted = generator.emit(path, schema, out)
+        if emitted:
+            manifest.update(path, project_root, [str(out.relative_to(project_root))])
+        else:
+            # No annotations — delete any stale .gen.h from a previous run
+            if out.exists():
+                out.unlink()
+            manifest.update(path, project_root, [])
+
+    registry_out = output_dir / "Ignis" / "Scene" / "SceneRegistry.gen.h"
+    registry_stale = changed or removed or not registry_out.exists()
+    if registry_stale:
+        generator.emit_scene_registry(all_schemas, registry_out, scan_dirs, output_dir)
 
     if changed or removed or mtime_updated:
         manifest.save()

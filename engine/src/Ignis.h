@@ -8,6 +8,7 @@
 
 // Core
 #include "Ignis/Core/Base.h"
+#include "Ignis/Core/IHTAnnotations.h"
 #include "Ignis/Core/UUID.h"
 #include "Ignis/Core/Application.h"
 #include "Ignis/Core/Layer.h"
@@ -41,8 +42,8 @@
 // Scene
 #include "Ignis/Scene/Scene.h"
 #include "Ignis/Scene/Entity.h"
-#include "Ignis/Scene/Components.h"
 #include "Ignis/Scene/SceneRenderer.h"
+#include "Ignis/Scene/Components/Components.h"
 
 // Events
 #include "Ignis/Events/Event.h"

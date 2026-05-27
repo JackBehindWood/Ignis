@@ -1,7 +1,1 @@
 # Scratchpad
-
-## Objective
-
-## Steps
-
-## Notes

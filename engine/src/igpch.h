@@ -16,3 +16,5 @@
 
 #include "Ignis/Core/Base.h"
 #include "Ignis/Core/Log.h"
+#include "Ignis/Core/UUID.h"
+#include "Ignis/Core/IHTAnnotations.h"

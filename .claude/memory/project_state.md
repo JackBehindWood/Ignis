@@ -1,9 +1,19 @@
 # Project State
 
 ## Current Focus
-**Project & Settings System — In-Memory Phase COMPLETE.** Ready to move to the next major feature.
+**Scene System Redesign — Phases 1–4 complete.** Full IHT pipeline, ComponentRegistry, ScriptRegistry, SceneSerializer, FlyCamera, CameraComponent, SceneRenderer overhaul, and all generated `.gen.h` files are live. Phase 4 cleanup: generator bugs fixed, ScriptComponent serializer special-case wired, all gen files regenerated.
 
 ## Standing Systems
+
+### Scene System (Phases 1–4 complete)
+- IHT pipeline: `scanner.py` FSM, `generator.py` with codec table, `worker.py` manifest diff, all run as build pre-step
+- `ComponentRegistry` + `ScriptRegistry` — descriptor stores with idempotent `register_*` + `validate_unique_ids()`
+- Generated: `Components.gen.h`, `CameraComponent.gen.h`, `IDComponent.gen.h`, `NameComponent.gen.h`, `ScriptComponent.gen.h`, `SceneRegistry.gen.h`
+- `SceneSerializer` — data-driven, ScriptComponent special-cased for ScriptRegistry delegation
+- `SceneCamera` + `CameraComponent` — projection state machine, IHT custom codec path
+- `FlyCamera` — engine-side free-look controller (no editor dep)
+- `SceneRenderer` — CameraData signature, FrameData UBO binding, flat TransformComponent fields
+- `Scene::update` — script dispatch; `get_primary_camera_data()` — optional CameraData query
 
 ### Project & Settings (editor-only, in-memory phase complete)
 Observer-pattern project dispatch (`IProjectObserver`/`ProjectContext`), mode-aware validate, `EditorAssetManager` as sole engine gateway + project observer, `EditorSettingsManager`, `EngineSettingsManager`, settings-agnostic `Application`, deterministic bootstrap in `Editor::Editor()`.
@@ -30,9 +40,9 @@ Observer-pattern project dispatch (`IProjectObserver`/`ProjectContext`), mode-aw
 - Initial scene system and scene renderer
 
 ## Upcoming
-- Improve the build system, add code generation, possibly premake generation and more!
-- Scene system overhaul: SceneRenderer with culling/sorting/batching; optional components; Entity ID/Tag component
-- Scene serialization (YAML-backed and binary)
+- Round-trip validation test: save scene → reload → verify field equality (post-Phase 4 smoke test)
+- IHT scan of game-project `src/Scripts/` and generated `register_all_scripts()` (when a game project exists)
+- docs/scene.md update to reflect final architecture
 
 ## Key Invariants
 - Engine TUs: no Metal headers, no `EditorSettings`, no heavy YAML dependency in hot paths

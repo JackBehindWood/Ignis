@@ -1,6 +1,6 @@
 #include "igpch.h"
 #include "SceneRenderer.h"
-#include "Components.h"
+#include "Components/Components.h"
 #include "Ignis/Asset/AssetManager.h"
 #include "Ignis/Asset/AssetMesh.h"
 #include "Ignis/Asset/AssetMaterial.h"
@@ -68,24 +68,14 @@ GRITexture2D* SceneRenderer::resolve_texture(AssetID id)
     return cached ? cached->get_texture() : nullptr;
 }
 
-void SceneRenderer::render_scene(Scene& scene, RGBuilder& builder, RGTextureHandle backbuffer, AssetID scene_texture_id)
+void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuilder& builder, RGTextureHandle backbuffer,
+                                 AssetID scene_texture_id)
 {
     m_opaque.clear();
     m_transparent.clear();
 
-    // --- Camera ---
-    Math::Mat4f cam_view = Math::Mat4f::identity();
-    Math::Mat4f cam_proj = Math::Mat4f::identity();
-    {
-        auto cv = scene.registry().view<CameraComponent>();
-        if (!cv.empty())
-        {
-            const auto& cam = scene.registry().get<CameraComponent>(*cv.begin());
-            cam_view        = cam.view;
-            cam_proj        = cam.projection;
-        }
-    }
-    const Math::Frustum frustum = Math::extract_frustum(cam_proj * cam_view);
+    const Math::Frustum& frustum  = camera.frustum;
+    const Math::Mat4f&   cam_view = camera.view;
 
     // --- Build draw lists ---
     // Cache miss path (first-use): upload mesh to GPU and register in RenderResourceCache.
@@ -99,7 +89,7 @@ void SceneRenderer::render_scene(Scene& scene, RGBuilder& builder, RGTextureHand
             continue;
         }
 
-        const Math::Mat4f world = transform.transform.to_mat4();
+        const Math::Mat4f world = transform.to_mat4();
 
         // --- Mesh resolve ---
         const RenderMesh* render_mesh = nullptr;
@@ -142,8 +132,9 @@ void SceneRenderer::render_scene(Scene& scene, RGBuilder& builder, RGTextureHand
                         mx.y                 = Math::max(mx.y, p.y);
                         mx.z                 = Math::max(mx.z, p.z);
                     }
-                    bounds_center = (mn + mx) * 0.5f;
-                    bounds_radius = (mx - mn).length() * 0.5f;
+                    Math::Vec3f bounds_size = mx - mn;
+                    bounds_center           = mn + bounds_size * 0.5f;
+                    bounds_radius           = Math::length(bounds_size) * 0.5f;
                 }
 
                 cached = RenderMesh::create(verts.data(), static_cast<uint32_t>(verts.size()),
@@ -158,7 +149,7 @@ void SceneRenderer::render_scene(Scene& scene, RGBuilder& builder, RGTextureHand
         // --- Frustum cull ---
         {
             const Math::Vec3f  world_center = (world * Math::Vec4f(render_mesh->get_bounds_center(), 1.0f)).xyz();
-            const Math::Vec3f& s            = transform.transform.scale;
+            const Math::Vec3f& s            = transform.scale;
             const float        world_radius = render_mesh->get_bounds_radius() * Math::max(s.x, Math::max(s.y, s.z));
             if (!Math::frustum_contains_sphere(frustum, world_center, world_radius))
             {
@@ -218,8 +209,8 @@ void SceneRenderer::render_scene(Scene& scene, RGBuilder& builder, RGTextureHand
                     continue;
                 }
 
-                GRIBufferPtr params_buffer;
-                const auto&  param_data = asset_mat->get_param_data();
+                GRIBufferPtr           params_buffer;
+                const Vector<uint8_t>& param_data = asset_mat->get_param_data();
                 if (!param_data.empty())
                 {
                     GRIBufferDesc buf_desc;
@@ -235,7 +226,7 @@ void SceneRenderer::render_scene(Scene& scene, RGBuilder& builder, RGTextureHand
         }
 
         // --- Depth (view-space Z from world translation) ---
-        const Math::Vec3f pos      = transform.transform.position;
+        const Math::Vec3f pos      = transform.position;
         const Math::Vec4f cam_row2 = cam_view.row(2);
         const float       depth    = cam_row2.x * pos.x + cam_row2.y * pos.y + cam_row2.z * pos.z + cam_row2.w;
 
@@ -264,11 +255,13 @@ void SceneRenderer::render_scene(Scene& scene, RGBuilder& builder, RGTextureHand
     // --- Register pass ---
     ScenePassParams* params = builder.alloc_params<ScenePassParams>();
     params->scene_texture   = resolve_texture(scene_texture_id);
+    params->view_projection = camera.view_projection;
 
     builder.write_render_target(0, backbuffer, RGColorAttachmentDesc::clear({0.1f, 0.1f, 0.1f, 1.0f}));
     builder.add_pass("ForwardScene", params,
                      [this](ScenePassParams* p, GRICommandList& cmd)
                      {
+                         Renderer::bind_frame_data(cmd, p->view_projection.data(), sizeof(Math::Mat4f));
                          cmd.set_texture(p->scene_texture, 0, GRIShaderStage::Pixel);
 
                          for (const FrameDrawItem& item : m_opaque)

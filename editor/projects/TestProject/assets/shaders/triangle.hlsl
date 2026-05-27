@@ -1,3 +1,8 @@
+struct FrameUniforms
+{
+    float4x4 view_projection;
+};
+
 struct SceneUniforms
 {
     float4x4 transform;
@@ -16,6 +21,7 @@ struct VertexOut
     float2 uv       : TEXCOORD;
 };
 
+ConstantBuffer<FrameUniforms> g_frame    : register(b0);
 ConstantBuffer<SceneUniforms> g_uniforms : register(b1);
 Texture2D    g_texture : register(t0);
 SamplerState g_sampler : register(s0);
@@ -23,6 +29,7 @@ SamplerState g_sampler : register(s0);
 VertexOut VSMain(VertexIn input)
 {
     VertexOut output;
+    //output.position = mul(g_frame.view_projection, mul(g_uniforms.transform, float4(input.position, 1.0))); //NOTE: view_projection seems to be wrong, it makes the triangle not be shown!
     output.position = mul(g_uniforms.transform, float4(input.position, 1.0));
     output.uv       = input.uv;
     return output;
