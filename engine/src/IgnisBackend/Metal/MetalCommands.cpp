@@ -29,7 +29,6 @@ void MetalCommandContext::begin_frame()
 {
     IG_CORE_ASSERT(!m_command_buffer, "begin_frame called while a frame is already active (end_frame never called)");
 
-    MTL_AUTORELEASE_POOL;
     m_command_buffer = new MetalCommandBuffer(m_device.graphics_queue().get_queue()->commandBuffer());
 }
 
@@ -37,8 +36,6 @@ void MetalCommandContext::end_frame()
 {
     IG_CORE_ASSERT(m_command_buffer, "end_frame called before begin_frame");
     IG_CORE_ASSERT(!m_render_encoder, "end_frame called with an open render pass — call end_render_pass first");
-
-    MTL_AUTORELEASE_POOL;
 
     if (m_active_viewport)
     {
@@ -64,27 +61,35 @@ void MetalCommandContext::begin_render_pass(const GRIRenderPassInfo& info)
     IG_CORE_ASSERT(!m_render_encoder, "begin_render_pass called with a render pass already open");
     IG_CORE_ASSERT(m_command_buffer, "begin_render_pass called before begin_frame");
 
-    // Merge: render targets come from begin_drawing_viewport (pending_pass_info in state cache).
-    // Clear/load/store always come from the caller-supplied info.
+    // Pending provides textures (from begin_drawing_viewport); caller provides clear/load/store semantics.
+    // Caller may also override individual texture pointers when rendering to off-screen targets.
     GRIRenderPassInfo merged = m_state_cache.get_pending_pass_info();
 
     for (int32_t i = 0; i < merged.get_num_colour_targets(); i++)
     {
-        if (info.colour_targets[i].render_target)
+        if (i < static_cast<int32_t>(info.num_explicit_colour_targets))
         {
-            merged.colour_targets[i].render_target = info.colour_targets[i].render_target;
+            if (info.colour_targets[i].render_target)
+            {
+                merged.colour_targets[i].render_target = info.colour_targets[i].render_target;
+            }
+            merged.colour_targets[i].load_action  = info.colour_targets[i].load_action;
+            merged.colour_targets[i].store_action = info.colour_targets[i].store_action;
+            merged.colour_targets[i].clear_value  = info.colour_targets[i].clear_value;
         }
-        merged.colour_targets[i].load_action  = info.colour_targets[i].load_action;
-        merged.colour_targets[i].store_action = info.colour_targets[i].store_action;
-        merged.colour_targets[i].clear_value  = info.colour_targets[i].clear_value;
+        else
+        {
+            merged.colour_targets[i].render_target = nullptr;
+        }
     }
 
+    // Caller's depth texture wins when provided; always take caller's load/store/clear semantics.
+    if (info.depth_stencil_target.depth_stencil_target)
+    {
+        merged.depth_stencil_target.depth_stencil_target = info.depth_stencil_target.depth_stencil_target;
+    }
     if (merged.depth_stencil_target.depth_stencil_target)
     {
-        if (info.depth_stencil_target.depth_stencil_target)
-        {
-            merged.depth_stencil_target.depth_stencil_target = info.depth_stencil_target.depth_stencil_target;
-        }
         merged.depth_stencil_target.load_action  = info.depth_stencil_target.load_action;
         merged.depth_stencil_target.store_action = info.depth_stencil_target.store_action;
         merged.depth_stencil_target.clear_depth  = info.depth_stencil_target.clear_depth;

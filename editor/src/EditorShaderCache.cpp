@@ -5,11 +5,17 @@
 namespace Ignis
 {
 
-void EditorShaderCache::set_engine_cache_root(const Path& dir)
+void EditorShaderCache::set_engine_root(const Path& engine_root)
 {
-    m_engine_cache_root = dir;
-    ShaderCache::get().set_engine_cache_root(dir);
-    ShaderCache::get().set_cache_root(dir);
+    m_shaders_root      = engine_root / "shaders";
+    m_engine_cache_root = engine_root / "cache" / "shaders";
+    ShaderCache::get().set_engine_cache_root(m_engine_cache_root);
+    ShaderCache::get().set_cache_root(m_engine_cache_root);
+}
+
+SharedPtr<RenderShader> EditorShaderCache::get_or_compile(const String& filename, GRIShaderStage stage)
+{
+    return ShaderCache::get().get_or_compile(m_shaders_root / filename, stage);
 }
 
 void EditorShaderCache::on_project_opened(const ProjectContext& ctx)

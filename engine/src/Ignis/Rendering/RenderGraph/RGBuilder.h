@@ -25,6 +25,7 @@ public:
     // --- Resource Declaration ---
     RGTextureHandle create_texture(const char* name, const RGTextureDesc& desc);
     RGTextureHandle import_backbuffer();
+    RGTextureHandle import_viewport_depth();
     RGTextureHandle import_texture(const char* name, GRITexture2D* physical);
 
     RGBufferHandle create_buffer(const char* name, const RGBufferDesc& desc);
@@ -34,6 +35,7 @@ public:
     void read_texture(RGTextureHandle h);
     void write_render_target(uint32_t slot, RGTextureHandle h, const RGColorAttachmentDesc& desc = {});
     void write_depth_stencil(RGTextureHandle h, const RGDepthAttachmentDesc& desc = {});
+    void read_depth_stencil(RGTextureHandle h, const RGDepthAttachmentDesc& desc = {});
     void write_storage_texture(RGTextureHandle h);
 
     void read_buffer(RGBufferHandle h);
@@ -91,6 +93,7 @@ private:
         RGInternal::AttachmentSlot depth_slot      = {};
         uint32_t                   num_color_slots = 0;
         bool                       has_depth       = false;
+        bool                       depth_read_only = false;
 
         void reset();
     } m_current_deps;

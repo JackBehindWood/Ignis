@@ -118,34 +118,41 @@ void RenderGraph::fold_pass_into_fingerprint(const RGPassBase& pass, const char*
 
 void RenderGraph::compile()
 {
-    // Phase 1: Stamp writer_pass_idx for every resource written by each pass.
-    for (uint16_t pass_idx = 0; pass_idx < (uint16_t)m_passes.size(); ++pass_idx)
+    const uint16_t           n = static_cast<uint16_t>(m_passes.size());
+    Vector<Vector<uint16_t>> waw_preds(n);
+
+    // Phase 1: Stamp writer_pass_idx; record write-after-write predecessor chains.
+    for (uint16_t pass_idx = 0; pass_idx < n; ++pass_idx)
     {
         const RGPassBase& p = *m_passes[pass_idx];
 
+        auto stamp_tex = [&](uint16_t tid)
+        {
+            if (tid == k_rg_invalid_id)
+            {
+                return;
+            }
+            uint16_t prev = m_textures[tid].writer_pass_idx;
+            if (prev != k_rg_invalid_id)
+            {
+                waw_preds[pass_idx].push_back(prev);
+            }
+            m_textures[tid].writer_pass_idx = pass_idx;
+        };
+
         for (uint32_t s = 0; s < p.num_color_slots; ++s)
         {
-            uint16_t tid = p.color_slots[s].texture_id;
-            if (tid != k_rg_invalid_id)
-            {
-                IG_CORE_ASSERT(m_textures[tid].writer_pass_idx == k_rg_invalid_id,
-                               "RenderGraph: multiple writers to the same texture are not permitted");
-                m_textures[tid].writer_pass_idx = pass_idx;
-            }
+            stamp_tex(p.color_slots[s].texture_id);
         }
 
-        if (p.has_depth && p.depth_slot.texture_id != k_rg_invalid_id)
+        if (p.has_depth && !p.depth_read_only)
         {
-            IG_CORE_ASSERT(m_textures[p.depth_slot.texture_id].writer_pass_idx == k_rg_invalid_id,
-                           "RenderGraph: multiple writers to the same depth texture are not permitted");
-            m_textures[p.depth_slot.texture_id].writer_pass_idx = pass_idx;
+            stamp_tex(p.depth_slot.texture_id);
         }
 
         for (uint16_t twid : p.texture_writes)
         {
-            IG_CORE_ASSERT(m_textures[twid].writer_pass_idx == k_rg_invalid_id,
-                           "RenderGraph: multiple writers to the same storage texture are not permitted");
-            m_textures[twid].writer_pass_idx = pass_idx;
+            stamp_tex(twid);
         }
 
         for (uint16_t bid : p.buffer_writes)
@@ -160,6 +167,7 @@ void RenderGraph::compile()
     Vector<uint8_t>  pass_live(m_passes.size(), 0);
     Vector<uint16_t> tex_queue;
     Vector<uint16_t> buf_queue;
+    Vector<uint16_t> waw_queue;
 
     for (uint16_t tid = 0; tid < (uint16_t)m_textures.size(); ++tid)
     {
@@ -192,9 +200,13 @@ void RenderGraph::compile()
         {
             buf_queue.push_back(rbid);
         }
+        for (uint16_t pred : waw_preds[writer])
+        {
+            waw_queue.push_back(pred);
+        }
     };
 
-    while (!tex_queue.empty() || !buf_queue.empty())
+    while (!tex_queue.empty() || !buf_queue.empty() || !waw_queue.empty())
     {
         while (!tex_queue.empty())
         {
@@ -207,6 +219,12 @@ void RenderGraph::compile()
             uint16_t bid = buf_queue.back();
             buf_queue.pop_back();
             try_mark_pass(m_buffers[bid].writer_pass_idx);
+        }
+        while (!waw_queue.empty())
+        {
+            uint16_t pred = waw_queue.back();
+            waw_queue.pop_back();
+            try_mark_pass(pred);
         }
     }
 
@@ -364,7 +382,6 @@ void RenderGraph::compile()
 
     // Phase 6: Kahn's BFS topological sort over non-culled passes.
     {
-        const uint16_t           n = static_cast<uint16_t>(m_passes.size());
         Vector<uint32_t>         in_degree(n, 0);
         Vector<Vector<uint16_t>> successors(n);
         uint16_t                 live_count = 0;
@@ -383,6 +400,13 @@ void RenderGraph::compile()
                 {
                     return;
                 }
+                for (uint16_t s : successors[writer])
+                {
+                    if (s == i)
+                    {
+                        return;
+                    }
+                }
                 successors[writer].push_back(i);
                 ++in_degree[i];
             };
@@ -394,6 +418,10 @@ void RenderGraph::compile()
             for (uint16_t rbid : m_passes[i]->buffer_reads)
             {
                 add_edge(m_buffers[rbid].writer_pass_idx);
+            }
+            for (uint16_t pred : waw_preds[i])
+            {
+                add_edge(pred);
             }
         }
 
@@ -431,6 +459,7 @@ void RenderGraph::compile()
 GRIRenderPassInfo RenderGraph::build_pass_info(const RGPassBase& pass) const
 {
     GRIRenderPassInfo info;
+    info.num_explicit_colour_targets = pass.num_color_slots;
 
     for (uint32_t s = 0; s < pass.num_color_slots; ++s)
     {

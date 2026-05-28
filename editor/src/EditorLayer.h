@@ -2,6 +2,9 @@
 
 #include <Ignis.h>
 #include <Ignis/Rendering/RenderGraph/RGBuilder.h>
+#include <Ignis/Rendering/RenderGraph/RGResource.h>
+#include <Ignis/Rendering/Shaders/RenderShader.h>
+#include <Ignis/Rendering/Material.h>
 #include "Ignis/Scene/FlyCamera.h"
 
 namespace Ignis
@@ -16,6 +19,12 @@ private:
     AssetID       m_scene_texture_id{UUID::s_invalid};
     bool          m_scene_ready = false;
 
+    SharedPtr<RenderShader> m_grid_vs;
+    SharedPtr<RenderShader> m_grid_ps;
+    SharedPtr<Material>     m_grid_material;
+
+    void draw_grid(RGTextureHandle bb);
+
 public:
     EditorLayer();
     virtual ~EditorLayer() = default;
@@ -29,6 +38,7 @@ public:
     bool mouse_button_released(MouseButtonReleasedEvent& e);
     bool mouse_moved(MouseMovedEvent& e);
     bool mouse_scrolled(MouseScrolledEvent& e);
+    bool window_resized(WindowResizeEvent& e);
 
     void update(Timestep ts) override;
 };

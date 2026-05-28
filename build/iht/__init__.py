@@ -1,3 +1,3 @@
-from .worker import run
+from .worker import run, ScanDomain
 
-__all__ = ["run"]
+__all__ = ["run", "ScanDomain"]

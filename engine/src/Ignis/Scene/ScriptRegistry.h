@@ -3,17 +3,27 @@
 #include "Ignis/Foundation/Foundation.h"
 #include "yaml-cpp/yaml.h"
 
+#include <functional>
+
 namespace Ignis
 {
 
 class ScriptableEntity;
 
+struct PropertyDescriptor
+{
+    String                                        name;
+    String                                        type_name;
+    Vector<String>                                specifiers;
+    std::function<void(void*, YAML::Emitter&)>    serialize;
+    std::function<void(void*, const YAML::Node&)> deserialize;
+};
+
 struct ScriptDescriptor
 {
-    String name;
-    UniquePtr<ScriptableEntity> (*factory)()                            = nullptr;
-    void (*serialize_instance)(const ScriptableEntity&, YAML::Emitter&) = nullptr;
-    void (*deserialize_instance)(ScriptableEntity&, const YAML::Node&)  = nullptr;
+    String                                       name;
+    std::function<UniquePtr<ScriptableEntity>()> factory;
+    Vector<PropertyDescriptor>                   properties;
 };
 
 class ScriptRegistry

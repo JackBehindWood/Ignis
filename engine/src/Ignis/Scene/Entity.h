@@ -33,6 +33,12 @@ public:
     }
 
     template <typename T>
+    const T& get_component() const
+    {
+        return m_scene->registry().get<T>(m_handle);
+    }
+
+    template <typename T>
     bool has_component() const
     {
         return m_scene->registry().all_of<T>(m_handle);

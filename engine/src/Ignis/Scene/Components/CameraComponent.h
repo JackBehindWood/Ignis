@@ -8,10 +8,10 @@ namespace Ignis
 IG_CLASS(Component)
 struct CameraComponent
 {
-    IG_PROPERTY(camera)
+    IG_PROPERTY(EditAnywhere, SaveGame)
     SceneCamera camera;
 
-    IG_PROPERTY(is_primary)
+    IG_PROPERTY(EditAnywhere, SaveGame)
     bool is_primary = true;
 };
 

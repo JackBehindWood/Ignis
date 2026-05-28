@@ -245,6 +245,7 @@ SharedPtr<RenderShader> ShaderCache::make_render_shader(const ShaderStageOutput&
         GRIVertexShaderPtr raw = gri->create_vertex_shader(desc);
         if (!raw)
         {
+            IG_CORE_ERROR("ShaderCache: GRI rejected vertex shader (entry='{}')", s.entry_point);
             return nullptr;
         }
         return create_shared<RenderShader>(std::move(raw), GRIShaderStage::Vertex, s.reflection);
@@ -254,11 +255,13 @@ SharedPtr<RenderShader> ShaderCache::make_render_shader(const ShaderStageOutput&
         GRIPixelShaderPtr raw = gri->create_pixel_shader(desc);
         if (!raw)
         {
+            IG_CORE_ERROR("ShaderCache: GRI rejected pixel shader (entry='{}')", s.entry_point);
             return nullptr;
         }
         return create_shared<RenderShader>(std::move(raw), GRIShaderStage::Pixel, s.reflection);
     }
 
+    IG_CORE_ERROR("ShaderCache: unsupported shader stage in make_render_shader");
     return nullptr;
 }
 
@@ -338,9 +341,17 @@ bool ShaderCache::compile_and_store(const Path& source_path, uint64_t variant_ke
     }
     const String source_text = src.read_all_text();
 
+    ShaderCompilerOptions effective_opts = opts;
+    if (effective_opts.count == 0)
+    {
+        effective_opts.count           = 2;
+        effective_opts.stages[0].stage = GRIShaderStage::Vertex;
+        effective_opts.stages[1].stage = GRIShaderStage::Pixel;
+    }
+
     const ShaderTarget              target = detect_target();
     ShaderCompiler                  compiler(target);
-    const Vector<ShaderStageOutput> stages = compiler.compile(source_text, opts);
+    const Vector<ShaderStageOutput> stages = compiler.compile(source_text, effective_opts);
     if (stages.empty())
     {
         IG_CORE_ERROR("ShaderCache: compile failed for '{}'", source_path.string());

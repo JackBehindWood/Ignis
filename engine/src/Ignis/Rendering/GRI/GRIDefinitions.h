@@ -110,6 +110,12 @@ enum class GRIIndexFormat
     Uint32,
 };
 
+enum class GRIBlendMode
+{
+    None,
+    AlphaBlend,
+};
+
 enum class GRILoadAction
 {
     Load,

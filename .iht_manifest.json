@@ -1,0 +1,916 @@
+{
+  "version": 2,
+  "registry_components": {
+    "register_all_scene_components": [
+      "CameraComponent",
+      "IDComponent",
+      "MeshComponent",
+      "NameComponent",
+      "ScriptComponent",
+      "TransformComponent"
+    ]
+  },
+  "files": {
+    "engine/src/Ignis.h": {
+      "mtime": 1779893985.171353,
+      "sha256": "959c20ef1954d4318e98730fefcc13fc0ec9fb7dedb2c1562e03ec74e7483f39",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/igpch.h": {
+      "mtime": 1779889686.9707308,
+      "sha256": "ed35f758878d63eca337a9c72c14c52c3ff92168ab5223aa907e2a798a1e79ef",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Settings/EngineSettings.h": {
+      "mtime": 1779803334.5805223,
+      "sha256": "63a2cca4408a4d9317ccd08a8b4984de45efafe029bb5b7bcb7c96a8b09d8b6d",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Settings/EngineSettingsManager.h": {
+      "mtime": 1779803334.5806475,
+      "sha256": "7a4ef14c34299a731f8f9106a6051a912b547bb69da3dbb89b76371ada2b50e1",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/Input.h": {
+      "mtime": 1779887571.7865849,
+      "sha256": "ef95f0d7a04395d31fc10afa43a9454d3488c935210d8ddf11b50076215c2bca",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/UUID.h": {
+      "mtime": 1779887571.7914815,
+      "sha256": "1112c55e6a958aa8f6f82ba99a301e09ab2909b58ef6b9625342fcc39b701db7",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/Application.h": {
+      "mtime": 1779884811.163309,
+      "sha256": "93b00e60c619755f7ddb30115c97dc10a3454db0fae20e5bbb7c077ac0bf62bc",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/Layer.h": {
+      "mtime": 1779887571.789192,
+      "sha256": "cc8e87b84c9c4c70e7cb32e3df790d7deaa435989bc114075ea722706cef5fdd",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/KeyCodes.h": {
+      "mtime": 1779887571.7879124,
+      "sha256": "0f7feaf513d1062111b808c52f8d9f487420628af8fc6b906fca883a70924b7c",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/Window.h": {
+      "mtime": 1779887571.7926462,
+      "sha256": "ce20012b48834640f6e31a8347f85c096fe63216765e5f683382634d6946f6ac",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/Timestep.h": {
+      "mtime": 1779887571.7906344,
+      "sha256": "f39181c3d0fbba2eff335c1feff565de582dad1f0db60d4bba1514dbbb2c5e13",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/EntryPoint.h": {
+      "mtime": 1779887571.7845984,
+      "sha256": "63b1f08220dd7d5b875c8ebc56bdfff5bd4138f1c6ac800caa678eaecdea9350",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/IHTAnnotations.h": {
+      "mtime": 1779908618.1427875,
+      "sha256": "c231fea3737c40134d4ec1eb2105cc9c594c800e582d599f80d882adc9cb0382",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/Log.h": {
+      "mtime": 1779887571.7902067,
+      "sha256": "347f3d716d8559772f216bb41da021d719597ac338592089312430451ef508c4",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/IFileWatcher.h": {
+      "mtime": 1779713208.9986718,
+      "sha256": "99ef8e698f5d90fd0965f00630a400d9fc70848e49159408c2c82e83c3a31518",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/MouseCodes.h": {
+      "mtime": 1779887571.79036,
+      "sha256": "052243a3d0c8be9172ed946e398a42aa17b3a4648f1f4af4b75968b12da0d7e5",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/PlatformDetection.h": {
+      "mtime": 1779887571.790504,
+      "sha256": "c3ff7e4bc934eb88a8d3427c7a3103c9c0e7bcfc7690cb716199d10b757e9cfe",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/LayerStack.h": {
+      "mtime": 1779803334.5760903,
+      "sha256": "1bd5c1240a673c891ef748b617c51ad2db0e95e8d1aac4dd00377f63a8ae9fb9",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/Assert.h": {
+      "mtime": 1779887571.7842932,
+      "sha256": "bf972286fc2fff378d4e96b95581cd3d60953883a5d0ee65719512b79bd54104",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/Platform.h": {
+      "mtime": 1779803334.5764148,
+      "sha256": "0ad9f789b96ab0c233f0c780cfb8c8b738be7cc46b9f418466006671926efafd",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Core/Base.h": {
+      "mtime": 1779887571.7844625,
+      "sha256": "1f96743f3c48df6856225ca563173fdadfe348f7166061aeb95e237d8c1b8222",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/AssetHandle.h": {
+      "mtime": 1779713208.993331,
+      "sha256": "718dd7ecfcb6abd27d1fc931d2beb8f21f953e7d0613b02f8ba457bad27e376e",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/AssetBinaryStream.h": {
+      "mtime": 1779887571.781886,
+      "sha256": "b06341dfbe841201cc3bf948b2a7871dd8fafc9ecd81ae6978ae62502e210a62",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/AssetManager.h": {
+      "mtime": 1779803334.5751846,
+      "sha256": "ab25d9a84e98ad04d382f777d7f69847b0dd4efb46dc265e8c16703d66dc837b",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/AssetRegistry.h": {
+      "mtime": 1779713208.9956095,
+      "sha256": "1fac157627e1f2a52d9b3643e0203ddf7830f162414b69073dab95f881c04f56",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/AssetMaterial.h": {
+      "mtime": 1779713208.9942505,
+      "sha256": "2b2477c69cc47d86aa2dffec129b044cd6eef00d8f5014e9fe3ba13d58cc1e5a",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/AssetTypes.h": {
+      "mtime": 1779713208.9961653,
+      "sha256": "c8c4fc1c1b92275f7e57f8549a1ba256eaa6553f4492651d088705c42bb67214",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/AssetShader.h": {
+      "mtime": 1779713208.995807,
+      "sha256": "6bc29cb5022fb7cfe3846d24c0d48955a01978b859f764a9424cd765268a8128",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/AssetMesh.h": {
+      "mtime": 1779887571.782013,
+      "sha256": "65f0b05c04e97396c9cf70fbb9df4fb23971247c253bed01d154a0d3c50957a2",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/Asset.h": {
+      "mtime": 1779713208.9920309,
+      "sha256": "6dabd5c72b299cdadcc54bcd169797f6185df363ed663a2f1eba10962fb4aebe",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/AssetTexture2D.h": {
+      "mtime": 1779713208.9960146,
+      "sha256": "ddbf31adad1650a4f8d28d9d709fe7005c974a381b580b1277066afd87c96042",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/Handlers/ShaderHandler.h": {
+      "mtime": 1779713208.997928,
+      "sha256": "df20b58a964ea3b093bde2653ba76e8532c8c56850dbabcada738d59314cfb7c",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/Handlers/TextureHandler.h": {
+      "mtime": 1779713208.9983962,
+      "sha256": "5eb3e36dbe352e40db067f3eaecebf3eeb74c8d22c93f1ac5e96b7d94c504a2f",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/Handlers/MaterialHandler.h": {
+      "mtime": 1779713208.9970398,
+      "sha256": "823cc4d42ef28e7467d1d02e3ca09ef087fb11b70810a42e155abfabb80ea7c7",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/Handlers/AssetHandler.h": {
+      "mtime": 1779713208.9967003,
+      "sha256": "bc86916973b077a243d7821d91c27a2e202a9feab2cf4ef1894e26c3de9dd65f",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Asset/Handlers/MeshHandler.h": {
+      "mtime": 1779713208.997518,
+      "sha256": "3d647d0cf4115ae1ed51c61e3989624ece42dac2bb4c46c166ef796a7a450b0f",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/Filesystem.h": {
+      "mtime": 1779887571.7937157,
+      "sha256": "0954785048b60c89e00c3a6924693fa4d7364c6e57253d6ec38794df2cc47d16",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/UniquePtr.h": {
+      "mtime": 1779887571.7949257,
+      "sha256": "d37941b65083789610045d4da287fac248cd1bb5743b336d9a3bf08f4526c363",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/RuntimePathId.h": {
+      "mtime": 1779713209.0001407,
+      "sha256": "ab53a30048ad16af6ae62f15c85901394fa0f57788c6fb8f2cb9f6ff03d78594",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/TypeTraits.h": {
+      "mtime": 1779887571.7946994,
+      "sha256": "dc3ea6df5056174929f27b2775e390a40ea8e0e0612b08e316605cbd321db007",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/Threading.h": {
+      "mtime": 1779803334.5782661,
+      "sha256": "25a4f08d5052f64ef70c99266b1cab33404a50e89aa36b38b1169c4c7bb9d01d",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/Foundation.h": {
+      "mtime": 1779803334.5780299,
+      "sha256": "cd3a97287fc55665e2ed7af0be6843a24295eea8994f599e489be55e008c076d",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/SharedPtr.h": {
+      "mtime": 1779887571.794244,
+      "sha256": "cae76bed874807c0217a469d751285314083e1c8e498ae6b043771509fdb48f6",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/UnorderedMap.h": {
+      "mtime": 1779887571.7950535,
+      "sha256": "d92be50b35b690f2440823e30a363da04f24080651f3834573da7f64e578386f",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/Optional.h": {
+      "mtime": 1779803334.5781472,
+      "sha256": "474997a0e1a7f452d60d5543630241ea32deae133c81eefafb8ae1cbc420ceb1",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/BinaryStream.h": {
+      "mtime": 1779803334.5777948,
+      "sha256": "708ab5f149c24ac614f09d9e9a8c67d1a6cb9ec8eb332fd3670ec57622142055",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/Array.h": {
+      "mtime": 1779887571.7935796,
+      "sha256": "4ce465d78731815a542f7d66b2fdd9f6b992093e5557a4a49edaa78dc6988652",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/Deque.h": {
+      "mtime": 1779713208.9996023,
+      "sha256": "8f5acfb89519f9cde16dfa336d74d72b04a95e869dc61d1a2a625edbcf3235ab",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/Pair.h": {
+      "mtime": 1779887571.7939854,
+      "sha256": "901c52f8de3149e565fcd278e27e9a3d0edbc607c33359cb2ad7e3bf8cd9803e",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/MemStack.h": {
+      "mtime": 1779887571.793842,
+      "sha256": "3f0a5e92a244a00f4e27490f128f250f50232afa459ad74f795f9d3a861ba05f",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/Memory.h": {
+      "mtime": 1779295443.720687,
+      "sha256": "841184cccdc5b274af5560b0fc3b8ef9734c762eec9f09262b4f88c85ab32922",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/UnorderedSet.h": {
+      "mtime": 1779887571.79518,
+      "sha256": "3018ebfdd725d4b3186a4d53ae7016c808788497c261fb3dad78503014ad1e7f",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/RefCounted.h": {
+      "mtime": 1779887571.7941155,
+      "sha256": "bad8fb6e9537404932aff2cecb89cfa21979f88590e736f2bdfb2a23b34bb774",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/Vector.h": {
+      "mtime": 1779887571.7953017,
+      "sha256": "7fdb15649e02c2b635f00e00f58ca20ad7e6ccb2a85a377ab556501fa8701e52",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/YamlStream.h": {
+      "mtime": 1779909010.1204338,
+      "sha256": "251e4cadbf5eccc1490bc5b7fb51047bcad1ce54096e15d211a9aeee717aec84",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/String.h": {
+      "mtime": 1779889685.9565642,
+      "sha256": "2ecbac0cd3c9df5280ab28d496e74cf1d99a77d4e55fe28aca8a73ab685b529e",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Foundation/Atomic.h": {
+      "mtime": 1779803334.5776017,
+      "sha256": "41384c0280f92439e1e98be2fbb95d85007081aacbcf5f32531bdbe57b0b6013",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Math/Vec2.h": {
+      "mtime": 1779895548.9512007,
+      "sha256": "e3f5bee3efe0b5cd5a01da47b0d642b4c2db5e374b8ba50ae54ff8793a5c4cf0",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Math/Mat4.h": {
+      "mtime": 1779887571.7956722,
+      "sha256": "a824be72998bde5b1f03675d33d1e6a62bcc1e961f7ebf440aa54584a6a39996",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Math/Frustum.h": {
+      "mtime": 1779887571.795516,
+      "sha256": "d3eb26e4e9219f0f0e951935fda346100a99cac5d92631c17ab0b5e7cb4d3910",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Math/MathConstants.h": {
+      "mtime": 1779887571.795809,
+      "sha256": "657c0b1c70a019ab7b8df28c74ecadf40218fc3e121ca73a1dadb75c255efca2",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Math/Vec4.h": {
+      "mtime": 1779887571.7965636,
+      "sha256": "6abb927af5e8b0ac81f366a5e173f9bdbca588c6bc39f7287051e5c5a68cd79b",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Math/Quat.h": {
+      "mtime": 1779887571.7960627,
+      "sha256": "d4d4aa9338f63d7aae79ba95636ccd262de8ba0025c8c9e0a768aba50e3460fb",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Math/Transform.h": {
+      "mtime": 1779887571.7963161,
+      "sha256": "3d144c652b72d98dcc999f63a241309db2a00b67fdd0f05dcd3feec123c54867",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Math/Math.h": {
+      "mtime": 1779891109.8334255,
+      "sha256": "96a62a4510d193b27d7874acb219c2516e87bf02cbd6cfa4de5e245e8a4213ab",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Math/Vec3.h": {
+      "mtime": 1779887571.7964418,
+      "sha256": "b51415b1585d295d56c5f217bc879d6c808be259fb77b931566604dcbf5b3356",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Math/MathUtils.h": {
+      "mtime": 1779887571.7959378,
+      "sha256": "6f0aa22bdad27cfbc62fb2a8a481c1ed37cdd29ff07b9f40711af4624b4a910a",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/VertexDeclarationRegistry.h": {
+      "mtime": 1779887571.8014565,
+      "sha256": "f47bc3d191b7678b7e3454e96d70589f4d7cc2561d8cfd4e3fa1f612bac72c00",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/RenderTexture2D.h": {
+      "mtime": 1779887571.8001556,
+      "sha256": "34ef8a89a1e99ff11146cd6c4a95686daab7c580425a7bbe0c14a3ba82113589",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/MaterialFactory.h": {
+      "mtime": 1779887571.7983298,
+      "sha256": "57b83d07780d27f38102ddc33a681a7ba467da8a3927e1bd3a06c38046e2a587",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/RenderResourceCache.h": {
+      "mtime": 1779713209.0010014,
+      "sha256": "c1db6f9c540a3632dd2d3cbcf81580e3e076339448edb39923b730da946956ed",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/Material.h": {
+      "mtime": 1779887571.7980192,
+      "sha256": "774bfe1f6e3fbcb3ae7e5f1c99f55da698caebe2902ee8a6c85f07a2915453cf",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/Renderer.h": {
+      "mtime": 1779894384.9605858,
+      "sha256": "8700969727ccfa70b8da19ceb57edcbefd4e9e7fd9c1651d3472f9c86ab7bbdb",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/RenderSystem.h": {
+      "mtime": 1779887571.8000247,
+      "sha256": "0c6b8be367ca67518960ffd8d2c5f50d23e83c21febfdbf83a142111aed6e16d",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/RenderMesh.h": {
+      "mtime": 1779887571.7999008,
+      "sha256": "095f9d0ab12da0263abc73ba034c15ea77314bd343a0a7f0bd47594c635a0d48",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/FrameUniformAllocator.h": {
+      "mtime": 1779887571.796824,
+      "sha256": "a78e74965225f5c6c435812e5be98bf8a0967f477b5347b81d76a55b88ec512f",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/RenderGraph/RGResource.h": {
+      "mtime": 1779887571.79926,
+      "sha256": "776f31e06527d270c80a2d635641e7eb8d54bd6ea5e2ec9b40084d12a4c84051",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/RenderGraph/RGPass.h": {
+      "mtime": 1779887571.798815,
+      "sha256": "30e2600e12e6c3422a4b8a705c554c40ffa9ef379f51dfef61f5cd70651ba934",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/RenderGraph/RGBuilder.h": {
+      "mtime": 1779887571.7986884,
+      "sha256": "b97bc6e7bf02f68303ff2d5e7622c5c845c7f2ed22a42e1f881e89053a544318",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/RenderGraph/RGPool.h": {
+      "mtime": 1779887571.799137,
+      "sha256": "e9ef57ec301c58b7832f79ca2ec1e3743f0d37f6ecc15c7311a74e65ea34296c",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/RenderGraph/RenderGraph.h": {
+      "mtime": 1779887571.799643,
+      "sha256": "c7abd3b1cd18e97033f47cc8514d02b1761b4d96293736d8a72c7748a931676c",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/Shaders/ShaderTarget.h": {
+      "mtime": 1779887571.801064,
+      "sha256": "5df1dee2d87ef116e98a584f350f837a6cd8e9a9b6e8a3749ad06ebc4283d9ae",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/Shaders/ShaderReflection.h": {
+      "mtime": 1779887571.8009284,
+      "sha256": "8377ddd05e29c5c934161ec60d18c69519e5e6804f5ab2e04f838815b631896d",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/Shaders/ShaderCompiler.h": {
+      "mtime": 1779887571.8008053,
+      "sha256": "f1627c420da028efeb7b58d77805321b9902c6a792c948f38ff38fb1f69f9751",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/Shaders/RenderShader.h": {
+      "mtime": 1779887571.8005474,
+      "sha256": "60fd0fd7f78fcdf7cbcf4a067bf754cc94e0d8084a82a774996cce01af893c0a",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/Shaders/ShaderCache.h": {
+      "mtime": 1779803334.5789132,
+      "sha256": "49480baee490820ff5ed9fecef5f95657b2e30a31877353b4a47822e23659dac",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/GRI/GRICommandList.h": {
+      "mtime": 1779887571.7973654,
+      "sha256": "57fc382d9d34d41a433be64f8b598ee68d9a7e423c882d5d3e3fb1871922a97e",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/GRI/GRIContext.h": {
+      "mtime": 1779887571.7976196,
+      "sha256": "a5377cdebd3dd87b3cd761bd991d726ef0a31bee7996645d27f1d6b5be3d5653",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/GRI/GRIDefinitions.h": {
+      "mtime": 1779713209.0005739,
+      "sha256": "598ec1c9f847fc65e522f6428e1b0fc040cebdb334ec8a42019440a1bd461246",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/GRI/GRI.h": {
+      "mtime": 1779887571.7970896,
+      "sha256": "e29b99adcea4cf9ddd8a69328eb456923eb6041e8fcea460a3de91cca15f438f",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Rendering/GRI/GRIResource.h": {
+      "mtime": 1779887571.7977548,
+      "sha256": "1526bd754a7cfb8734f3dcd99e6f94e61d5e07348ad6b5bd4b74d6eb1524ddb8",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/FlyCamera.h": {
+      "mtime": 1779892223.3845305,
+      "sha256": "13b1d3f5313b2c5f5db743ef55c15f415067032c2c963e6b8af80d1464f449de",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/SceneSerializer.h": {
+      "mtime": 1779891190.3802135,
+      "sha256": "8e015c04745ed47c5b71bd9fb9976d9c740da5c4aad2fad69d9b0375a8ed0ef2",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/SceneCamera.h": {
+      "mtime": 1779908758.1108375,
+      "sha256": "e9ccd61a18805814623e1e836cd351a8ba1f494b864285b1e45bee3f5bb190af",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/SceneRegistry.h": {
+      "mtime": 1779908409.3341887,
+      "sha256": "3fc2d92f61d10664b5e2eae5f5dbcc6894aba7c5c001ed71090b1952c3fb5dba",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/SceneRenderer.h": {
+      "mtime": 1779895549.6914074,
+      "sha256": "77164fe5b0448f1faf3acb7ff11b15d65a17e6e991a3ac0838e0cfc91b90af41",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/Entity.h": {
+      "mtime": 1779909406.8494124,
+      "sha256": "e455b0e13e57575335e911df8261f8cc64b9a59d825390cb3d9d31bac798f04b",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/YamlCodec.h": {
+      "mtime": 1779909344.0591247,
+      "sha256": "bf78661d03d22c1442105c9d9c91ede0ecf362851ca14498d9c338f0cbf9275c",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/ScriptableEntity.h": {
+      "mtime": 1779895549.9172738,
+      "sha256": "c776c8823aecfb11c54ad20633a32200a5476a0999689ef7272663a2b54da1fa",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/ScriptRegistry.h": {
+      "mtime": 1779908418.1157134,
+      "sha256": "14d291820071e177d75412d566f1be7dbe68838e71ed286b619145505c2f83c2",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/CameraData.h": {
+      "mtime": 1779895549.0559924,
+      "sha256": "188a0a349ca9ab211d9f8331f2ac7e7519e5e4bd345329b1137fbfdb3bbd8e15",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/Scene.h": {
+      "mtime": 1779895549.4920788,
+      "sha256": "0aa601569be36d63f74ac5536cd7ef5aab1ba44fdb8783a8060e5e63f7f508df",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/Components/ComponentRegistry.h": {
+      "mtime": 1779889708.9689643,
+      "sha256": "335d74f019abdf66fe009d79c0da66871f37bfb33a08f8fd4af48a13674a9278",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Scene/Components/ScriptComponent.h": {
+      "mtime": 1779908469.6011078,
+      "sha256": "5c4d99517a2a5d0168809b044b589131836a2ba15f7a3a28f99ff6e6201e8012",
+      "outputs": [
+        "engine/generated/Ignis/Scene/Components/ScriptComponent.gen.h"
+      ],
+      "schema": {
+        "ScriptComponent": {
+          "qualified_name": "Ignis::ScriptComponent",
+          "metaclass": "Component",
+          "properties": [
+            {
+              "specifiers": [
+                "EditAnywhere",
+                "SaveGame"
+              ],
+              "field_type": "String",
+              "field_name": "script_class"
+            }
+          ],
+          "functions": []
+        }
+      }
+    },
+    "engine/src/Ignis/Scene/Components/NameComponent.h": {
+      "mtime": 1779908464.791055,
+      "sha256": "7667e72a8900ea1cc6d23608c93a6ed5769c4b37b0ca5f9547b999d9f960bde9",
+      "outputs": [
+        "engine/generated/Ignis/Scene/Components/NameComponent.gen.h"
+      ],
+      "schema": {
+        "NameComponent": {
+          "qualified_name": "Ignis::NameComponent",
+          "metaclass": "Component",
+          "properties": [
+            {
+              "specifiers": [
+                "EditAnywhere",
+                "SaveGame"
+              ],
+              "field_type": "String",
+              "field_name": "name"
+            }
+          ],
+          "functions": []
+        }
+      }
+    },
+    "engine/src/Ignis/Scene/Components/IDComponent.h": {
+      "mtime": 1779908460.0856435,
+      "sha256": "2cac891d3066075f1ae2403923810046ba828736bcad9bce74086efcc626d314",
+      "outputs": [
+        "engine/generated/Ignis/Scene/Components/IDComponent.gen.h"
+      ],
+      "schema": {
+        "IDComponent": {
+          "qualified_name": "Ignis::IDComponent",
+          "metaclass": "Component",
+          "properties": [
+            {
+              "specifiers": [
+                "EditAnywhere",
+                "SaveGame"
+              ],
+              "field_type": "UUID",
+              "field_name": "id"
+            }
+          ],
+          "functions": []
+        }
+      }
+    },
+    "engine/src/Ignis/Scene/Components/Components.h": {
+      "mtime": 1779908496.7829645,
+      "sha256": "ff0aa6ac5d2c716c5c89c9ba8b118adce924ba3ab657bbb1dd23e78e17ad93f3",
+      "outputs": [
+        "engine/generated/Ignis/Scene/Components/Components.gen.h"
+      ],
+      "schema": {
+        "TransformComponent": {
+          "qualified_name": "Ignis::TransformComponent",
+          "metaclass": "Component",
+          "properties": [
+            {
+              "specifiers": [
+                "EditAnywhere",
+                "SaveGame"
+              ],
+              "field_type": "Math::Vec3f",
+              "field_name": "position"
+            },
+            {
+              "specifiers": [
+                "EditAnywhere",
+                "SaveGame"
+              ],
+              "field_type": "Math::Quatf",
+              "field_name": "rotation"
+            },
+            {
+              "specifiers": [
+                "EditAnywhere",
+                "SaveGame"
+              ],
+              "field_type": "Math::Vec3f",
+              "field_name": "scale"
+            }
+          ],
+          "functions": []
+        },
+        "MeshComponent": {
+          "qualified_name": "Ignis::MeshComponent",
+          "metaclass": "Component",
+          "properties": [
+            {
+              "specifiers": [
+                "EditAnywhere",
+                "SaveGame"
+              ],
+              "field_type": "AssetID",
+              "field_name": "mesh_id"
+            },
+            {
+              "specifiers": [
+                "EditAnywhere",
+                "SaveGame"
+              ],
+              "field_type": "AssetID",
+              "field_name": "material_id"
+            },
+            {
+              "specifiers": [
+                "EditAnywhere",
+                "SaveGame"
+              ],
+              "field_type": "bool",
+              "field_name": "is_visible"
+            }
+          ],
+          "functions": []
+        }
+      }
+    },
+    "engine/src/Ignis/Scene/Components/CameraComponent.h": {
+      "mtime": 1779908454.6582606,
+      "sha256": "51212ade2051e4c6b381533b9550a6fd2b3a35b212739f1b6517167b8760a0c4",
+      "outputs": [
+        "engine/generated/Ignis/Scene/Components/CameraComponent.gen.h"
+      ],
+      "schema": {
+        "CameraComponent": {
+          "qualified_name": "Ignis::CameraComponent",
+          "metaclass": "Component",
+          "properties": [
+            {
+              "specifiers": [
+                "EditAnywhere",
+                "SaveGame"
+              ],
+              "field_type": "SceneCamera",
+              "field_name": "camera"
+            },
+            {
+              "specifiers": [
+                "EditAnywhere",
+                "SaveGame"
+              ],
+              "field_type": "bool",
+              "field_name": "is_primary"
+            }
+          ],
+          "functions": []
+        }
+      }
+    },
+    "engine/src/Ignis/Events/Event.h": {
+      "mtime": 1779887571.79313,
+      "sha256": "1280aa8884bf52036687c13cd4305b961e0a7a7b26346b6b54c1e4c12fc92a39",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Events/KeyEvent.h": {
+      "mtime": 1779887571.7932906,
+      "sha256": "54bb89a94cabaffebc2e73b98e90f332714265c55f2ff2fd0de8e8a2e23b6ae4",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Events/ApplicationEvent.h": {
+      "mtime": 1779887571.7929769,
+      "sha256": "406ecc2cfc57563733021640a44b98c7a91a8fc49cc30bce253f7a56a8b96ac9",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/Ignis/Events/MouseEvent.h": {
+      "mtime": 1779887571.7934415,
+      "sha256": "46e0dbd13c309901c135d6553a5d137df5331a9ae843439a7a10026307fa97e7",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/macOS/MacOSFileWatcher.h": {
+      "mtime": 1779713209.002129,
+      "sha256": "7146e97774e10b6ed69b10b1fb13ebdb422409a5283fd6482a0fe9981464ca7a",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/Metal/MetalShaderLibrary.h": {
+      "mtime": 1779887571.8047037,
+      "sha256": "8416797753a82ebc7b426b0b9ce95a2f8222a8909dd22ecba93712e552954735",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/Metal/MetalCommandQueue.h": {
+      "mtime": 1779887571.803097,
+      "sha256": "b9b1d0d794c67b4cfa406a94ba53862d8e3f7a3b4d2c2921d2036f1c39f1d1d8",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/Metal/MetalAutoReleasePool.h": {
+      "mtime": 1779887571.8020868,
+      "sha256": "cab573cfd67f6d1bb50236c6ad655805eab6e6769bfe9c8d3297c5cf6c17df0e",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/Metal/MetalCommandEncoder.h": {
+      "mtime": 1779887571.8028018,
+      "sha256": "8776a22eebb2fb34edf428949fbfcf280976d0891ab78c75a666fbef6cb00d8b",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/Metal/MetalStateCache.h": {
+      "mtime": 1779887571.804985,
+      "sha256": "9599c2361b620f92ce863e214afe730746dbbd60a9c60d7da7fdbb3138d5ff35",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/Metal/MetalGRI.h": {
+      "mtime": 1779887571.8040574,
+      "sha256": "e13b56c8a4344fd14600ca3294246855ee7a6a2ab60aea2ef2f7a46bba2aa90b",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/Metal/MetalContext.h": {
+      "mtime": 1779887571.8034973,
+      "sha256": "a91dbf0f25da240c153f79154647f4c4bc289ad28e77d37b85d4f4000512dcfa",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/Metal/MetalCommandBuffer.h": {
+      "mtime": 1779887571.8025222,
+      "sha256": "1542dd59da0a4ce57e262589e2f9bbbc60e032f9e3d9d4e46fa242a6bd959079",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/Metal/MetalResource.h": {
+      "mtime": 1779887571.80421,
+      "sha256": "8f3cca232e363e1559927b81b46dc6685712d00480a6991d4f30bd5511069c85",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/Metal/MetalDevice.h": {
+      "mtime": 1779887571.803792,
+      "sha256": "0af216eb3617717446a3900f261ccf31c94c345112522a09e26e36958a7424b4",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/spirv/MslSpirvCompiler.h": {
+      "mtime": 1779887571.8064258,
+      "sha256": "e949cff57562e2ce2cfac045aae2cbad28f4a9d454ea6cd8a8beab4706e9d5b2",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/spirv/SpirvCompiler.h": {
+      "mtime": 1779887571.8067093,
+      "sha256": "782ca6a8537d43ea0770ad28c375b675571d2a9a0eedec9eb69cdba5fe3bea2a",
+      "outputs": [],
+      "schema": {}
+    },
+    "engine/src/IgnisBackend/spirv/HlslSpirvCompiler.h": {
+      "mtime": 1779887571.8061507,
+      "sha256": "dbfddb7b9a9fe8e62bd94487bd4f6d3ef80dad941b7e4bfda7e497d2e0344015",
+      "outputs": [],
+      "schema": {}
+    }
+  }
+}

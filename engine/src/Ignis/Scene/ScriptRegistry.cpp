@@ -1,5 +1,6 @@
 #include "igpch.h"
-#include "Ignis/Scene/ScriptRegistry.h"
+#include "ScriptRegistry.h"
+#include "ScriptableEntity.h"
 
 namespace Ignis
 {

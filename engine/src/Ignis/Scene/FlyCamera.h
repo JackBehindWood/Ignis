@@ -18,8 +18,12 @@ public:
     void on_mouse_move(float x, float y);
 
     void focus_on(Math::Vec3f target, float distance);
+    void focus_on(Math::Vec3f target, Math::Vec3f offset);
     void set_position(Math::Vec3f pos);
     void set_orientation(float yaw_deg, float pitch_deg);
+
+    void move(const Math::Vec3f& delta);
+    void rotate(float delta_yaw_deg, float delta_pitch_deg);
 
     CameraData get_camera_data() const;
 

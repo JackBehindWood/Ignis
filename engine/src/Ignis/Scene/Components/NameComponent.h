@@ -6,7 +6,7 @@ namespace Ignis
 IG_CLASS(Component)
 struct NameComponent
 {
-    IG_PROPERTY(name)
+    IG_PROPERTY(EditAnywhere, SaveGame)
     String name = "Entity";
 };
 

@@ -3,20 +3,20 @@
 #include "Ignis/Core/Input.h"
 #include "Ignis/Core/KeyCodes.h"
 #include "Ignis/Core/MouseCodes.h"
+#include "FlyCamera.h"
 
 namespace Ignis
 {
 
-namespace
+namespace Utils
 {
 Math::Vec3f compute_forward(float yaw_deg, float pitch_deg)
 {
     const float yaw   = Math::radians(yaw_deg);
     const float pitch = Math::radians(pitch_deg);
-    return Math::Vec3f{Math::cos(yaw) * Math::cos(pitch), Math::sin(pitch), Math::sin(yaw) * Math::cos(pitch)}
-        .normalized();
+    return Math::Vec3f{Math::cos(yaw) * Math::cos(pitch), Math::sin(pitch), Math::sin(yaw) * Math::cos(pitch)};
 }
-} // namespace
+} // namespace Utils
 
 void FlyCamera::set_perspective(float fov_deg, float near_clip, float far_clip)
 {
@@ -37,7 +37,7 @@ void FlyCamera::update(float ts)
         return;
     }
 
-    const Math::Vec3f forward  = compute_forward(m_yaw, m_pitch);
+    const Math::Vec3f forward  = Utils::compute_forward(m_yaw, m_pitch);
     const Math::Vec3f world_up = {0.0f, 1.0f, 0.0f};
     const Math::Vec3f right    = Math::cross(forward, world_up).normalized();
     const Math::Vec3f up       = Math::cross(right, forward).normalized();
@@ -72,7 +72,7 @@ void FlyCamera::update(float ts)
 
 void FlyCamera::on_mouse_scroll(float delta)
 {
-    m_position += compute_forward(m_yaw, m_pitch) * (delta * m_zoom_speed);
+    m_position += Utils::compute_forward(m_yaw, m_pitch) * (delta * m_zoom_speed);
 }
 
 void FlyCamera::on_mouse_button(MouseCode button, bool pressed)
@@ -99,14 +99,31 @@ void FlyCamera::on_mouse_move(float x, float y)
     m_last_mouse_x = x;
     m_last_mouse_y = y;
 
-    m_yaw += dx * m_orbit_speed;
+    m_yaw -= dx * m_orbit_speed;
     m_pitch -= dy * m_orbit_speed;
     m_pitch = Math::clamp(m_pitch, -89.0f, 89.0f);
 }
 
 void FlyCamera::focus_on(Math::Vec3f target, float distance)
 {
-    m_position = target - compute_forward(m_yaw, m_pitch) * distance;
+    m_position = target - Utils::compute_forward(m_yaw, m_pitch) * distance;
+}
+
+void FlyCamera::focus_on(Math::Vec3f target, Math::Vec3f offset)
+{
+    const Math::Vec3f forward  = Utils::compute_forward(m_yaw, m_pitch);
+    const Math::Vec3f world_up = {0.0f, 1.0f, 0.0f};
+    const Math::Vec3f right    = Math::cross(forward, world_up).normalized();
+    const Math::Vec3f up       = Math::cross(right, forward).normalized();
+
+    Math::Vec3f total_offset = (right * offset.x) + (up * offset.y) - (forward * offset.z);
+    m_position               = target + total_offset;
+
+    Math::Vec3f new_dir = (target - m_position).normalized();
+
+    m_yaw   = Math::degrees(Math::atan2(new_dir.z, new_dir.x));
+    m_pitch = Math::degrees(Math::asin(new_dir.y));
+    m_pitch = Math::clamp(m_pitch, -89.0f, 89.0f);
 }
 
 void FlyCamera::set_position(Math::Vec3f pos)
@@ -120,9 +137,22 @@ void FlyCamera::set_orientation(float yaw_deg, float pitch_deg)
     m_pitch = Math::clamp(pitch_deg, -89.0f, 89.0f);
 }
 
+void FlyCamera::move(const Math::Vec3f& delta)
+{
+    m_position += delta;
+}
+
+void FlyCamera::rotate(float delta_yaw_deg, float delta_pitch_deg)
+{
+    m_yaw += delta_yaw_deg;
+    m_pitch += delta_pitch_deg;
+
+    m_pitch = Math::clamp(m_pitch, -89.0f, 89.0f);
+}
+
 CameraData FlyCamera::get_camera_data() const
 {
-    const Math::Vec3f forward = compute_forward(m_yaw, m_pitch);
+    const Math::Vec3f forward = Utils::compute_forward(m_yaw, m_pitch);
     const Math::Vec3f world_up{0.0f, 1.0f, 0.0f};
     const Math::Mat4f view = Math::look_at(m_position, m_position + forward, world_up);
     const Math::Mat4f proj = Math::perspective(Math::radians(m_fov), m_aspect, m_near, m_far);

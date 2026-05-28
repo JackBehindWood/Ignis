@@ -15,6 +15,7 @@ struct RGPassBase
     bool        is_culled       = false;
     uint32_t    num_color_slots = 0;
     bool        has_depth       = false;
+    bool        depth_read_only = false; // Load-only; does not claim writer ownership
 
     Vector<uint16_t> texture_reads;
     Vector<uint16_t> buffer_reads;

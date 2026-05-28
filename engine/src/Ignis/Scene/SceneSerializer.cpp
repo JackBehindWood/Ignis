@@ -5,21 +5,18 @@
 #include "ScriptRegistry.h"
 #include "Components/ComponentRegistry.h"
 #include "Components/Components.h"
-#include "yaml-cpp/yaml.h"
-
-#include <fstream>
+#include "Ignis/Foundation/YamlStream.h"
 
 namespace Ignis
 {
 
-// TODO: we should use Foundation/YamlStream.h
-
 void SceneSerializer::serialize(const Scene& scene, const Path& path)
 {
-    YAML::Emitter out;
-    out << YAML::BeginMap;
-    out << YAML::Key << "scene" << YAML::Value << YAML::BeginMap;
-    out << YAML::Key << "entities" << YAML::Value << YAML::BeginSeq;
+    YamlWriter writer;
+    writer.begin_map("scene");
+    writer.begin_sequence("entities");
+
+    YAML::Emitter& out = writer.emitter();
 
     for (auto handle : const_cast<Scene&>(scene).registry().storage<entt::entity>())
     {
@@ -49,7 +46,13 @@ void SceneSerializer::serialize(const Scene& scene, const Path& path)
                     if (const ScriptDescriptor* sd = ScriptRegistry::find(sc.script_class))
                     {
                         out << YAML::Key << "properties" << YAML::Value << YAML::BeginMap;
-                        sd->serialize_instance(*sc.instance, out);
+                        for (const PropertyDescriptor& pd : sd->properties)
+                        {
+                            if (pd.serialize)
+                            {
+                                pd.serialize(sc.instance.get(), out);
+                            }
+                        }
                         out << YAML::EndMap;
                     }
                 }
@@ -65,34 +68,28 @@ void SceneSerializer::serialize(const Scene& scene, const Path& path)
         out << YAML::EndMap;
     }
 
-    out << YAML::EndSeq;
-    out << YAML::EndMap;
-    out << YAML::EndMap;
-
-    std::ofstream file(path);
-    file << out.c_str();
+    writer.end_sequence();
+    writer.end_map();
+    writer.write(path);
 }
 
 bool SceneSerializer::deserialize(Scene& scene, const Path& path)
 {
-    YAML::Node root;
-    try
+    YamlReader reader(path);
+    if (!reader.is_open())
     {
-        root = YAML::LoadFile(path.string());
-    }
-    catch (const YAML::Exception& ex)
-    {
-        IG_CORE_ERROR("SceneSerializer: failed to parse '{}': {}", path.string(), ex.what());
+        IG_CORE_ERROR("SceneSerializer: failed to parse '{}'", path.string());
         return false;
     }
 
-    auto scene_node = root["scene"];
+    const YAML::Node& root       = reader.root_node();
+    const YAML::Node  scene_node = root["scene"];
     if (!scene_node)
     {
         return false;
     }
 
-    auto entities_node = scene_node["entities"];
+    const YAML::Node entities_node = scene_node["entities"];
     if (!entities_node)
     {
         return true;
@@ -102,7 +99,7 @@ bool SceneSerializer::deserialize(Scene& scene, const Path& path)
     {
         Entity e = scene.create_entity_raw();
 
-        auto components_node = entity_node["components"];
+        const YAML::Node components_node = entity_node["components"];
         if (!components_node)
         {
             continue;
@@ -124,7 +121,14 @@ bool SceneSerializer::deserialize(Scene& scene, const Path& path)
                     {
                         if (it->second["properties"])
                         {
-                            sd->deserialize_instance(*sc.instance, it->second["properties"]);
+                            const YAML::Node& props_node = it->second["properties"];
+                            for (const PropertyDescriptor& pd : sd->properties)
+                            {
+                                if (pd.deserialize)
+                                {
+                                    pd.deserialize(sc.instance.get(), props_node);
+                                }
+                            }
                         }
                     }
                     sc.instance->create();

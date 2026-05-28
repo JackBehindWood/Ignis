@@ -39,6 +39,11 @@ public:
     YamlWriter& push_sequence_item(const String& value);
     YamlWriter& end_sequence();
 
+    YAML::Emitter& emitter()
+    {
+        return m_emitter;
+    }
+
     bool write(const Path& path);
 
 private:
@@ -64,6 +69,11 @@ public:
     bool is_open() const
     {
         return m_open;
+    }
+
+    const YAML::Node& root_node() const
+    {
+        return m_root;
     }
 
     template <typename T>

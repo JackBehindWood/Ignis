@@ -113,6 +113,7 @@ public:
 
     ColourEntry colour_targets[max_simultaneous_render_targets];
     DepthEntry  depth_stencil_target;
+    uint32_t    num_explicit_colour_targets = 0;
 
     GRIRenderPassInfo()                                    = default;
     GRIRenderPassInfo(const GRIRenderPassInfo&)            = default;
@@ -285,11 +286,13 @@ public:
 struct GRIPipelineStateDesc
 {
     GRIShader*            vertex_shader        = nullptr;
-    GRIShader*            pixel_shader         = nullptr;
+    GRIShader*            pixel_shader         = nullptr; // nullptr for depth-only passes
     GRIVertexDeclaration* vertex_declaration   = nullptr;
-    GRIPixelFormat        render_target_format = GRIPixelFormat::RGBA8Unorm;
-    GRIPixelFormat        depth_stencil_format = GRIPixelFormat::Unknown; // Unknown = no depth
+    GRIPixelFormat        render_target_format = GRIPixelFormat::RGBA8Unorm; // Unknown = no color attachment
+    GRIPixelFormat        depth_stencil_format = GRIPixelFormat::Unknown;    // Unknown = no depth
     GRIPrimitiveTopology  primitive_topology   = GRIPrimitiveTopology::TriangleList;
+    bool                  depth_write_enabled  = true;
+    GRIBlendMode          blend_mode           = GRIBlendMode::None;
 };
 
 class GRIPipelineState : public GRIResource

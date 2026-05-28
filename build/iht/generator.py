@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 
 # FNV-1a 32-bit hash — matches the runtime ComponentDescriptor type_id convention.
@@ -14,106 +12,32 @@ def _fnv1a_32(s: str) -> int:
     return h
 
 
-@dataclass
-class CodecEntry:
-    match:  Callable[[str], bool]
-    encode: str | None   # None = emit #error
-    decode: str | None   # None = emit #error
+def _serialize_line(prop: dict) -> str | None:
+    if 'SaveGame' not in prop['specifiers']:
+        return None
+    fn = prop['field_name']
+    ft = prop['field_type']
+    return f'            out << YAML::Key << "{fn}" << YAML::Value << Ignis::YamlCodec<{ft}>::Encode(c.{fn});'
 
 
-def _exact(*names: str) -> Callable[[str], bool]:
-    return lambda t: t in names
-
-
-def _math_alias(*names: str) -> Callable[[str], bool]:
-    return lambda t: t in names
-
-
-CODEC_TABLE: list[CodecEntry] = [
-    CodecEntry(match=_exact("float", "double"),
-               encode="{val}",
-               decode="{node}.as<float>()"),
-    CodecEntry(match=_exact("bool"),
-               encode="{val}",
-               decode="{node}.as<bool>()"),
-    CodecEntry(match=_exact("int", "int32_t", "uint32_t"),
-               encode="{val}",
-               decode="{node}.as<int>()"),
-    CodecEntry(match=_exact("String"),
-               encode="{val}",
-               decode="{node}.as<std::string>()"),
-    CodecEntry(match=_exact("Math::Vec2f"),
-               encode="{val}",
-               decode="{node}.as<Ignis::Math::Vec2f>()"),
-    CodecEntry(match=_exact("Math::Vec3f"),
-               encode="{val}",
-               decode="{node}.as<Ignis::Math::Vec3f>()"),
-    CodecEntry(match=_exact("Math::Vec4f"),
-               encode="{val}",
-               decode="{node}.as<Ignis::Math::Vec4f>()"),
-    CodecEntry(match=_exact("Math::Quatf"),
-               encode="{val}",
-               decode="{node}.as<Ignis::Math::Quatf>()"),
-    CodecEntry(match=_exact("AssetID"),
-               encode="{val}.str()",
-               decode="AssetID({{{node}.as<std::string>()}})"),
-    CodecEntry(match=_exact("UUID"),
-               encode="static_cast<uint64_t>({val})",
-               decode="UUID({node}.as<uint64_t>())"),
-    CodecEntry(match=_exact("SceneCamera"),
-               encode="serialize_scene_camera({val})",
-               decode="deserialize_scene_camera({node})"),
-    # Unknown type — fallthrough produces #error
-    CodecEntry(match=lambda _: True, encode=None, decode=None),
-]
-
-
-def _resolve_codec(field_type: str) -> CodecEntry:
-    for entry in CODEC_TABLE:
-        if entry.match(field_type):
-            return entry
-    return CODEC_TABLE[-1]  # unreachable; fallthrough entry always matches
-
-
-def _serialize_line(prop: dict) -> str:
-    entry = _resolve_codec(prop['field_type'])
-    if entry.encode is None:
-        ft = prop['field_type']
-        fn = prop['field_name']
-        return (
-            f'#error "IHT codegen error: no YAML codec for type \'{ft}\' '
-            f'(field \'{fn}\') — add a CodecEntry to generator.py"'
-        )
-    val    = f"c.{prop['field_name']}"
-    encode = entry.encode.format(val=val)
-    return f'            out << YAML::Key << "{prop["prop_name"]}" << YAML::Value << {encode};'
-
-
-def _deserialize_line(prop: dict) -> str:
-    entry = _resolve_codec(prop['field_type'])
-    if entry.decode is None:
-        ft = prop['field_type']
-        fn = prop['field_name']
-        return (
-            f'#error "IHT codegen error: no YAML codec for type \'{ft}\' '
-            f'(field \'{fn}\') — add a CodecEntry to generator.py"'
-        )
-    field_node = f'node["{prop["prop_name"]}"]'
-    decode = entry.decode.format(
-        node=field_node,
-        alias=prop['field_type'],
-        field=prop['prop_name'],
-    )
-    return (f'            if (node["{prop["prop_name"]}"]) '
-            f'{{ c.{prop["field_name"]} = {decode}; }}')
+def _deserialize_line(prop: dict) -> str | None:
+    if 'SaveGame' not in prop['specifiers']:
+        return None
+    fn = prop['field_name']
+    ft = prop['field_type']
+    return f'            if (node["{fn}"]) {{ c.{fn} = Ignis::YamlCodec<{ft}>::Decode(node["{fn}"]); }}'
 
 
 def _emit_register_fn(type_name: str, info: dict) -> str:
     type_id = _fnv1a_32(type_name)
+    qname   = info['qualified_name']
     props   = info['properties']
 
-    serialize_lines   = '\n'.join(_serialize_line(p) for p in props)
-    deserialize_lines = '\n'.join(_deserialize_line(p) for p in props)
+    ser_lines   = [l for p in props if (l := _serialize_line(p)) is not None]
+    deser_lines = [l for p in props if (l := _deserialize_line(p)) is not None]
+
+    serialize_block   = '\n'.join(ser_lines)
+    deserialize_block = '\n'.join(deser_lines)
 
     return f"""\
 inline void register_{type_name}()
@@ -121,20 +45,20 @@ inline void register_{type_name}()
     ComponentRegistry::register_component(ComponentDescriptor{{
         .type_name   = "{type_name}",
         .type_id     = 0x{type_id:08X}U,
-        .add_to      = [](Entity& e) {{ e.add_component<{type_name}>(); }},
-        .remove_from = [](Entity& e) {{ e.remove_component<{type_name}>(); }},
-        .has_on      = [](const Entity& e) {{ return e.has_component<{type_name}>(); }},
+        .add_to      = [](Entity& e) {{ e.add_component<{qname}>(); }},
+        .remove_from = [](Entity& e) {{ e.remove_component<{qname}>(); }},
+        .has_on      = [](const Entity& e) {{ return e.has_component<{qname}>(); }},
         .serialize   = [](const Entity& e, YAML::Emitter& out)
         {{
-            const auto& c = e.get_component<{type_name}>();
+            const auto& c = e.get_component<{qname}>();
             out << YAML::Key << "{type_name}" << YAML::Value << YAML::BeginMap;
-{serialize_lines}
+{serialize_block}
             out << YAML::EndMap;
         }},
         .deserialize = [](Entity& e, const YAML::Node& node)
         {{
-            auto& c = e.add_component<{type_name}>();
-{deserialize_lines}
+            auto& c = e.add_component<{qname}>();
+{deserialize_block}
         }},
     }});
 }}
@@ -144,22 +68,21 @@ inline void register_{type_name}()
 def emit(source: Path, schema: dict, output: Path) -> bool:
     """Generate a .gen.h for Component-metaclass types found in schema.
 
-    Returns True if a file was written, False if the source has no annotated
-    components (no output is produced for annotation-free headers).
+    Returns True if a file was written, False if no annotated components exist.
     """
     components = {k: v for k, v in schema.items() if v.get('metaclass') == 'Component'}
     if not components:
         return False
 
     source_include = _source_include(source)
-    fn_block = '\n'.join(_emit_register_fn(name, info) for name, info in components.items())
+    fn_block       = '\n'.join(_emit_register_fn(name, info) for name, info in components.items())
 
     content = f"""\
 #pragma once
 // Generated by IHT — do not edit
 #include "{source_include}"
-#include "Ignis/Scene/ComponentRegistry.h"
-#include "Ignis/Scene/YAMLMathCodecs.h"
+#include "Ignis/Scene/Components/ComponentRegistry.h"
+#include "Ignis/Scene/YamlCodec.h"
 
 namespace Ignis::Reflect
 {{
@@ -175,11 +98,16 @@ namespace Ignis::Reflect
     return True
 
 
-def emit_scene_registry(all_schemas: dict[Path, dict], output: Path,
-                        scan_dirs: list[Path], output_dir: Path) -> None:
-    """Generate SceneRegistry.gen.h — the master bootstrap include."""
+def emit_scene_registry_cpp(
+    all_schemas: dict[Path, dict],
+    output:      Path,
+    scan_dirs:   list[Path],
+    output_dir:  Path,
+    registry_fn: str = "register_all_scene_components",
+) -> None:
+    """Generate SceneRegistry.gen.cpp — non-inline registration TU for components."""
     seen_includes: dict[str, None] = {}
-    registrations: list[str] = []
+    registrations: list[str]       = []
 
     for path, schema in sorted(all_schemas.items(), key=lambda kv: kv[0].stem):
         for type_name, info in schema.items():
@@ -191,18 +119,18 @@ def emit_scene_registry(all_schemas: dict[Path, dict], output: Path,
     if not seen_includes:
         return
 
-    inc_block  = '\n'.join(seen_includes.keys())
-    reg_block  = '\n'.join(registrations)
+    inc_block = '\n'.join(seen_includes.keys())
+    reg_block = '\n'.join(registrations)
 
     content = f"""\
-#pragma once
 // Generated by IHT — do not edit
 {inc_block}
+#include "Ignis/Scene/Components/ComponentRegistry.h"
 
 namespace Ignis::Reflect
 {{
 
-inline void register_all_scene_components()
+void {registry_fn}()
 {{
 {reg_block}
 
@@ -212,6 +140,93 @@ inline void register_all_scene_components()
 
 }} // namespace Ignis::Reflect
 """
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists() and output.read_text() == content:
+        return
+    output.write_text(content)
+
+
+def emit_script_registry_cpp(
+    all_schemas: dict[Path, dict],
+    output:      Path,
+    scan_dirs:   list[Path],
+    output_dir:  Path,
+    registry_fn: str = "register_all_scripts",
+) -> None:
+    """Generate ScriptRegistry.gen.cpp — registration TU for Script-metaclass types."""
+    includes: dict[str, None]            = {}
+    script_types: list[tuple[str, dict]] = []
+
+    for path, schema in sorted(all_schemas.items(), key=lambda kv: kv[0].stem):
+        for type_name, info in schema.items():
+            if info.get('metaclass') == 'Script':
+                source_include = _source_include(path)
+                includes[f'#include "{source_include}"'] = None
+                script_types.append((type_name, info))
+
+    if not script_types:
+        return
+
+    inc_block = '\n'.join(includes.keys())
+
+    reg_blocks: list[str] = []
+    for type_name, info in script_types:
+        qname = info['qualified_name']
+        props = [p for p in info['properties'] if 'SaveGame' in p['specifiers']]
+
+        prop_blocks: list[str] = []
+        for p in props:
+            fn            = p['field_name']
+            ft            = p['field_type']
+            specifiers_str = ', '.join(f'"{s}"' for s in p['specifiers'])
+            prop_blocks.append(f"""\
+            PropertyDescriptor{{
+                .name        = "{fn}",
+                .type_name   = "{ft}",
+                .specifiers  = {{{specifiers_str}}},
+                .serialize   = [](void* inst, YAML::Emitter& out) {{
+                    auto* c = static_cast<{qname}*>(inst);
+                    out << YAML::Key << "{fn}" << YAML::Value << Ignis::YamlCodec<{ft}>::Encode(c->{fn});
+                }},
+                .deserialize = [](void* inst, const YAML::Node& node) {{
+                    auto* c = static_cast<{qname}*>(inst);
+                    if (node["{fn}"]) {{ c->{fn} = Ignis::YamlCodec<{ft}>::Decode(node["{fn}"]); }}
+                }},
+            }},""")
+
+        props_joined = '\n'.join(prop_blocks)
+
+        reg_blocks.append(f"""\
+    ScriptRegistry::register_script(ScriptDescriptor{{
+        .name       = "{type_name}",
+        .factory    = []() -> UniquePtr<ScriptableEntity> {{
+            return create_unique<{qname}>();
+        }},
+        .properties = {{
+{props_joined}
+        }},
+    }});""")
+
+    reg_body = '\n'.join(reg_blocks)
+
+    content = f"""\
+// Generated by IHT — do not edit
+{inc_block}
+#include "Ignis/Scene/ScriptRegistry.h"
+#include "Ignis/Scene/YamlCodec.h"
+
+namespace Ignis::Reflect
+{{
+
+void {registry_fn}()
+{{
+{reg_body}
+}}
+
+}} // namespace Ignis::Reflect
+"""
+
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists() and output.read_text() == content:
         return

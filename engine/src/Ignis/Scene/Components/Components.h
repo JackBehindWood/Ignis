@@ -18,13 +18,13 @@ namespace Ignis
 IG_CLASS(Component)
 struct TransformComponent
 {
-    IG_PROPERTY(position)
+    IG_PROPERTY(EditAnywhere, SaveGame)
     Math::Vec3f position = Math::Vec3f::zero();
 
-    IG_PROPERTY(rotation)
+    IG_PROPERTY(EditAnywhere, SaveGame)
     Math::Quatf rotation = Math::Quatf::identity();
 
-    IG_PROPERTY(scale)
+    IG_PROPERTY(EditAnywhere, SaveGame)
     Math::Vec3f scale = Math::Vec3f::one();
 
     Math::Mat4f to_mat4() const
@@ -37,13 +37,13 @@ struct TransformComponent
 IG_CLASS(Component)
 struct MeshComponent
 {
-    IG_PROPERTY(mesh_id)
+    IG_PROPERTY(EditAnywhere, SaveGame)
     AssetID mesh_id;
 
-    IG_PROPERTY(material_id)
+    IG_PROPERTY(EditAnywhere, SaveGame)
     AssetID material_id;
 
-    IG_PROPERTY(is_visible)
+    IG_PROPERTY(EditAnywhere, SaveGame)
     bool is_visible = true;
 };
 

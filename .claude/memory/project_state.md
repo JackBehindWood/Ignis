@@ -24,6 +24,7 @@ Observer-pattern project dispatch (`IProjectObserver`/`ProjectContext`), mode-aw
 - `RenderMesh` pipeline: vertex layout, upload, `MetalGRI` backend
 - `RenderShader` / `ShaderCache` / SPIR-V→MSL compilation via SPIRV-Cross
 - `MetalCommandContext`, metal-cpp ownership discipline
+- **Depth buffer Phase 1 complete**: `GRIViewport::get_depth_texture()` virtual, `MetalViewport` override, `Renderer::get_depth_texture()`/`get_config()`, `RGBuilder::import_viewport_depth()`, `SceneRenderer` now declares depth to RG + PSO formats from `RendererConfig`
 
 ### Math & Scene
 - Foundation math library (Vec2/3/4, Mat4, Quat)

@@ -22,6 +22,8 @@ public:
 
     virtual void resize_viewport(GRIViewport* viewport, uint32_t width, uint32_t height) = 0;
 
+    virtual GRITexture2D* get_viewport_depth_texture(GRIViewport* viewport) = 0;
+
     virtual GRIVertexShaderPtr  create_vertex_shader(const GRIShaderDesc& desc)                  = 0;
     virtual GRIPixelShaderPtr   create_pixel_shader(const GRIShaderDesc& desc)                   = 0;
     virtual GRIPipelineStatePtr create_graphics_pipeline_state(const GRIPipelineStateDesc& desc) = 0;

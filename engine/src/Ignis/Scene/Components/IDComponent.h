@@ -8,7 +8,7 @@ namespace Ignis
 IG_CLASS(Component)
 struct IDComponent
 {
-    IG_PROPERTY(id)
+    IG_PROPERTY(EditAnywhere, SaveGame)
     UUID id = UUID();
 };
 

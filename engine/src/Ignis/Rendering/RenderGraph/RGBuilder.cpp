@@ -3,6 +3,7 @@
 #include "RenderGraph.h"
 #include <Ignis/Rendering/GRI/GRI.h>
 #include <Ignis/Rendering/GRI/GRICommandList.h>
+#include <Ignis/Rendering/Renderer.h>
 
 namespace Ignis
 {
@@ -31,6 +32,13 @@ RGTextureHandle RGBuilder::import_backbuffer()
     vt.is_imported = true;
     vt.ref_count   = 1;
     return m_graph.register_texture(std::move(vt));
+}
+
+RGTextureHandle RGBuilder::import_viewport_depth()
+{
+    GRITexture2D* depth = Renderer::get_depth_texture();
+    IG_CORE_ASSERT(depth, "import_viewport_depth: no viewport depth texture — call after Renderer::begin_frame");
+    return import_texture("ViewportDepth", depth);
 }
 
 RGTextureHandle RGBuilder::import_texture(const char* name, GRITexture2D* physical)
@@ -99,6 +107,18 @@ void RGBuilder::write_depth_stencil(RGTextureHandle h, const RGDepthAttachmentDe
     m_current_deps.depth_slot.store_action = desc.store_action;
     m_current_deps.depth_slot.clear_depth  = desc.clear_depth;
     m_current_deps.has_depth               = true;
+}
+
+void RGBuilder::read_depth_stencil(RGTextureHandle h, const RGDepthAttachmentDesc& desc)
+{
+    IG_CORE_ASSERT(h.is_valid(), "read_depth_stencil: invalid handle");
+
+    m_current_deps.depth_slot.texture_id   = h.id;
+    m_current_deps.depth_slot.load_action  = desc.load_action;
+    m_current_deps.depth_slot.store_action = desc.store_action;
+    m_current_deps.depth_slot.clear_depth  = desc.clear_depth;
+    m_current_deps.has_depth               = true;
+    m_current_deps.depth_read_only         = true;
 }
 
 void RGBuilder::write_storage_texture(RGTextureHandle h)
@@ -175,6 +195,7 @@ void RGBuilder::commit_pass(const char* name, RGPassBase* pass)
     pass->buffer_writes   = std::move(m_current_deps.buffer_writes);
     pass->num_color_slots = m_current_deps.num_color_slots;
     pass->has_depth       = m_current_deps.has_depth;
+    pass->depth_read_only = m_current_deps.depth_read_only;
     pass->depth_slot      = m_current_deps.depth_slot;
     std::memcpy(pass->color_slots, m_current_deps.color_slots, sizeof(pass->color_slots));
 
@@ -197,6 +218,7 @@ void RGBuilder::PassDependencies::reset()
     depth_slot      = {};
     num_color_slots = 0;
     has_depth       = false;
+    depth_read_only = false;
 }
 
 } // namespace Ignis

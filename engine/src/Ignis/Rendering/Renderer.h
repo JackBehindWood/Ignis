@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Ignis/Rendering/GRI/GRIDefinitions.h"
+#include "Ignis/Math/Math.h"
 #include "Ignis/Rendering/GRI/GRICommandList.h"
 #include "Ignis/Rendering/RenderResourceCache.h"
 #include "Ignis/Rendering/MaterialFactory.h"
@@ -15,6 +16,13 @@ enum class UniformSlot : uint32_t
     FrameData    = 0,
     Transform    = 1,
     MaterialArgs = 2,
+};
+
+struct GPUFrameData
+{
+    Math::Mat4f view_projection;
+    Math::Vec3f camera_world_pos;
+    float       _pad = 0.0f;
 };
 
 struct RendererConfig
@@ -34,7 +42,8 @@ public:
     static void begin_frame(GRIViewport* viewport);
     static void end_frame();
 
-    static void bind_frame_data(GRICommandListBase& cmd_list, const void* data, uint32_t size);
+    static void upload_frame_data(const GPUFrameData& data);
+    static void bind_frame_data(GRICommandListBase& cmd_list);
     static void bind_transform(GRICommandListBase& cmd_list, const void* data, uint32_t size);
 
     // Evict a cached GPU resource by opaque cache key (derived from AssetID by the caller).
@@ -51,11 +60,21 @@ public:
     {
         return s_material_factory;
     }
+    static const RendererConfig& get_config()
+    {
+        return s_config;
+    }
+    static GRITexture2D* get_depth_texture()
+    {
+        return s_depth_texture;
+    }
 
 private:
-    inline static RendererConfig        s_config;
-    inline static RenderResourceCache   s_resource_cache;
-    inline static MaterialFactory       s_material_factory;
-    inline static FrameUniformAllocator s_frame_alloc;
+    inline static RendererConfig                    s_config;
+    inline static GRITexture2D*                     s_depth_texture = nullptr;
+    inline static FrameUniformAllocator::Allocation s_frame_data_alloc{};
+    inline static RenderResourceCache               s_resource_cache;
+    inline static MaterialFactory                   s_material_factory;
+    inline static FrameUniformAllocator             s_frame_alloc;
 };
 } // namespace Ignis

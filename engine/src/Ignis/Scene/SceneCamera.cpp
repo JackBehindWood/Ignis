@@ -7,7 +7,7 @@ namespace Ignis
 
 namespace
 {
-// Right-handed orthographic projection matching the perspective convention ([0,1] depth for Metal)
+// Left-handed orthographic projection, depth range [0,1]
 Math::Mat4f ortho(float left, float right, float bottom, float top, float near_z, float far_z)
 {
     const float rl = right - left;
@@ -17,7 +17,7 @@ Math::Mat4f ortho(float left, float right, float bottom, float top, float near_z
     Math::Mat4f r{};
     r.m[0]  = 2.0f / rl;
     r.m[5]  = 2.0f / tb;
-    r.m[10] = -1.0f / fn;
+    r.m[10] = 1.0f / fn;
     r.m[12] = -(right + left) / rl;
     r.m[13] = -(top + bottom) / tb;
     r.m[14] = -near_z / fn;

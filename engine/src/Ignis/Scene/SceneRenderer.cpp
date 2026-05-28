@@ -19,6 +19,15 @@ namespace Ignis
 
 namespace Utils
 {
+static void emit_depth(GRICommandList& cmd, const FrameDrawItem& item)
+{
+    cmd.set_graphics_pipeline_state(item.depth_pso);
+    cmd.set_vertex_buffer(item.mesh->get_vertex_buffer());
+    cmd.set_index_buffer(item.mesh->get_index_buffer(), item.mesh->get_index_format());
+    Renderer::bind_transform(cmd, item.world.data(), sizeof(Math::Mat4f));
+    cmd.draw_indexed_primitives(item.mesh->get_index_count());
+}
+
 static void emit(GRICommandList& cmd, const FrameDrawItem& item)
 {
     cmd.set_graphics_pipeline_state(item.material->get_pipeline_state());
@@ -31,7 +40,7 @@ static void emit(GRICommandList& cmd, const FrameDrawItem& item)
     cmd.set_index_buffer(item.mesh->get_index_buffer(), item.mesh->get_index_format());
     Renderer::bind_transform(cmd, item.world.data(), sizeof(Math::Mat4f));
     cmd.draw_indexed_primitives(item.mesh->get_index_count());
-};
+}
 } // namespace Utils
 
 GRITexture2D* SceneRenderer::resolve_texture(AssetID id)
@@ -68,6 +77,61 @@ GRITexture2D* SceneRenderer::resolve_texture(AssetID id)
     return cached ? cached->get_texture() : nullptr;
 }
 
+void SceneRenderer::prepare(Scene& scene)
+{
+    AssetManager& am   = AssetManager::get();
+    auto          view = scene.registry().view<MeshComponent>();
+
+    for (auto [entity, mesh_comp] : view.each())
+    {
+        const uint64_t key = static_cast<uint64_t>(mesh_comp.mesh_id);
+        if (Renderer::get_resource_cache().find_mesh(key))
+        {
+            continue;
+        }
+
+        SharedPtr<AssetMesh> asset_mesh = am.get_asset_as<AssetMesh>(mesh_comp.mesh_id);
+        if (!asset_mesh)
+        {
+            if (am.get_state(mesh_comp.mesh_id) == AssetState::Unloaded)
+            {
+                am.load_deferred(mesh_comp.mesh_id);
+            }
+            continue;
+        }
+
+        Math::Vec3f            bounds_center{};
+        float                  bounds_radius = 1.0e30f;
+        const uint32_t         stride        = asset_mesh->get_vertex_stride();
+        const Vector<uint8_t>& verts         = asset_mesh->get_vertices();
+        if (stride >= sizeof(Math::Vec3f) && !verts.empty())
+        {
+            const uint32_t count = static_cast<uint32_t>(verts.size()) / stride;
+            Math::Vec3f    mn{1.0e30f, 1.0e30f, 1.0e30f};
+            Math::Vec3f    mx{-1.0e30f, -1.0e30f, -1.0e30f};
+            for (uint32_t i = 0; i < count; ++i)
+            {
+                const Math::Vec3f& p = *reinterpret_cast<const Math::Vec3f*>(verts.data() + i * stride);
+                mn.x                 = Math::min(mn.x, p.x);
+                mn.y                 = Math::min(mn.y, p.y);
+                mn.z                 = Math::min(mn.z, p.z);
+                mx.x                 = Math::max(mx.x, p.x);
+                mx.y                 = Math::max(mx.y, p.y);
+                mx.z                 = Math::max(mx.z, p.z);
+            }
+            Math::Vec3f bounds_size = mx - mn;
+            bounds_center           = mn + bounds_size * 0.5f;
+            bounds_radius           = Math::length(bounds_size) * 0.5f;
+        }
+
+        SharedPtr<RenderMesh> render_mesh =
+            RenderMesh::create(verts.data(), static_cast<uint32_t>(verts.size()), asset_mesh->get_indices().data(),
+                               static_cast<uint32_t>(asset_mesh->get_indices().size()), GRIIndexFormat::Uint32,
+                               bounds_center, bounds_radius);
+        Renderer::get_resource_cache().register_mesh(key, render_mesh);
+    }
+}
+
 void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuilder& builder, RGTextureHandle backbuffer,
                                  AssetID scene_texture_id)
 {
@@ -77,10 +141,9 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
     const Math::Frustum& frustum  = camera.frustum;
     const Math::Mat4f&   cam_view = camera.view;
 
-    // --- Build draw lists ---
-    // Cache miss path (first-use): upload mesh to GPU and register in RenderResourceCache.
-    // Asset lifetimes are guaranteed stable for the frame duration by the AssetManager registry;
-    // raw observing pointers are safe here.
+    const GRIPixelFormat rt_fmt    = Renderer::get_config().render_target_format;
+    const GRIPixelFormat depth_fmt = Renderer::get_config().depth_format;
+
     auto view = scene.registry().view<TransformComponent, MeshComponent>();
     for (auto [entity, transform, mesh_comp] : view.each())
     {
@@ -91,59 +154,15 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
 
         const Math::Mat4f world = transform.to_mat4();
 
-        // --- Mesh resolve ---
+        // --- Mesh resolve (cache-hit only; prepare() handles uploads) ---
         const RenderMesh* render_mesh = nullptr;
         {
             SharedPtr<RenderMesh> cached = Renderer::get_resource_cache().find_mesh(uint64_t(mesh_comp.mesh_id));
             if (!cached)
             {
-                AssetManager&        amv2       = AssetManager::get();
-                SharedPtr<AssetMesh> asset_mesh = amv2.get_asset_as<AssetMesh>(mesh_comp.mesh_id);
-                if (!asset_mesh)
-                {
-                    if (amv2.get_state(mesh_comp.mesh_id) == AssetState::Unloaded)
-                    {
-                        amv2.load_deferred(mesh_comp.mesh_id);
-                    }
-                    asset_mesh = static_pointer_cast<AssetMesh>(amv2.get_fallback(AssetType::Mesh));
-                }
-                if (!asset_mesh)
-                {
-                    continue;
-                }
-
-                // Compute AABB-derived bounding sphere; assumes position at vertex offset 0.
-                Math::Vec3f            bounds_center{};
-                float                  bounds_radius = 1.0e30f;
-                const uint32_t         stride        = asset_mesh->get_vertex_stride();
-                const Vector<uint8_t>& verts         = asset_mesh->get_vertices();
-                if (stride >= sizeof(Math::Vec3f) && !verts.empty())
-                {
-                    const uint32_t count = static_cast<uint32_t>(verts.size()) / stride;
-                    Math::Vec3f    mn{1.0e30f, 1.0e30f, 1.0e30f};
-                    Math::Vec3f    mx{-1.0e30f, -1.0e30f, -1.0e30f};
-                    for (uint32_t i = 0; i < count; ++i)
-                    {
-                        const Math::Vec3f& p = *reinterpret_cast<const Math::Vec3f*>(verts.data() + i * stride);
-                        mn.x                 = Math::min(mn.x, p.x);
-                        mn.y                 = Math::min(mn.y, p.y);
-                        mn.z                 = Math::min(mn.z, p.z);
-                        mx.x                 = Math::max(mx.x, p.x);
-                        mx.y                 = Math::max(mx.y, p.y);
-                        mx.z                 = Math::max(mx.z, p.z);
-                    }
-                    Math::Vec3f bounds_size = mx - mn;
-                    bounds_center           = mn + bounds_size * 0.5f;
-                    bounds_radius           = Math::length(bounds_size) * 0.5f;
-                }
-
-                cached = RenderMesh::create(verts.data(), static_cast<uint32_t>(verts.size()),
-                                            asset_mesh->get_indices().data(),
-                                            static_cast<uint32_t>(asset_mesh->get_indices().size()),
-                                            GRIIndexFormat::Uint32, bounds_center, bounds_radius);
-                Renderer::get_resource_cache().register_mesh(uint64_t(mesh_comp.mesh_id), cached);
+                continue;
             }
-            render_mesh = cached.get(); // raw observer; cache holds ownership
+            render_mesh = cached.get();
         }
 
         // --- Frustum cull ---
@@ -157,8 +176,9 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
             }
         }
 
-        // --- Material resolve ---
-        const Material* mat = nullptr;
+        // --- Material resolve (via MaterialFactory) ---
+        const Material*   mat       = nullptr;
+        GRIPipelineState* depth_pso = nullptr;
         {
             const uint64_t      mat_key    = static_cast<uint64_t>(mesh_comp.material_id);
             SharedPtr<Material> cached_mat = Renderer::get_resource_cache().find_material(mat_key);
@@ -189,22 +209,8 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
                     continue;
                 }
 
-                const GRIVertexDeclaration* vd = VertexDeclarationRegistry::get().find(asset_mat->get_vertex_layout());
-                if (!vd)
-                {
-                    continue;
-                }
-
-                GRIPipelineStateDesc pso_desc;
-                pso_desc.vertex_shader        = vs->get_shader();
-                pso_desc.pixel_shader         = ps->get_shader();
-                pso_desc.vertex_declaration   = const_cast<GRIVertexDeclaration*>(vd);
-                pso_desc.render_target_format = GRIPixelFormat::RGBA8Unorm;
-                pso_desc.depth_stencil_format = GRIPixelFormat::Depth32Float;
-                pso_desc.primitive_topology   = GRIPrimitiveTopology::TriangleList;
-
-                GRIPipelineStatePtr pso = RenderSystem::get_gri()->create_graphics_pipeline_state(pso_desc);
-                if (!pso)
+                const String& layout = asset_mat->get_vertex_layout();
+                if (!VertexDeclarationRegistry::get().find(layout))
                 {
                     continue;
                 }
@@ -219,22 +225,24 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
                     params_buffer  = RenderSystem::get_gri()->create_buffer(buf_desc, param_data.data());
                 }
 
-                cached_mat = create_shared<Material>(vs, ps, std::move(pso), vd, std::move(params_buffer));
+                cached_mat = Renderer::get_material_factory().create_with_params(
+                    vs, ps, layout, rt_fmt, depth_fmt, false, GRIBlendMode::None, std::move(params_buffer));
                 Renderer::get_resource_cache().register_material(mat_key, cached_mat);
             }
-            mat = cached_mat.get();
+            mat       = cached_mat.get();
+            depth_pso = cached_mat->get_depth_pso();
         }
 
-        // --- Depth (view-space Z from world translation) ---
-        const Math::Vec3f pos      = transform.position;
-        const Math::Vec4f cam_row2 = cam_view.row(2);
-        const float       depth    = cam_row2.x * pos.x + cam_row2.y * pos.y + cam_row2.z * pos.z + cam_row2.w;
+        const Math::Vec3f pos = transform.position;
+        const float       depth =
+            cam_view.row(2).x * pos.x + cam_view.row(2).y * pos.y + cam_view.row(2).z * pos.z + cam_view.row(2).w;
 
         FrameDrawItem item;
-        item.world    = world;
-        item.mesh     = render_mesh;
-        item.material = mat;
-        item.depth    = depth;
+        item.world     = world;
+        item.mesh      = render_mesh;
+        item.material  = mat;
+        item.depth_pso = depth_pso;
+        item.depth     = depth;
 
         if (mat->is_transparent())
         {
@@ -252,16 +260,33 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
     std::sort(m_transparent.begin(), m_transparent.end(),
               [](const FrameDrawItem& a, const FrameDrawItem& b) { return a.depth > b.depth; });
 
-    // --- Register pass ---
+    RGTextureHandle depth = builder.import_viewport_depth();
+
+    // --- Depth pre-pass ---
+    builder.write_depth_stencil(depth, {GRILoadAction::Clear, GRIStoreAction::Store, 1.0f});
+    builder.add_pass("DepthPrePass",
+                     [this](GRICommandList& cmd)
+                     {
+                         Renderer::bind_frame_data(cmd);
+                         for (const FrameDrawItem& item : m_opaque)
+                         {
+                             Utils::emit_depth(cmd, item);
+                         }
+                     });
+
+    // Explicit read dependency: DepthPrePass must complete before ForwardScene.
+    builder.read_texture(depth);
+
+    // --- Forward scene pass ---
     ScenePassParams* params = builder.alloc_params<ScenePassParams>();
     params->scene_texture   = resolve_texture(scene_texture_id);
-    params->view_projection = camera.view_projection;
 
     builder.write_render_target(0, backbuffer, RGColorAttachmentDesc::clear({0.1f, 0.1f, 0.1f, 1.0f}));
+    builder.read_depth_stencil(depth, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
     builder.add_pass("ForwardScene", params,
                      [this](ScenePassParams* p, GRICommandList& cmd)
                      {
-                         Renderer::bind_frame_data(cmd, p->view_projection.data(), sizeof(Math::Mat4f));
+                         Renderer::bind_frame_data(cmd);
                          cmd.set_texture(p->scene_texture, 0, GRIShaderStage::Pixel);
 
                          for (const FrameDrawItem& item : m_opaque)

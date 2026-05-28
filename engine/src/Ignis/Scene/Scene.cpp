@@ -52,7 +52,7 @@ Optional<CameraData> Scene::get_primary_camera_data() const
             continue;
         }
 
-        const Math::Vec3f forward  = transform.rotation.rotate({0.0f, 0.0f, -1.0f});
+        const Math::Vec3f forward  = transform.rotation.rotate({0.0f, 0.0f, 1.0f});
         const Math::Vec3f world_up = {0.0f, 1.0f, 0.0f};
         const Math::Mat4f view     = Math::look_at(transform.position, transform.position + forward, world_up);
         const Math::Mat4f proj     = cam_comp.camera.get_projection();

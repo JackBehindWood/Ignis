@@ -154,7 +154,7 @@ constexpr Mat4<T> scale(const Vec3<T>& s)
     return r;
 }
 
-// Right-handed perspective projection (depth range [0,1] for Metal/Vulkan)
+// Left-handed perspective projection (depth range [0,1])
 template <typename T>
 Mat4<T> perspective(T fov_y_radians, T aspect, T near_z, T far_z)
 {
@@ -162,19 +162,19 @@ Mat4<T> perspective(T fov_y_radians, T aspect, T near_z, T far_z)
     Mat4<T> r{};
     r.m[0]  = T(1) / (aspect * tan_half);
     r.m[5]  = T(1) / tan_half;
-    r.m[10] = far_z / (near_z - far_z);
-    r.m[11] = T(-1);
+    r.m[10] = far_z / (far_z - near_z);
+    r.m[11] = T(1);
     r.m[14] = -(far_z * near_z) / (far_z - near_z);
     return r;
 }
 
-// Right-handed look-at view matrix
+// Left-handed look-at view matrix
 template <typename T>
 Mat4<T> look_at(const Vec3<T>& eye, const Vec3<T>& center, const Vec3<T>& up)
 {
     Vec3<T> f = normalized(center - eye);
-    Vec3<T> r = normalized(cross(f, up));
-    Vec3<T> u = cross(r, f);
+    Vec3<T> r = normalized(cross(up, f));
+    Vec3<T> u = cross(f, r);
 
     Mat4<T> res = Mat4<T>::identity();
     res.m[0]    = r.x;
@@ -183,12 +183,12 @@ Mat4<T> look_at(const Vec3<T>& eye, const Vec3<T>& center, const Vec3<T>& up)
     res.m[1]    = u.x;
     res.m[5]    = u.y;
     res.m[9]    = u.z;
-    res.m[2]    = -f.x;
-    res.m[6]    = -f.y;
-    res.m[10]   = -f.z;
+    res.m[2]    = f.x;
+    res.m[6]    = f.y;
+    res.m[10]   = f.z;
     res.m[12]   = -dot(r, eye);
     res.m[13]   = -dot(u, eye);
-    res.m[14]   = dot(f, eye);
+    res.m[14]   = -dot(f, eye);
     return res;
 }
 

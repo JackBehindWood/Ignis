@@ -14,6 +14,12 @@ constexpr const char* k_stage_default_entry[(size_t)GRIShaderStage::COUNT] = {
     "CSMain", // Compute
 };
 
+constexpr const char* k_stage_name[(size_t)GRIShaderStage::COUNT] = {
+    "Vertex",
+    "Pixel",
+    "Compute",
+};
+
 namespace Utils
 {
 static ShaderReflection translate_reflection(const SpirvReflection& src)
@@ -73,6 +79,8 @@ Vector<ShaderStageOutput> ShaderCompiler::compile(const String& source, const Sh
         const Vector<uint32_t> spv = m_hlsl->compile_to_binary(source, entry_point, req.stage, opts.defines);
         if (spv.empty())
         {
+            IG_CORE_ERROR("ShaderCompiler: HLSL->SPIR-V failed (stage={}, entry='{}')", k_stage_name[(size_t)req.stage],
+                          entry_point);
             return {};
         }
 
@@ -83,6 +91,8 @@ Vector<ShaderStageOutput> ShaderCompiler::compile(const String& source, const Sh
             m_backend->spirv_to_backend_binary(spv.data(), static_cast<uint32_t>(spv.size()), req.stage);
         if (bin.empty())
         {
+            IG_CORE_ERROR("ShaderCompiler: SPIR-V->backend failed (stage={}, entry='{}')",
+                          k_stage_name[(size_t)req.stage], entry_point);
             return {};
         }
 

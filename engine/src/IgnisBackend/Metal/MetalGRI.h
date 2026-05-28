@@ -21,7 +21,8 @@ public:
     GRITexture2DPtr create_texture2d(const GRITexture2DDesc& desc) override;
     GRIViewportPtr  create_viewport(const GRIViewportDesc& desc) override;
 
-    void resize_viewport(GRIViewport* viewport, uint32_t width, uint32_t height) override;
+    void          resize_viewport(GRIViewport* viewport, uint32_t width, uint32_t height) override;
+    GRITexture2D* get_viewport_depth_texture(GRIViewport* viewport) override;
 
     GRIVertexShaderPtr  create_vertex_shader(const GRIShaderDesc& desc) override;
     GRIPixelShaderPtr   create_pixel_shader(const GRIShaderDesc& desc) override;

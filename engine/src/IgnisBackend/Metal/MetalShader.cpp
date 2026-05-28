@@ -96,13 +96,31 @@ GRIPixelShaderPtr MetalGRI::create_pixel_shader(const GRIShaderDesc& desc)
 GRIPipelineStatePtr MetalGRI::create_graphics_pipeline_state(const GRIPipelineStateDesc& desc)
 {
     MTL_AUTORELEASE_POOL;
-    IG_CORE_ASSERT(desc.vertex_shader && desc.pixel_shader, "Pipeline state requires vertex and pixel shaders");
+    IG_CORE_ASSERT(desc.vertex_shader, "Pipeline state requires a vertex shader");
 
     MTL::RenderPipelineDescriptor* pipeline_desc = MTL::RenderPipelineDescriptor::alloc()->init();
 
     pipeline_desc->setVertexFunction(static_cast<MetalVertexShader*>(desc.vertex_shader)->get_function());
-    pipeline_desc->setFragmentFunction(static_cast<MetalPixelShader*>(desc.pixel_shader)->get_function());
-    pipeline_desc->colorAttachments()->object(0)->setPixelFormat(Utils::metal_pixel_format(desc.render_target_format));
+    if (desc.pixel_shader)
+    {
+        pipeline_desc->setFragmentFunction(static_cast<MetalPixelShader*>(desc.pixel_shader)->get_function());
+    }
+    if (desc.render_target_format != GRIPixelFormat::Unknown)
+    {
+        MTL::RenderPipelineColorAttachmentDescriptor* color_att = pipeline_desc->colorAttachments()->object(0);
+        color_att->setPixelFormat(Utils::metal_pixel_format(desc.render_target_format));
+
+        if (desc.blend_mode == GRIBlendMode::AlphaBlend)
+        {
+            color_att->setBlendingEnabled(true);
+            color_att->setSourceRGBBlendFactor(MTL::BlendFactorSourceAlpha);
+            color_att->setDestinationRGBBlendFactor(MTL::BlendFactorOneMinusSourceAlpha);
+            color_att->setRgbBlendOperation(MTL::BlendOperationAdd);
+            color_att->setSourceAlphaBlendFactor(MTL::BlendFactorOne);
+            color_att->setDestinationAlphaBlendFactor(MTL::BlendFactorOneMinusSourceAlpha);
+            color_att->setAlphaBlendOperation(MTL::BlendOperationAdd);
+        }
+    }
 
     if (desc.vertex_declaration)
     {
@@ -135,7 +153,7 @@ GRIPipelineStatePtr MetalGRI::create_graphics_pipeline_state(const GRIPipelineSt
 
         MTL::DepthStencilDescriptor* depth_desc = MTL::DepthStencilDescriptor::alloc()->init();
         depth_desc->setDepthCompareFunction(MTL::CompareFunctionLessEqual);
-        depth_desc->setDepthWriteEnabled(true);
+        depth_desc->setDepthWriteEnabled(desc.depth_write_enabled);
         depth_stencil_state = m_device->get_device()->newDepthStencilState(depth_desc);
         depth_desc->release();
     }

@@ -54,13 +54,22 @@ def build_project(configuration, verbose):
 
 def _run_iht(ctx):
     from pathlib import Path
-    from ..iht import run as iht_run
+    from ..iht import run as iht_run, ScanDomain
 
     project_root = Path(ctx.project_dir)
+    engine_output = project_root / "engine" / "generated"
+
+    engine_domain = ScanDomain(
+        scan_dirs=[project_root / "engine" / "src"],
+        output_dir=engine_output,
+        registry_fn="register_all_scene_components",
+        registry_output=engine_output / "Ignis" / "Scene" / "SceneRegistry.gen.cpp",
+        metaclass_filter="Component",
+    )
+
     iht_run(
         project_root=project_root,
-        scan_dirs=[project_root / "engine" / "src"],
-        output_dir=project_root / "engine" / "generated",
+        domains=[engine_domain],
         manifest_path=Path(ctx.obj_dir) / "iht_manifest.json",
     )
 

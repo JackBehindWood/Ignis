@@ -23,6 +23,7 @@ void Renderer::shutdown()
 void Renderer::begin_frame(GRIViewport* viewport)
 {
     s_frame_alloc.begin_frame();
+    s_depth_texture = viewport ? RenderSystem::get_gri()->get_viewport_depth_texture(viewport) : nullptr;
 
     GRICommandList& cmd = RenderSystem::get_command_list();
     cmd.begin_frame();
@@ -38,11 +39,19 @@ void Renderer::end_frame()
     s_frame_alloc.end_frame();
 }
 
-void Renderer::bind_frame_data(GRICommandListBase& cmd_list, const void* data, uint32_t size)
+void Renderer::upload_frame_data(const GPUFrameData& data)
 {
-    auto alloc = s_frame_alloc.allocate(data, size);
-    GRICommandList::get(cmd_list).set_uniform_buffer(alloc.buffer, static_cast<uint32_t>(UniformSlot::FrameData),
-                                                     GRIShaderStage::Vertex, alloc.offset);
+    s_frame_data_alloc = s_frame_alloc.allocate(&data, sizeof(GPUFrameData));
+}
+
+void Renderer::bind_frame_data(GRICommandListBase& cmd_list)
+{
+    GRICommandList::get(cmd_list).set_uniform_buffer(s_frame_data_alloc.buffer,
+                                                     static_cast<uint32_t>(UniformSlot::FrameData),
+                                                     GRIShaderStage::Vertex, s_frame_data_alloc.offset);
+    GRICommandList::get(cmd_list).set_uniform_buffer(s_frame_data_alloc.buffer,
+                                                     static_cast<uint32_t>(UniformSlot::FrameData),
+                                                     GRIShaderStage::Pixel, s_frame_data_alloc.offset);
 }
 
 void Renderer::bind_transform(GRICommandListBase& cmd_list, const void* data, uint32_t size)

@@ -333,7 +333,7 @@ public:
         ALLOC_COMMAND(GRICommandEndRenderPass)();
     }
 
-    inline void set_vertex_buffer(GRIBuffer* buffer, uint32_t offset = 0, uint32_t buffer_index = 0)
+    inline void set_vertex_buffer(GRIBuffer* buffer, uint32_t offset = 0, uint32_t buffer_index = 29)
     {
         ALLOC_COMMAND(GRICommandSetVertexBuffer)(buffer, offset, buffer_index);
     }

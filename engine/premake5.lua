@@ -9,10 +9,11 @@ project "IgnisEngine"
    pchheader "igpch.h"
 	pchsource "src/igpch.cpp"
 
-   files 
-   { 
-      "src/**.h", 
-      "src/**.cpp" 
+   files
+   {
+      "src/**.h",
+      "src/**.cpp",
+      "generated/**.cpp",
    }
 
    includedirs

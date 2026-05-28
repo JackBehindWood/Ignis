@@ -1,5 +1,5 @@
 #pragma once
 
 #define IG_CLASS(...)
-#define IG_PROPERTY(name)
-#define IG_FUNCTION(name)
+#define IG_PROPERTY(...)
+#define IG_FUNCTION(...)

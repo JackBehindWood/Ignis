@@ -282,6 +282,11 @@ void MetalGRI::resize_viewport(GRIViewport* viewport, uint32_t width, uint32_t h
     native_viewport->resize(width, height);
 }
 
+GRITexture2D* MetalGRI::get_viewport_depth_texture(GRIViewport* viewport)
+{
+    return resource_cast(viewport)->get_depth_buffer();
+}
+
 void MetalCommandContext::begin_drawing_viewport(GRIViewport* viewport, GRITexture2D* render_target)
 {
     m_active_viewport = resource_cast(viewport);

@@ -31,7 +31,7 @@ void Editor::bootstrap(const Path& engine_root)
 {
     // --- Engine-root setup (order matters) ---
     EditorAssetManager::get().set_engine_root(engine_root);
-    EditorShaderCache::get().set_engine_cache_root(engine_root / "cache" / "shaders");
+    EditorShaderCache::get().set_engine_root(engine_root);
 
     // --- Register project observers (deterministic order) ---
     // EditorAssetManager is the sole gateway to AssetManager; ShaderCache follows.
