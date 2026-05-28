@@ -29,6 +29,7 @@ public:
     GRIPipelineStatePtr create_graphics_pipeline_state(const GRIPipelineStateDesc& desc) override;
 
     GRIBufferPtr create_buffer(const GRIBufferDesc& desc, const void* initial_data = nullptr) override;
+    void         update_buffer(GRIBuffer* buffer, const void* data, uint32_t size, uint32_t offset = 0) override;
 
     inline GRIRenderAPI get_api() const override
     {

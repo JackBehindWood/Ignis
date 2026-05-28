@@ -39,15 +39,10 @@ void MetalCommandContext::end_frame()
 
     if (m_active_viewport)
     {
-        MTL::BlitCommandEncoder* blit = m_command_buffer->get_buffer()->blitCommandEncoder();
-        blit->copyFromTexture(m_active_viewport->get_current_backbuffer()->get_texture(),
-                              m_active_viewport->get_drawable()->texture());
-        blit->endEncoding();
-
+        // Render passes already wrote directly into the drawable texture — no blit needed.
         m_command_buffer->get_buffer()->presentDrawable(
             reinterpret_cast<const MTL::Drawable*>(m_active_viewport->get_drawable()));
         m_active_viewport->release_drawable();
-        m_active_viewport->swap_buffers();
         m_active_viewport = nullptr;
     }
 
@@ -212,5 +207,22 @@ void MetalCommandContext::draw_primitives(uint32_t vertex_count, uint32_t first_
 {
     IG_CORE_ASSERT(m_render_encoder, "draw_primitives called with no active render encoder");
     m_render_encoder->get()->drawPrimitives(m_state_cache.get_primitive_type(), first_vertex, vertex_count);
+}
+
+void MetalCommandContext::draw_indexed_primitives_instanced(uint32_t index_count, uint32_t instance_count,
+                                                            uint32_t base_instance, uint32_t first_index,
+                                                            int32_t vertex_offset)
+{
+    IG_CORE_ASSERT(m_render_encoder, "draw_indexed_primitives_instanced called with no active render pass");
+    IG_CORE_ASSERT(m_state_cache.get_index_buffer(),
+                   "draw_indexed_primitives_instanced called with no index buffer bound");
+
+    const uint32_t index_stride =
+        (m_state_cache.get_index_type() == MTL::IndexTypeUInt16) ? sizeof(uint16_t) : sizeof(uint32_t);
+    const NS::UInteger byte_offset = m_state_cache.get_index_buffer_offset() + first_index * index_stride;
+
+    m_render_encoder->get()->drawIndexedPrimitives(m_state_cache.get_primitive_type(), index_count,
+                                                   m_state_cache.get_index_type(), m_state_cache.get_index_buffer(),
+                                                   byte_offset, instance_count, vertex_offset, base_instance);
 }
 } // namespace Ignis

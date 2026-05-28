@@ -283,6 +283,26 @@ GRICOMMAND_MACRO(GRICommandDrawPrimitive)
     void execute(GRICommandListBase & cmd_list);
 };
 
+GRICOMMAND_MACRO(GRICommandDrawIndexedPrimitiveInstanced)
+{
+    uint32_t index_count;
+    uint32_t instance_count;
+    uint32_t base_instance;
+    uint32_t first_index;
+    int32_t  vertex_offset;
+    GRICommandDrawIndexedPrimitiveInstanced(uint32_t index_count, uint32_t instance_count, uint32_t base_instance,
+                                            uint32_t first_index, int32_t vertex_offset)
+        : index_count(index_count),
+          instance_count(instance_count),
+          base_instance(base_instance),
+          first_index(first_index),
+          vertex_offset(vertex_offset)
+    {
+    }
+
+    void execute(GRICommandListBase & cmd_list);
+};
+
 class GRICommandList : public GRICommandListBase
 {
 private:
@@ -366,6 +386,14 @@ public:
     inline void draw_indexed_primitives(uint32_t index_count, uint32_t first_index = 0, int32_t vertex_offset = 0)
     {
         ALLOC_COMMAND(GRICommandDrawIndexedPrimitive)(index_count, first_index, vertex_offset);
+    }
+
+    inline void draw_indexed_primitives_instanced(uint32_t index_count, uint32_t instance_count,
+                                                  uint32_t base_instance = 0, uint32_t first_index = 0,
+                                                  int32_t vertex_offset = 0)
+    {
+        ALLOC_COMMAND(GRICommandDrawIndexedPrimitiveInstanced)(index_count, instance_count, base_instance, first_index,
+                                                               vertex_offset);
     }
 };
 

@@ -5,6 +5,7 @@
 #include "Ignis/Asset/AssetManager.h"
 #include "Ignis/Math/Math.h"
 #include "Ignis/Rendering/GRI/GRICommandList.h"
+#include "Ignis/Rendering/GRI/GRIDefinitions.h"
 #include "Ignis/Rendering/RenderMesh.h"
 #include "Ignis/Rendering/Material.h"
 #include "Ignis/Rendering/RenderGraph/RGResource.h"
@@ -14,21 +15,33 @@ namespace Ignis
 {
 class RGBuilder;
 
-struct FrameDrawItem
+struct CullProxy
 {
-    const RenderMesh* mesh      = nullptr;
-    const Material*   material  = nullptr; // forward pass material (depth_write=false)
-    GRIPipelineState* depth_pso = nullptr; // depth-only PSO for pre-pass
-    Math::Mat4f       world     = Math::Mat4f::identity();
-    float             depth     = 0.0f;
+    Math::Vec3f world_center;
+    float       world_radius;
+    uint32_t    entity_index;
 };
 
-// TODO: we should probably create a render shader for the depth pass and we should add/improve sorting, culling and
-// batching (Some of these might be moved to the Rendering Module and not be in the SceneRenderer!).
+struct GPUInstanceData
+{
+    Math::Mat4f world_matrix;
+    uint32_t    material_index;
+    uint32_t    padding[3];
+};
+
+struct RenderCommand
+{
+    uint64_t          sort_key;
+    const RenderMesh* mesh;
+    const Material*   material;
+    GRIPipelineState* pso;
+    uint32_t          instance_count;
+    uint32_t          base_instance;
+};
+
 class SceneRenderer
 {
 public:
-    // Upload GPU resources for all scene meshes. Call once after assets are loaded.
     void prepare(Scene& scene);
 
     void render_scene(Scene& scene, const CameraData& camera, RGBuilder& builder, RGTextureHandle backbuffer,
@@ -40,10 +53,31 @@ private:
         GRITexture2D* scene_texture;
     };
 
-    static GRITexture2D* resolve_texture(AssetID id);
+    struct VisibleItem
+    {
+        const RenderMesh* mesh;
+        const Material*   material;
+        GRIPipelineState* depth_pso;
+        Math::Mat4f       world;
+        uint64_t          depth_key;
+        uint64_t          fwd_key;
+    };
 
-    Vector<FrameDrawItem> m_opaque;
-    Vector<FrameDrawItem> m_transparent;
+    static GRITexture2D* resolve_texture(AssetID id);
+    void                 build_cull_proxies(Scene& scene, const Math::Mat4f& cam_view);
+    void                 build_commands();
+
+    static constexpr uint32_t k_max_instances        = 4096;
+    static constexpr float    k_depth_range          = 1000.0f;
+    static constexpr uint32_t k_instance_buffer_slot = 28;
+
+    Vector<CullProxy>       m_cull_proxies;
+    Vector<VisibleItem>     m_pool;
+    Vector<VisibleItem>     m_visible;
+    Vector<RenderCommand>   m_depth_cmds;
+    Vector<RenderCommand>   m_fwd_cmds;
+    Vector<GPUInstanceData> m_instance_data;
+    GRIBufferPtr            m_instance_buffer;
 };
 
 } // namespace Ignis

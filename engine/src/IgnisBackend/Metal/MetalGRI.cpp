@@ -51,4 +51,15 @@ GRIBufferPtr MetalGRI::create_buffer(const GRIBufferDesc& desc, const void* init
 
     return create_shared<MetalBuffer>(buffer, desc.size);
 }
+
+void MetalGRI::update_buffer(GRIBuffer* buffer, const void* data, uint32_t size, uint32_t offset)
+{
+    MetalBuffer* mb = resource_cast<GRIBuffer>(buffer);
+    IG_CORE_ASSERT(mb->get_buffer()->contents(), "update_buffer: buffer not CPU-accessible (not StorageModeShared)");
+    IG_CORE_ASSERT(offset + size <= mb->get_size(), "update_buffer: write range exceeds buffer size");
+    memcpy(static_cast<uint8_t*>(mb->get_buffer()->contents()) + offset, data, size);
+    // On Apple Silicon (StorageModeShared) no flush is needed.
+    // Intel / StorageModeManaged would require:
+    // mb->get_buffer()->didModifyRange(NS::Range::Make(offset, size));
+}
 } // namespace Ignis

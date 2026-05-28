@@ -56,6 +56,12 @@ namespace Ignis
 		INTERNAL_DECORATOR(draw_indexed_primitives)(index_count, first_index, vertex_offset);
 	}
 
+	void GRICommandDrawIndexedPrimitiveInstanced::execute(GRICommandListBase& cmd_list)
+	{
+		INTERNAL_DECORATOR(draw_indexed_primitives_instanced)(index_count, instance_count, base_instance,
+		                                                      first_index, vertex_offset);
+	}
+
 	void GRICommandSetUniformBuffer::execute(GRICommandListBase& cmd_list)
 	{
 		INTERNAL_DECORATOR(set_uniform_buffer)(buffer, slot, stage, offset);

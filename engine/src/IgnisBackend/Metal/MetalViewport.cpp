@@ -25,8 +25,6 @@
 
 #include <QuartzCore/CAMetalLayer.hpp>
 
-// #include <MetalKit/MetalKit.hpp>
-
 namespace Ignis
 {
 void MetalViewport::setup_callbacks()
@@ -49,7 +47,6 @@ void MetalViewport::setup_callbacks()
                                      int fb_width, fb_height;
                                      glfwGetFramebufferSize(window, &fb_width, &fb_height);
 
-                                     // Send WindowResizeEvent even on minimize/restore
                                      WindowResizeEvent event(viewport, fb_width, fb_height);
                                      Application::get().event(event);
                                  });
@@ -62,7 +59,6 @@ void MetalViewport::setup_callbacks()
                                       int fb_width, fb_height;
                                       glfwGetFramebufferSize(window, &fb_width, &fb_height);
 
-                                      // Send WindowResizeEvent on maximize/restore
                                       WindowResizeEvent event(viewport, fb_width, fb_height);
                                       Application::get().event(event);
                                   });
@@ -146,20 +142,9 @@ void MetalViewport::setup_callbacks()
                              });
 }
 
-void MetalViewport::create_backbuffers(uint32_t width, uint32_t height)
+void MetalViewport::create_depth_buffer(uint32_t width, uint32_t height)
 {
-    destroy_backbuffers();
-
-    GRITexture2DDesc colour_desc;
-    colour_desc.width          = width;
-    colour_desc.height         = height;
-    colour_desc.num_mip_levels = 1;
-    colour_desc.format         = GRIPixelFormat::BGRA8Unorm;
-
-    for (uint32_t i = 0; i < 2; i++)
-    {
-        m_backbuffers[i] = new MetalTexture2D(&m_device, colour_desc);
-    }
+    destroy_depth_buffer();
 
     GRITexture2DDesc depth_desc;
     depth_desc.width          = width;
@@ -170,17 +155,8 @@ void MetalViewport::create_backbuffers(uint32_t width, uint32_t height)
     m_depth_buffer = new MetalTexture2D(&m_device, depth_desc);
 }
 
-void MetalViewport::destroy_backbuffers()
+void MetalViewport::destroy_depth_buffer()
 {
-    for (uint32_t i = 0; i < 2; i++)
-    {
-        if (m_backbuffers[i])
-        {
-            delete m_backbuffers[i];
-            m_backbuffers[i] = nullptr;
-        }
-    }
-
     if (m_depth_buffer)
     {
         delete m_depth_buffer;
@@ -195,19 +171,16 @@ MetalViewport::MetalViewport(MetalDevice* device, const GRIViewportDesc& desc)
       m_device(*device),
       m_window(nullptr),
       m_drawable(nullptr),
-      m_current_backbuffer_index(0),
       m_depth_buffer(nullptr)
 {
-    m_backbuffers[0] = nullptr;
-    m_backbuffers[1] = nullptr;
-
     m_window = glfwCreateWindow(m_width, m_height, desc.title, nullptr, nullptr);
 
     m_metal_layer = CA::MetalLayer::layer();
     m_metal_layer->setDevice(m_device.get_device());
-    m_metal_layer->setPixelFormat(MTL::PixelFormat::PixelFormatBGRA8Unorm); // TODO: Add support for other pixel formats
+    m_metal_layer->setPixelFormat(MTL::PixelFormat::PixelFormatBGRA8Unorm);
     m_metal_layer->setFramebufferOnly(true);
     m_metal_layer->setDrawableSize(CGSize((CGFloat)m_width, (CGFloat)m_height));
+    m_metal_layer->setMaximumDrawableCount(2);
 
     wNSWindow* nswindow = reinterpret_cast<wNSWindow*>(glfwGetCocoaWindow(m_window));
 
@@ -217,49 +190,45 @@ MetalViewport::MetalViewport(MetalDevice* device, const GRIViewportDesc& desc)
     nsview->set_opaque(true);
 
     setup_callbacks();
-    create_backbuffers(m_width, m_height);
+    create_depth_buffer(m_width, m_height);
 }
 
 MetalViewport::~MetalViewport()
 {
     glfwDestroyWindow(m_window);
-
     release_drawable();
+    destroy_depth_buffer();
+}
 
-    destroy_backbuffers();
+void MetalViewport::set_current_drawable(CA::MetalDrawable* drawable)
+{
+    IG_CORE_ASSERT(!m_drawable, "set_current_drawable: previous drawable not released before acquiring next");
+    m_drawable = drawable;
+    m_drawable->retain();
+    m_drawable_view.reset(drawable->texture());
 }
 
 void MetalViewport::resize(uint32_t width, uint32_t height)
 {
     if (width == 0 || height == 0)
     {
-        return; // Avoid invalid sizes
+        return;
     }
 
     m_width  = width;
     m_height = height;
 
-    // Update Metal layer drawable size
     if (m_metal_layer)
     {
         m_metal_layer->setDrawableSize(CGSize((CGFloat)width, (CGFloat)height));
     }
 
-    // Recreate engine-managed backbuffers
-    create_backbuffers(width, height);
-
-    // Release any previously acquired drawable (its size is now outdated)
+    // Release any in-flight drawable — its texture dimensions are now stale.
+    // begin_drawing_viewport will acquire a fresh drawable before any RG pass runs.
     release_drawable();
-}
+    m_drawable_view.reset();
 
-CA::MetalDrawable* MetalViewport::get_drawable()
-{
-    if (!m_drawable)
-    {
-        m_drawable = m_metal_layer->nextDrawable();
-        m_drawable->retain();
-    }
-    return m_drawable;
+    create_depth_buffer(width, height);
 }
 
 void MetalViewport::release_drawable()
@@ -291,7 +260,11 @@ void MetalCommandContext::begin_drawing_viewport(GRIViewport* viewport, GRITextu
 {
     m_active_viewport = resource_cast(viewport);
 
-    GRITexture2D*            target = render_target ? render_target : m_active_viewport->get_current_backbuffer();
+    CA::MetalDrawable* drawable = m_active_viewport->get_metal_layer()->nextDrawable();
+    IG_CORE_ASSERT(drawable, "nextDrawable returned nil — GPU is too far ahead or drawable pool exhausted");
+    m_active_viewport->set_current_drawable(drawable);
+
+    GRITexture2D*            target = render_target ? render_target : m_active_viewport->get_drawable_view();
     GRIRenderTargetView      rtv(target);
     GRIDepthRenderTargetView depth_rtv(m_active_viewport->get_depth_buffer());
     set_render_targets(1, &rtv, &depth_rtv);

@@ -30,5 +30,8 @@ public:
     virtual void set_graphics_pipeline_state(GRIPipelineState* pipeline_state)                              = 0;
     virtual void draw_primitives(uint32_t vertex_count, uint32_t first_vertex)                              = 0;
     virtual void draw_indexed_primitives(uint32_t index_count, uint32_t first_index, int32_t vertex_offset) = 0;
+    virtual void draw_indexed_primitives_instanced(uint32_t index_count, uint32_t instance_count,
+                                                   uint32_t base_instance, uint32_t first_index,
+                                                   int32_t vertex_offset)                                   = 0;
 };
 } // namespace Ignis

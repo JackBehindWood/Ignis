@@ -53,43 +53,79 @@ public:
     }
 };
 
+// Non-owning GRITexture2D wrapper around a CA::MetalDrawable's texture.
+// Valid only for the duration of the frame that acquired the drawable.
+// Never calls retain/release — lifetime is managed by MetalViewport via the drawable.
+class MetalTexture2DExtern final : public GRITexture2D
+{
+public:
+    MetalTexture2DExtern() = default;
+    explicit MetalTexture2DExtern(MTL::Texture* tex)
+        : m_tex(tex)
+    {
+    }
+
+    void reset(MTL::Texture* tex = nullptr)
+    {
+        m_tex = tex;
+    }
+
+    inline MTL::Texture* get_texture() const
+    {
+        return m_tex;
+    }
+
+    uint32_t get_width() const override
+    {
+        return m_tex ? static_cast<uint32_t>(m_tex->width()) : 0;
+    }
+    uint32_t get_height() const override
+    {
+        return m_tex ? static_cast<uint32_t>(m_tex->height()) : 0;
+    }
+    uint32_t get_mip_count() const override
+    {
+        return m_tex ? static_cast<uint32_t>(m_tex->mipmapLevelCount()) : 0;
+    }
+    void* get_native_handle() const override
+    {
+        return static_cast<void*>(m_tex);
+    }
+
+private:
+    MTL::Texture* m_tex = nullptr;
+};
+
 class MetalViewport : public GRIViewport
 {
 private:
-    MetalDevice&    m_device;
-    MetalTexture2D* m_backbuffers[2];
-    MetalTexture2D* m_depth_buffer;
-    uint32_t        m_current_backbuffer_index;
-    uint32_t        m_width, m_height;
+    MetalDevice&         m_device;
+    MetalTexture2D*      m_depth_buffer;
+    MetalTexture2DExtern m_drawable_view;
+    uint32_t             m_width, m_height;
 
     GLFWwindow*        m_window;
     CA::MetalLayer*    m_metal_layer;
     CA::MetalDrawable* m_drawable;
 
     void setup_callbacks();
-    void create_backbuffers(uint32_t width, uint32_t height);
-    void destroy_backbuffers();
+    void create_depth_buffer(uint32_t width, uint32_t height);
+    void destroy_depth_buffer();
 
 public:
     MetalViewport(MetalDevice* device, const GRIViewportDesc& desc);
     ~MetalViewport() override;
 
-    inline void swap_buffers()
-    {
-        m_current_backbuffer_index = 1 - m_current_backbuffer_index;
-    }
-    inline MetalTexture2D* get_backbuffer(uint32_t index)
-    {
-        return m_backbuffers[index];
-    }
-    inline MetalTexture2D* get_current_backbuffer()
-    {
-        return m_backbuffers[m_current_backbuffer_index];
-    }
     inline MetalTexture2D* get_depth_buffer()
     {
         return m_depth_buffer;
     }
+    inline MetalTexture2DExtern* get_drawable_view()
+    {
+        return &m_drawable_view;
+    }
+
+    void set_current_drawable(CA::MetalDrawable* drawable);
 
     void                    resize(uint32_t width, uint32_t height);
     virtual inline uint32_t get_width() const override
@@ -101,8 +137,11 @@ public:
         return m_height;
     };
 
-    CA::MetalDrawable* get_drawable();
-    void               release_drawable();
+    inline CA::MetalDrawable* get_drawable() const
+    {
+        return m_drawable;
+    }
+    void release_drawable();
 
     virtual inline void* get_native_handle() const override
     {

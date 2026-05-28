@@ -25,6 +25,22 @@ String MslSpirvCompiler::compile_from_target(const uint32_t* spirv, uint32_t wor
         msl.add_msl_resource_binding(msl_binding);
     }
 
+    // Storage buffers (StructuredBuffer/RWStructuredBuffer): use the HLSL register space as
+    // the MSL buffer slot so callers can pick an explicit Metal vertex-buffer index via space<N>.
+    for (const auto& resource : resources.storage_buffers)
+    {
+        const uint32_t desc_set = msl.get_decoration(resource.id, spv::DecorationDescriptorSet);
+        const uint32_t binding  = msl.get_decoration(resource.id, spv::DecorationBinding);
+
+        spirv_cross::MSLResourceBinding msl_binding;
+        msl_binding.stage      = exec_model;
+        msl_binding.desc_set   = desc_set;
+        msl_binding.binding    = binding;
+        msl_binding.msl_buffer = desc_set;
+
+        msl.add_msl_resource_binding(msl_binding);
+    }
+
     spirv_cross::CompilerMSL::Options opts;
     opts.platform = (m_options.platform == MslCompileOptions::Platform::iOS) ? spirv_cross::CompilerMSL::Options::iOS
                                                                              : spirv_cross::CompilerMSL::Options::macOS;

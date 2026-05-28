@@ -102,6 +102,7 @@ enum class GRIBufferUsage : uint32_t
     VertexBuffer  = 1 << 0,
     IndexBuffer   = 1 << 1,
     UniformBuffer = 1 << 2,
+    Dynamic       = 1 << 3,
 };
 
 enum class GRIIndexFormat

@@ -5,9 +5,11 @@ struct FrameUniforms
     float4x4 view_projection;
 };
 
-struct TransformUniforms
+struct GPUInstanceData
 {
-    float4x4 transform;
+    float4x4 world_matrix;
+    uint     material_index;
+    uint3    padding;
 };
 
 struct VertexIn
@@ -23,15 +25,16 @@ struct VertexOut
     float2 uv       : TEXCOORD;
 };
 
-ConstantBuffer<FrameUniforms>     g_frame     : register(b0);
-ConstantBuffer<TransformUniforms> g_transform : register(b1);
+ConstantBuffer<FrameUniforms>             g_frame     : register(b0);
+StructuredBuffer<GPUInstanceData>         g_instances : register(t0, space28);
 Texture2D    g_texture : register(t0);
 SamplerState g_sampler : register(s0);
 
-VertexOut VSMain(VertexIn input)
+VertexOut VSMain(VertexIn input, uint instanceID : SV_InstanceID)
 {
+    float4x4 world = g_instances[instanceID].world_matrix;
     VertexOut output;
-    output.position = mul(g_frame.view_projection, mul(g_transform.transform, float4(input.position, 1.0)));
+    output.position = mul(g_frame.view_projection, mul(world, float4(input.position, 1.0)));
     output.uv       = input.uv;
     return output;
 }

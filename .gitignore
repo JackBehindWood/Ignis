@@ -30,3 +30,5 @@ engine/vendor/dxc/
 
 # Generated files!
 /engine/generated
+*.igsh
+*.igsh

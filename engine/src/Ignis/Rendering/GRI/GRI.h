@@ -28,7 +28,8 @@ public:
     virtual GRIPixelShaderPtr   create_pixel_shader(const GRIShaderDesc& desc)                   = 0;
     virtual GRIPipelineStatePtr create_graphics_pipeline_state(const GRIPipelineStateDesc& desc) = 0;
 
-    virtual GRIBufferPtr create_buffer(const GRIBufferDesc& desc, const void* initial_data = nullptr) = 0;
+    virtual GRIBufferPtr create_buffer(const GRIBufferDesc& desc, const void* initial_data = nullptr)           = 0;
+    virtual void         update_buffer(GRIBuffer* buffer, const void* data, uint32_t size, uint32_t offset = 0) = 0;
 };
 
 } // namespace Ignis
