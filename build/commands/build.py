@@ -12,6 +12,8 @@ def premake_cmd(*args):
     cmd = [get_cfg().premake_exec]
     if get_cfg().plugin_dir:
         cmd.append(f"--scripts={get_cfg().plugin_dir}")
+    if get_cfg().imgui:
+        cmd.append("--imgui")
     cmd.extend(args)
     cmd.append(f"--file={get_cfg().premake_file}")
     return cmd

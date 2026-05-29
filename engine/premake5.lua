@@ -42,6 +42,11 @@ project "IgnisEngine"
       "YAML_CPP_STATIC_DEFINE",
    }
 
+   filter "options:imgui"
+      defines    { "ENGINE_IMGUI" }
+      includedirs { "%{include_dirs.imgui}", "%{include_dirs.imgui}/imgui", "%{include_dirs.imgui}/imgui/backends" }
+      links      { "ImGui" }
+
    filter "system:macosx"
       --systemversion "latest"
 
@@ -63,9 +68,12 @@ project "IgnisEngine"
          "IoKit.framework",
          "dxcompiler",
       }
-      
+
       files { "src/IgnisBackend/**.mm" }  -- ensure these are included
       buildoptions { "-fobjc-arc" }  -- optional if using ARC
+
+   filter "files:**.mm"
+      enablepch "Off"
 
    filter "configurations:Debug"
 		defines "IG_DEBUG"

@@ -15,6 +15,12 @@ namespace Ignis
 {
 class RGBuilder;
 
+struct SceneRenderHandles
+{
+    RGTextureHandle color;
+    RGTextureHandle depth;
+};
+
 struct CullProxy
 {
     Math::Vec3f world_center;
@@ -56,15 +62,20 @@ class SceneRenderer
 public:
     void prepare(Scene& scene);
 
-    void render_scene(Scene& scene, const CameraData& camera, RGBuilder& builder, RGTextureHandle backbuffer,
-                      AssetID scene_texture_id);
+    SceneRenderHandles render_scene(Scene&, const CameraData&, RGBuilder&);
+
+    void resize(uint32_t w, uint32_t h);
+
+    GRITexture2D* get_color_rt() const
+    {
+        return m_color_rt.get();
+    }
+    GRITexture2D* get_depth_rt() const
+    {
+        return m_depth_rt.get();
+    }
 
 private:
-    struct ScenePassParams
-    {
-        GRITexture2D* scene_texture;
-    };
-
     struct VisibleItem
     {
         Math::Mat4f       world_matrix;
@@ -95,6 +106,11 @@ private:
     Vector<DrawBatch>       m_fwd_batches;
     Vector<GPUInstanceData> m_instance_data;
     GRIBufferPtr            m_instance_buffer;
+
+    GRITexture2DPtr m_color_rt;
+    GRITexture2DPtr m_depth_rt;
+    uint32_t        m_rt_width  = 0;
+    uint32_t        m_rt_height = 0;
 
     SharedPtr<Material> m_fallback_material;
     uint16_t            m_fallback_material_id = 0xFFFFu;

@@ -11,13 +11,16 @@
 #include "EditorPrimitives.h"
 #include "Ignis/Events/MouseEvent.h"
 
+#ifdef ENGINE_IMGUI
+#include <Ignis/UI/ImGuiLayer.h>
+#endif
+
 namespace Ignis
 {
 
-void EditorLayer::draw_grid(RGTextureHandle bb)
+void EditorLayer::draw_grid(RGTextureHandle color, RGTextureHandle depth)
 {
-    m_builder.write_render_target(0, bb, RGColorAttachmentDesc::load());
-    RGTextureHandle depth = m_builder.import_viewport_depth();
+    m_builder.write_render_target(0, color, RGColorAttachmentDesc::load());
     m_builder.read_depth_stencil(depth, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
 
     m_builder.add_pass("EditorGrid",
@@ -37,10 +40,6 @@ EditorLayer::EditorLayer()
 void EditorLayer::attach()
 {
     IG_ASSERT(ProjectManager::get().is_open(), "EditorLayer requires an open project before attach");
-
-    EditorAssetManager& assets = EditorAssetManager::get();
-    m_scene_texture_id         = assets.import_texture("test.png");
-    assets.load_deferred(m_scene_texture_id);
 
     const RendererConfig& cfg = Renderer::get_config();
     EditorPrimitives::init();
@@ -71,6 +70,10 @@ void EditorLayer::attach()
                                 : 1.778f;
     m_fly_camera.set_aspect(aspect);
 
+    const uint32_t init_w = viewport ? viewport->get_width() : 1280u;
+    const uint32_t init_h = viewport ? viewport->get_height() : 720u;
+    m_scene_renderer.resize(init_w, init_h);
+
     m_grid_vs = EditorShaderCache::get().get_or_compile("grid.hlsl", GRIShaderStage::Vertex);
     m_grid_ps = EditorShaderCache::get().get_or_compile("grid.hlsl", GRIShaderStage::Pixel);
 
@@ -88,10 +91,19 @@ void EditorLayer::attach()
                                                                      cfg.depth_format, {}, grid_raster, grid_blend);
 
     m_scene_ready = true;
+
+#ifdef ENGINE_IMGUI
+    m_scene_editor.set_scene(&m_active_scene);
+    m_scene_editor.set_scene_renderer(&m_scene_renderer);
+    ImGuiLayer::register_drawable(&m_scene_editor);
+#endif
 }
 
 void EditorLayer::detach()
 {
+#ifdef ENGINE_IMGUI
+    ImGuiLayer::unregister_drawable(&m_scene_editor);
+#endif
 }
 
 void EditorLayer::update(Timestep ts)
@@ -104,23 +116,28 @@ void EditorLayer::update(Timestep ts)
     }
 
     m_active_scene.update(ts);
-
-    GRIViewport* viewport = Application::get().get_window().get_viewport();
-
     m_fly_camera.update(ts);
 
-    const CameraData camera = m_fly_camera.get_camera_data();
+    m_scene_renderer.prepare(m_active_scene);
+}
+
+void EditorLayer::render()
+{
+    if (!m_scene_ready)
+    {
+        return;
+    }
+
+    GRIViewport*     viewport = Application::get().get_window().get_viewport();
+    const CameraData camera   = m_fly_camera.get_camera_data();
 
     Renderer::begin_frame(viewport);
     Renderer::upload_frame_data({camera.view_projection, camera.position});
 
     GRICommandList& cmd = RenderSystem::get_command_list();
 
-    m_scene_renderer.prepare(m_active_scene);
-
-    RGTextureHandle bb = m_builder.import_backbuffer();
-    m_scene_renderer.render_scene(m_active_scene, camera, m_builder, bb, m_scene_texture_id);
-    draw_grid(bb);
+    auto [color_rt, depth_rt] = m_scene_renderer.render_scene(m_active_scene, camera, m_builder);
+    draw_grid(color_rt, depth_rt);
 
     m_builder.execute(cmd);
     Renderer::end_frame();

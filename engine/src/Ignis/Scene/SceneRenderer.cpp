@@ -428,9 +428,35 @@ void SceneRenderer::build_commands()
     }
 }
 
-void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuilder& builder, RGTextureHandle backbuffer,
-                                 AssetID scene_texture_id)
+void SceneRenderer::resize(uint32_t w, uint32_t h)
 {
+    if (w == 0 || h == 0 || (w == m_rt_width && h == m_rt_height))
+    {
+        return;
+    }
+
+    m_rt_width  = w;
+    m_rt_height = h;
+
+    GRITexture2DDesc color_desc;
+    color_desc.width          = w;
+    color_desc.height         = h;
+    color_desc.num_mip_levels = 1;
+    color_desc.format         = GRIPixelFormat::BGRA8Unorm;
+    m_color_rt                = RenderSystem::get_gri()->create_texture2d(color_desc);
+
+    GRITexture2DDesc depth_desc;
+    depth_desc.width          = w;
+    depth_desc.height         = h;
+    depth_desc.num_mip_levels = 1;
+    depth_desc.format         = GRIPixelFormat::Depth32Float;
+    m_depth_rt                = RenderSystem::get_gri()->create_texture2d(depth_desc);
+}
+
+SceneRenderHandles SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuilder& builder)
+{
+    IG_ASSERT(m_color_rt && m_depth_rt, "SceneRenderer: RTs not initialized — call resize() before render_scene()");
+
     build_cull_proxies(scene, camera.view);
 
     m_visible.clear();
@@ -445,7 +471,8 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
 
     build_commands();
 
-    RGTextureHandle depth = builder.import_viewport_depth();
+    RGTextureHandle color = builder.import_texture("scene_color", m_color_rt.get());
+    RGTextureHandle depth = builder.import_texture("scene_depth", m_depth_rt.get());
 
     // --- Depth pre-pass ---
     builder.write_depth_stencil(depth, {GRILoadAction::Clear, GRIStoreAction::Store, 1.0f});
@@ -490,21 +517,17 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
     builder.read_texture(depth);
 
     // --- Forward scene pass ---
-    ScenePassParams* params = builder.alloc_params<ScenePassParams>();
-    params->scene_texture   = resolve_texture(scene_texture_id);
-
-    builder.write_render_target(0, backbuffer, RGColorAttachmentDesc::clear({0.1f, 0.1f, 0.1f, 1.0f}));
+    builder.write_render_target(0, color, RGColorAttachmentDesc::clear({0.1f, 0.1f, 0.1f, 1.0f}));
     builder.read_depth_stencil(depth, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
     builder.add_pass(
-        "ForwardScene", params,
-        [this](ScenePassParams* p, GRICommandList& cmd)
+        "ForwardScene",
+        [this](GRICommandList& cmd)
         {
             if (m_fwd_batches.empty() || !m_instance_buffer)
             {
                 return;
             }
             Renderer::bind_frame_data(cmd);
-            cmd.set_texture(p->scene_texture, 0, GRIShaderStage::Pixel);
             cmd.set_vertex_buffer(m_instance_buffer.get(), 0, k_instance_buffer_slot);
 
             GRIPipelineState* current_pso = nullptr;
@@ -542,6 +565,8 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
                                                       batch.args.base_vertex);
             }
         });
+
+    return {color, depth};
 }
 
 } // namespace Ignis

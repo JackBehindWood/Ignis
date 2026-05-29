@@ -27,7 +27,7 @@ void Renderer::begin_frame(GRIViewport* viewport)
 
     GRICommandList& cmd = RenderSystem::get_command_list();
     cmd.begin_frame();
-    cmd.begin_drawing_viewport(viewport, nullptr);
+    // cmd.begin_drawing_viewport(viewport, nullptr);
 }
 
 void Renderer::end_frame()

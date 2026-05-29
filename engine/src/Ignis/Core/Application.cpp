@@ -80,6 +80,11 @@ void Application::run()
             {
                 layer->update(timestep);
             }
+
+            for (Layer* layer : m_layer_stack)
+            {
+                layer->render();
+            }
         }
         m_window.update();
         Platform::poll_events();

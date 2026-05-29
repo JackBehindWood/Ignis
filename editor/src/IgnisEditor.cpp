@@ -9,6 +9,10 @@
 #include "Project/ProjectManager.h"
 #include "Ignis/Rendering/Renderer.h"
 
+#ifdef ENGINE_IMGUI
+#include <Ignis/UI/ImGuiLayer.h>
+#endif
+
 namespace Ignis
 {
 
@@ -18,6 +22,14 @@ Editor::Editor(const ApplicationSpecification& spec)
     const Path engine_root = Filesystem::current_path() / "resources";
     bootstrap(engine_root);
     push_layer(new EditorLayer());
+
+    ImGuiLayer* imgui_layer = new ImGuiLayer();
+    push_overlay(imgui_layer);
+
+    const Path ini_dir = Filesystem::current_path() / "resources" / ".ignis";
+
+    Filesystem::create_directories(ini_dir);
+    imgui_layer->set_ini_path((ini_dir / "imgui.ini").string());
 }
 
 Editor::~Editor()

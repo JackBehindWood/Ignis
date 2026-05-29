@@ -1,7 +1,7 @@
 # Project State
 
 ## Current Focus
-**GRI API Extension complete.** `GRIPipelineStateDesc` now uses `GRIDepthStencilDesc`/`GRIRasterDesc`/`GRIBlendDesc` sub-descriptors; `MaterialFactory` cache key covers all fields; Metal translation functions wired; `SceneRenderer::prepare()` derives descriptors from `AssetMaterial` surface flags; PSO IDs disjoint via `^ 0x8000u`. Build clean. Pending: Metal dynamic raster encoder (`setCullMode`), engine default material, SceneSerializer + IHT regen for `MeshRendererComponent`/`MaterialComponent`.
+**ImGui integration complete (ENGINE_IMGUI flag).** `IImGuiDrawable` + `ImGuiLayer` engine subsystem; `ImGuiLayer.mm` in `IgnisBackend/imgui/` (Metal+GLFW backend, own command buffer, presents to window drawable). `SceneRenderer` gains offscreen `m_color_rt`/`m_depth_rt` + `resize()`; `render_scene` returns `SceneRenderHandles`. Editor: `SceneEditor` (dockspace, DockBuilder layout, toolbar, menu), `ViewportPanel` (deferred resize), `SceneTreePanel`, `ConsolePanel` (ring-buffer spdlog sink), `PropertyPanel`. `EditorLayer` registered as `IImGuiDrawable`; `ImGuiLayer` pushed as overlay in `IgnisEditor`. Build: imgui submodule (docking branch), `engine/vendor/premake/imgui.lua`, `--imgui` premake option. Pending: clone/init imgui submodule, regenerate Xcode project with `--imgui`, smoke test.
 
 ## Standing Systems
 

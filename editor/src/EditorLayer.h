@@ -7,6 +7,10 @@
 #include <Ignis/Rendering/Material.h>
 #include "Ignis/Scene/FlyCamera.h"
 
+#ifdef ENGINE_IMGUI
+#include "UI/SceneEditor.h"
+#endif
+
 namespace Ignis
 {
 class EditorLayer : public Layer
@@ -16,14 +20,17 @@ private:
     SceneRenderer m_scene_renderer;
     FlyCamera     m_fly_camera;
     RGBuilder     m_builder;
-    AssetID       m_scene_texture_id{UUID::s_invalid};
     bool          m_scene_ready = false;
 
     SharedPtr<RenderShader> m_grid_vs;
     SharedPtr<RenderShader> m_grid_ps;
     SharedPtr<Material>     m_grid_material;
 
-    void draw_grid(RGTextureHandle bb);
+#ifdef ENGINE_IMGUI
+    SceneEditor m_scene_editor;
+#endif
+
+    void draw_grid(RGTextureHandle color, RGTextureHandle depth);
 
 public:
     EditorLayer();
@@ -31,6 +38,8 @@ public:
 
     virtual void attach() override;
     virtual void detach() override;
+    virtual void update(Timestep ts) override;
+    virtual void render() override;
     virtual void event(Event& event) override;
 
     bool key_pressed(KeyPressedEvent& e);
@@ -39,7 +48,5 @@ public:
     bool mouse_moved(MouseMovedEvent& e);
     bool mouse_scrolled(MouseScrolledEvent& e);
     bool window_resized(WindowResizeEvent& e);
-
-    void update(Timestep ts) override;
 };
 } // namespace Ignis

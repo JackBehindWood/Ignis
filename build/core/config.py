@@ -218,6 +218,7 @@ class Config:
         self.configuration = ini_build["configuration"]
         self.verbose       = ini_build.getboolean("verbose")
         self.dev           = ini_build.getboolean("dev", fallback=False)
+        self.imgui         = ini_build.getboolean("imgui", fallback=False)
 
         self.premake_dir     = os.path.join(self.project_dir, ini_premake["dir"])
         self.premake_exec    = os.path.join(self.project_dir, ini_premake["exec"])

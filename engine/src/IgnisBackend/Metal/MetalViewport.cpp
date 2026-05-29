@@ -173,7 +173,15 @@ MetalViewport::MetalViewport(MetalDevice* device, const GRIViewportDesc& desc)
       m_drawable(nullptr),
       m_depth_buffer(nullptr)
 {
-    m_window = glfwCreateWindow(m_width, m_height, desc.title, nullptr, nullptr);
+    m_window = glfwCreateWindow(desc.width, desc.height, desc.title, nullptr, nullptr);
+
+    // Use the physical framebuffer size — on Retina this is 2× the logical window size.
+    // GLFW does not fire a framebuffer-size callback on initial creation, so querying here
+    // is the only way to get the correct drawable dimensions before the first frame.
+    int fb_w, fb_h;
+    glfwGetFramebufferSize(m_window, &fb_w, &fb_h);
+    m_width  = static_cast<uint32_t>(fb_w);
+    m_height = static_cast<uint32_t>(fb_h);
 
     m_metal_layer = CA::MetalLayer::layer();
     m_metal_layer->setDevice(m_device.get_device());

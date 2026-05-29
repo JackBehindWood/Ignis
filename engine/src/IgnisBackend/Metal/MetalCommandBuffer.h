@@ -1,4 +1,4 @@
-
+#pragma once
 #include <Metal/Metal.hpp>
 
 namespace Ignis
