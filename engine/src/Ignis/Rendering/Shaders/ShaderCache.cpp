@@ -471,6 +471,20 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const String& source_text, c
     return sh;
 }
 
+// TODO: submit compilation to a worker pool; return nullptr on miss so callers use the fallback material.
+SharedPtr<RenderShader> ShaderCache::get_or_compile_async(const Path& source_path, GRIShaderStage stage,
+                                                          const ShaderCompilerOptions& opts)
+{
+    return get_or_compile(source_path, stage, opts);
+}
+
+// TODO: submit compilation to a worker pool; return nullptr on miss so callers use the fallback material.
+SharedPtr<RenderShader> ShaderCache::get_or_compile_async(const String& source_text, const String& virtual_name,
+                                                          GRIShaderStage stage, const ShaderCompilerOptions& opts)
+{
+    return get_or_compile(source_text, virtual_name, stage, opts);
+}
+
 SharedPtr<RenderShader> ShaderCache::get_or_compile(const Path& source_path, GRIShaderStage stage,
                                                     const ShaderCompilerOptions& opts)
 {

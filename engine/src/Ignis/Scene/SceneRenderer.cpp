@@ -12,6 +12,7 @@
 #include "Ignis/Rendering/RenderGraph/RGBuilder.h"
 #include "Ignis/Rendering/Shaders/ShaderCache.h"
 #include "Ignis/Rendering/VertexDeclarationRegistry.h"
+#include "Ignis/Rendering/StaticGeometryBatcher.h"
 
 namespace Ignis
 {
@@ -106,7 +107,7 @@ void SceneRenderer::prepare(Scene& scene)
     const GRIPixelFormat rt_fmt    = Renderer::get_config().render_target_format;
     const GRIPixelFormat depth_fmt = Renderer::get_config().depth_format;
 
-    // Mesh resolution — read cook-time bounds; no O(N) vertex sweep.
+    // Mesh resolution — register with batcher; bounds read from cook-time fields.
     {
         auto view = scene.registry().view<MeshRendererComponent>();
         for (auto [entity, mesh_comp] : view.each())
@@ -127,20 +128,15 @@ void SceneRenderer::prepare(Scene& scene)
                 continue;
             }
 
-            const Math::Vec3f bounds_center = asset_mesh->get_bounds_center();
-            const float       bounds_radius = asset_mesh->get_bounds_radius();
-            const MeshSlot    slot{
-                asset_mesh->get_first_index(),
-                asset_mesh->get_base_vertex(),
-                static_cast<uint32_t>(asset_mesh->get_indices().size()),
-            };
+            const MeshSlot slot = StaticGeometryBatcher::get().register_mesh(
+                key, asset_mesh->get_vertices().data(), static_cast<uint32_t>(asset_mesh->get_vertices().size()),
+                asset_mesh->get_indices().data(), static_cast<uint32_t>(asset_mesh->get_indices().size()));
 
-            SharedPtr<RenderMesh> render_mesh = RenderMesh::create(
-                asset_mesh->get_vertices().data(), static_cast<uint32_t>(asset_mesh->get_vertices().size()),
-                asset_mesh->get_indices().data(), static_cast<uint32_t>(asset_mesh->get_indices().size()),
-                GRIIndexFormat::Uint32, bounds_center, bounds_radius, slot);
+            SharedPtr<RenderMesh> render_mesh =
+                RenderMesh::create_batched(asset_mesh->get_bounds_center(), asset_mesh->get_bounds_radius(), slot);
             Renderer::get_resource_cache().register_mesh(key, std::move(render_mesh));
         }
+        StaticGeometryBatcher::get().flush_to_gpu();
     }
 
     // Material & PSO resolution — async-only path.
@@ -453,36 +449,42 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
 
     // --- Depth pre-pass ---
     builder.write_depth_stencil(depth, {GRILoadAction::Clear, GRIStoreAction::Store, 1.0f});
-    builder.add_pass("DepthPrePass",
-                     [this](GRICommandList& cmd)
-                     {
-                         if (m_depth_batches.empty() || !m_instance_buffer)
-                         {
-                             return;
-                         }
-                         Renderer::bind_frame_data(cmd);
-                         cmd.set_vertex_buffer(m_instance_buffer.get(), 0, k_instance_buffer_slot);
+    builder.add_pass(
+        "DepthPrePass",
+        [this](GRICommandList& cmd)
+        {
+            if (m_depth_batches.empty() || !m_instance_buffer)
+            {
+                return;
+            }
+            Renderer::bind_frame_data(cmd);
+            cmd.set_vertex_buffer(m_instance_buffer.get(), 0, k_instance_buffer_slot);
 
-                         GRIPipelineState* current_pso = nullptr;
-                         GRIBuffer*        current_vb  = nullptr;
-                         for (const DrawBatch& batch : m_depth_batches)
-                         {
-                             if (batch.pso != current_pso)
-                             {
-                                 cmd.set_graphics_pipeline_state(batch.pso);
-                                 current_pso = batch.pso;
-                             }
-                             if (batch.mesh->get_vertex_buffer() != current_vb)
-                             {
-                                 cmd.set_vertex_buffer(batch.mesh->get_vertex_buffer());
-                                 cmd.set_index_buffer(batch.mesh->get_index_buffer(), batch.mesh->get_index_format());
-                                 current_vb = batch.mesh->get_vertex_buffer();
-                             }
-                             cmd.draw_indexed_primitives_instanced(batch.args.index_count, batch.args.instance_count,
-                                                                   batch.args.base_instance, batch.args.first_index,
-                                                                   batch.args.base_vertex);
-                         }
-                     });
+            GRIPipelineState* current_pso = nullptr;
+            GRIBuffer*        current_vb  = nullptr;
+            GRIBuffer*        global_vb   = StaticGeometryBatcher::get().get_global_vb();
+            GRIBuffer*        global_ib   = StaticGeometryBatcher::get().get_global_ib();
+            for (const DrawBatch& batch : m_depth_batches)
+            {
+                if (batch.pso != current_pso)
+                {
+                    cmd.set_graphics_pipeline_state(batch.pso);
+                    current_pso = batch.pso;
+                }
+                GRIBuffer* desired_vb = batch.mesh->get_vertex_buffer() ? batch.mesh->get_vertex_buffer() : global_vb;
+                if (desired_vb && desired_vb != current_vb)
+                {
+                    GRIBuffer* desired_ib = batch.mesh->get_index_buffer() ? batch.mesh->get_index_buffer() : global_ib;
+                    cmd.set_vertex_buffer(desired_vb);
+                    cmd.set_index_buffer(desired_ib, batch.mesh->get_index_buffer() ? batch.mesh->get_index_format()
+                                                                                    : GRIIndexFormat::Uint32);
+                    current_vb = desired_vb;
+                }
+                cmd.draw_indexed_primitives_instanced(batch.args.index_count, batch.args.instance_count,
+                                                      batch.args.base_instance, batch.args.first_index,
+                                                      batch.args.base_vertex);
+            }
+        });
 
     // Explicit dependency: DepthPrePass write must complete before ForwardScene reads.
     builder.read_texture(depth);
@@ -493,48 +495,53 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
 
     builder.write_render_target(0, backbuffer, RGColorAttachmentDesc::clear({0.1f, 0.1f, 0.1f, 1.0f}));
     builder.read_depth_stencil(depth, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
-    builder.add_pass("ForwardScene", params,
-                     [this](ScenePassParams* p, GRICommandList& cmd)
-                     {
-                         if (m_fwd_batches.empty() || !m_instance_buffer)
-                         {
-                             return;
-                         }
-                         Renderer::bind_frame_data(cmd);
-                         cmd.set_texture(p->scene_texture, 0, GRIShaderStage::Pixel);
-                         cmd.set_vertex_buffer(m_instance_buffer.get(), 0, k_instance_buffer_slot);
+    builder.add_pass(
+        "ForwardScene", params,
+        [this](ScenePassParams* p, GRICommandList& cmd)
+        {
+            if (m_fwd_batches.empty() || !m_instance_buffer)
+            {
+                return;
+            }
+            Renderer::bind_frame_data(cmd);
+            cmd.set_texture(p->scene_texture, 0, GRIShaderStage::Pixel);
+            cmd.set_vertex_buffer(m_instance_buffer.get(), 0, k_instance_buffer_slot);
 
-                         GRIPipelineState* current_pso = nullptr;
-                         const Material*   current_mat = nullptr;
-                         GRIBuffer*        current_vb  = nullptr;
-                         for (const DrawBatch& batch : m_fwd_batches)
-                         {
-                             if (batch.pso != current_pso)
-                             {
-                                 cmd.set_graphics_pipeline_state(batch.pso);
-                                 current_pso = batch.pso;
-                             }
-                             if (batch.material != current_mat)
-                             {
-                                 if (batch.material->get_params_buffer())
-                                 {
-                                     cmd.set_uniform_buffer(batch.material->get_params_buffer(),
-                                                            static_cast<uint32_t>(UniformSlot::MaterialArgs),
-                                                            GRIShaderStage::Pixel);
-                                 }
-                                 current_mat = batch.material;
-                             }
-                             if (batch.mesh->get_vertex_buffer() != current_vb)
-                             {
-                                 cmd.set_vertex_buffer(batch.mesh->get_vertex_buffer());
-                                 cmd.set_index_buffer(batch.mesh->get_index_buffer(), batch.mesh->get_index_format());
-                                 current_vb = batch.mesh->get_vertex_buffer();
-                             }
-                             cmd.draw_indexed_primitives_instanced(batch.args.index_count, batch.args.instance_count,
-                                                                   batch.args.base_instance, batch.args.first_index,
-                                                                   batch.args.base_vertex);
-                         }
-                     });
+            GRIPipelineState* current_pso = nullptr;
+            const Material*   current_mat = nullptr;
+            GRIBuffer*        current_vb  = nullptr;
+            GRIBuffer*        global_vb   = StaticGeometryBatcher::get().get_global_vb();
+            GRIBuffer*        global_ib   = StaticGeometryBatcher::get().get_global_ib();
+            for (const DrawBatch& batch : m_fwd_batches)
+            {
+                if (batch.pso != current_pso)
+                {
+                    cmd.set_graphics_pipeline_state(batch.pso);
+                    current_pso = batch.pso;
+                }
+                if (batch.material != current_mat)
+                {
+                    if (batch.material->get_params_buffer())
+                    {
+                        cmd.set_uniform_buffer(batch.material->get_params_buffer(),
+                                               static_cast<uint32_t>(UniformSlot::MaterialArgs), GRIShaderStage::Pixel);
+                    }
+                    current_mat = batch.material;
+                }
+                GRIBuffer* desired_vb = batch.mesh->get_vertex_buffer() ? batch.mesh->get_vertex_buffer() : global_vb;
+                if (desired_vb && desired_vb != current_vb)
+                {
+                    GRIBuffer* desired_ib = batch.mesh->get_index_buffer() ? batch.mesh->get_index_buffer() : global_ib;
+                    cmd.set_vertex_buffer(desired_vb);
+                    cmd.set_index_buffer(desired_ib, batch.mesh->get_index_buffer() ? batch.mesh->get_index_format()
+                                                                                    : GRIIndexFormat::Uint32);
+                    current_vb = desired_vb;
+                }
+                cmd.draw_indexed_primitives_instanced(batch.args.index_count, batch.args.instance_count,
+                                                      batch.args.base_instance, batch.args.first_index,
+                                                      batch.args.base_vertex);
+            }
+        });
 }
 
 } // namespace Ignis

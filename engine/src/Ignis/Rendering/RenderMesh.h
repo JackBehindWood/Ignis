@@ -34,6 +34,8 @@ public:
                                         Math::Vec3f bounds_center = {}, float bounds_radius = 1.0e30f,
                                         MeshSlot slot = {});
 
+    static SharedPtr<RenderMesh> create_batched(Math::Vec3f bounds_center, float bounds_radius, MeshSlot slot);
+
     GRIBuffer* get_vertex_buffer() const
     {
         return m_vertex_buffer.get();

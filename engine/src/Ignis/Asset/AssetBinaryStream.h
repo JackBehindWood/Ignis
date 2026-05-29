@@ -89,6 +89,10 @@ struct AssetBinaryReader
     {
         return m_reader.good();
     }
+    uint8_t version() const
+    {
+        return m_version;
+    }
 
     uint8_t read_u8()
     {
@@ -117,6 +121,7 @@ struct AssetBinaryReader
 
 private:
     BinaryReader m_reader;
+    uint8_t      m_version = 0;
 };
 
 } // namespace Ignis

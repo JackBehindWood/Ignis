@@ -28,6 +28,12 @@ public:
         m_bounds_radius = radius;
     }
 
+    void set_aabb(Math::Vec3f min, Math::Vec3f max)
+    {
+        m_bounds_min = min;
+        m_bounds_max = max;
+    }
+
     void set_batch_slot(uint32_t first_index, int32_t base_vertex)
     {
         m_first_index = first_index;
@@ -55,6 +61,14 @@ public:
     {
         return m_bounds_radius;
     }
+    Math::Vec3f get_bounds_min() const
+    {
+        return m_bounds_min;
+    }
+    Math::Vec3f get_bounds_max() const
+    {
+        return m_bounds_max;
+    }
     uint32_t get_first_index() const
     {
         return m_first_index;
@@ -77,6 +91,8 @@ private:
     int32_t          m_base_vertex   = 0;
     Math::Vec3f      m_bounds_center;
     float            m_bounds_radius = 1.0e30f;
+    Math::Vec3f      m_bounds_min;
+    Math::Vec3f      m_bounds_max;
 };
 
 } // namespace Ignis

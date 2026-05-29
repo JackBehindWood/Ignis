@@ -6,7 +6,7 @@
 namespace Ignis
 {
 
-static constexpr AssetBlobHeader k_mesh_header   = {{'I', 'G', 'A', 'M'}, 2};
+static constexpr AssetBlobHeader k_mesh_header   = {{'I', 'G', 'A', 'M'}, 3};
 static constexpr uint32_t        k_vertex_stride = 12 + 12 + 8; // pos(3f) nrm(3f) uv(2f)
 
 // ---------------------------------------------------------------------------
@@ -168,10 +168,78 @@ bool MeshHandler::compile(const AssetMetadata& metadata)
         }
     }
 
-    if (vertices.empty())
+    if (vertices.empty() || positions.empty())
     {
         IG_CORE_ERROR("MeshHandler: no geometry in '{}'", metadata.source_path.string());
         return false;
+    }
+
+    // AABB — exact min/max over all declared positions
+    Math::Vec3f bounds_min{positions[0][0], positions[0][1], positions[0][2]};
+    Math::Vec3f bounds_max = bounds_min;
+    for (const auto& p : positions)
+    {
+        bounds_min.x = Math::min(bounds_min.x, p[0]);
+        bounds_min.y = Math::min(bounds_min.y, p[1]);
+        bounds_min.z = Math::min(bounds_min.z, p[2]);
+        bounds_max.x = Math::max(bounds_max.x, p[0]);
+        bounds_max.y = Math::max(bounds_max.y, p[1]);
+        bounds_max.z = Math::max(bounds_max.z, p[2]);
+    }
+
+    // Ritter sphere — pass 1: pick P farthest from seed, Q farthest from P
+    auto sq3 = [](const Array<float, 3>& a, const Array<float, 3>& b) -> float
+    {
+        float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
+        return dx * dx + dy * dy + dz * dz;
+    };
+
+    size_t p_idx = 0;
+    float  p_sq  = 0.0f;
+    for (size_t i = 1; i < positions.size(); ++i)
+    {
+        float d = sq3(positions[0], positions[i]);
+        if (d > p_sq)
+        {
+            p_sq  = d;
+            p_idx = i;
+        }
+    }
+
+    size_t q_idx = 0;
+    float  q_sq  = 0.0f;
+    for (size_t i = 0; i < positions.size(); ++i)
+    {
+        float d = sq3(positions[p_idx], positions[i]);
+        if (d > q_sq)
+        {
+            q_sq  = d;
+            q_idx = i;
+        }
+    }
+
+    Math::Vec3f s_center{
+        (positions[p_idx][0] + positions[q_idx][0]) * 0.5f,
+        (positions[p_idx][1] + positions[q_idx][1]) * 0.5f,
+        (positions[p_idx][2] + positions[q_idx][2]) * 0.5f,
+    };
+    float s_radius = Math::sqrt(q_sq) * 0.5f;
+
+    // Ritter pass 2: grow sphere to contain all points
+    for (const auto& p : positions)
+    {
+        float dx   = p[0] - s_center.x;
+        float dy   = p[1] - s_center.y;
+        float dz   = p[2] - s_center.z;
+        float dist = Math::sqrt(dx * dx + dy * dy + dz * dz);
+        if (dist > s_radius)
+        {
+            float t = (dist - s_radius) / (2.0f * dist);
+            s_center.x += dx * t;
+            s_center.y += dy * t;
+            s_center.z += dz * t;
+            s_radius = (s_radius + dist) * 0.5f;
+        }
     }
 
     AssetBinaryWriter w = open_writer(metadata, k_mesh_header);
@@ -184,6 +252,11 @@ bool MeshHandler::compile(const AssetMetadata& metadata)
     const uint32_t vertex_count = static_cast<uint32_t>(vertices.size() / k_vertex_stride);
     const uint32_t index_count  = static_cast<uint32_t>(indices.size());
 
+    const float bd[10] = {
+        bounds_min.x, bounds_min.y, bounds_min.z, bounds_max.x, bounds_max.y,
+        bounds_max.z, s_center.x,   s_center.y,   s_center.z,   s_radius,
+    };
+    w.write_bytes(bd, sizeof(bd));
     w.write_u32(k_vertex_stride);
     w.write_u32(vertex_count);
     w.write_bytes(vertices.data(), vertices.size());
@@ -196,7 +269,7 @@ bool MeshHandler::compile(const AssetMetadata& metadata)
 SharedPtr<Asset> MeshHandler::load(const AssetMetadata& metadata)
 {
     AssetBinaryReader r = open_reader(metadata, k_mesh_header);
-    if (!r.is_open())
+    if (!r.is_open() || r.version() < 3)
     {
         if (!compile(metadata))
         {
@@ -210,6 +283,13 @@ SharedPtr<Asset> MeshHandler::load(const AssetMetadata& metadata)
             return nullptr;
         }
     }
+
+    float bd[10];
+    r.read_bytes(bd, sizeof(bd));
+    const Math::Vec3f bounds_min{bd[0], bd[1], bd[2]};
+    const Math::Vec3f bounds_max{bd[3], bd[4], bd[5]};
+    const Math::Vec3f sphere_center{bd[6], bd[7], bd[8]};
+    const float       sphere_radius = bd[9];
 
     const uint32_t vertex_stride = r.read_u32();
     const uint32_t vertex_count  = r.read_u32();
@@ -227,7 +307,10 @@ SharedPtr<Asset> MeshHandler::load(const AssetMetadata& metadata)
         return nullptr;
     }
 
-    return create_shared<AssetMesh>(metadata.ID, vertices, indices, vertex_stride);
+    auto mesh = create_shared<AssetMesh>(metadata.ID, vertices, indices, vertex_stride);
+    mesh->set_bounds(sphere_center, sphere_radius);
+    mesh->set_aabb(bounds_min, bounds_max);
+    return mesh;
 }
 
 SharedPtr<Asset> MeshHandler::load_from_bytes(const AssetMetadata& metadata, const Vector<uint8_t>& bytes)
@@ -273,7 +356,10 @@ SharedPtr<Asset> MeshHandler::create_default_fallback() const
     Vector<uint8_t> verts(sizeof(k_verts));
     std::memcpy(verts.data(), k_verts, sizeof(k_verts));
     Vector<uint32_t> idx(k_idx, k_idx + 36);
-    return create_shared<AssetMesh>(UUID{UUID::s_invalid}, verts, idx, 32u);
+    auto             mesh = create_shared<AssetMesh>(UUID{UUID::s_invalid}, verts, idx, 32u);
+    mesh->set_bounds({0.0f, 0.0f, 0.0f}, 0.866f);
+    mesh->set_aabb({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f});
+    return mesh;
 }
 
 } // namespace Ignis

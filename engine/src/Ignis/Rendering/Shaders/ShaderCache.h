@@ -29,18 +29,10 @@ public:
     SharedPtr<RenderShader> get_or_compile(const String& source_text, const String& virtual_name, GRIShaderStage stage,
                                            const ShaderCompilerOptions& opts = {});
 
-    // Phase 1 stub: submits to worker pool in Phase 2; currently compiles synchronously.
-    // Returns nullptr if the shader is not yet available (caller must handle gracefully).
     SharedPtr<RenderShader> get_or_compile_async(const Path& source_path, GRIShaderStage stage,
-                                                 const ShaderCompilerOptions& opts = {})
-    {
-        return get_or_compile(source_path, stage, opts);
-    }
+                                                 const ShaderCompilerOptions& opts = {});
     SharedPtr<RenderShader> get_or_compile_async(const String& source_text, const String& virtual_name,
-                                                 GRIShaderStage stage, const ShaderCompilerOptions& opts = {})
-    {
-        return get_or_compile(source_text, virtual_name, stage, opts);
-    }
+                                                 GRIShaderStage stage, const ShaderCompilerOptions& opts = {});
 
     void remove(const Path& source_path);
 

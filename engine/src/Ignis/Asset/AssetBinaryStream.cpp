@@ -20,12 +20,12 @@ static void write_header(AssetBinaryWriter& result, BinaryWriter& w, const Asset
     }
 }
 
-static bool open_reader(BinaryReader& reader, const AssetBlobHeader& header, const String& path_for_log)
+static uint8_t open_reader(BinaryReader& reader, const AssetBlobHeader& header, const String& path_for_log)
 {
     if (!reader.is_open())
     {
         IG_CORE_ERROR("AssetBinaryReader: file not found: {}", path_for_log);
-        return false;
+        return 0;
     }
 
     uint8_t file_magic[4];
@@ -34,7 +34,7 @@ static bool open_reader(BinaryReader& reader, const AssetBlobHeader& header, con
         file_magic[3] != header.magic[3])
     {
         IG_CORE_ERROR("AssetBinaryReader: bad magic in {}", path_for_log);
-        return false;
+        return 0;
     }
 
     const uint8_t version = reader.read_u8();
@@ -48,7 +48,7 @@ static bool open_reader(BinaryReader& reader, const AssetBlobHeader& header, con
     }
     reader.read_u64(); // payload_size — discard
 
-    return reader.good();
+    return reader.good() ? version : 0;
 }
 } // namespace Utils
 
@@ -135,8 +135,9 @@ bool AssetBinaryWriter::finalize()
 AssetBinaryReader AssetBinaryReader::open(const AssetMetadata& metadata, const AssetBlobHeader& header)
 {
     AssetBinaryReader result;
-    result.m_reader = BinaryReader(metadata.compiled_path);
-    if (!Utils::open_reader(result.m_reader, header, metadata.compiled_path.string()))
+    result.m_reader  = BinaryReader(metadata.compiled_path);
+    result.m_version = Utils::open_reader(result.m_reader, header, metadata.compiled_path.string());
+    if (result.m_version == 0)
     {
         result.m_reader = BinaryReader();
     }
@@ -146,8 +147,9 @@ AssetBinaryReader AssetBinaryReader::open(const AssetMetadata& metadata, const A
 AssetBinaryReader AssetBinaryReader::open(const Path& path, const AssetBlobHeader& header)
 {
     AssetBinaryReader result;
-    result.m_reader = BinaryReader(path);
-    if (!Utils::open_reader(result.m_reader, header, path.string()))
+    result.m_reader  = BinaryReader(path);
+    result.m_version = Utils::open_reader(result.m_reader, header, path.string());
+    if (result.m_version == 0)
     {
         result.m_reader = BinaryReader();
     }

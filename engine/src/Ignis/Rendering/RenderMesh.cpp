@@ -30,4 +30,10 @@ SharedPtr<RenderMesh> RenderMesh::create(const void* vertex_data, uint32_t verte
                                      bounds_radius, slot);
 }
 
+SharedPtr<RenderMesh> RenderMesh::create_batched(Math::Vec3f bounds_center, float bounds_radius, MeshSlot slot)
+{
+    return create_shared<RenderMesh>(GRIBufferPtr{}, GRIBufferPtr{}, slot.index_count, GRIIndexFormat::Uint32,
+                                     bounds_center, bounds_radius, slot);
+}
+
 } // namespace Ignis
