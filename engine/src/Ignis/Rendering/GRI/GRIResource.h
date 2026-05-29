@@ -291,8 +291,9 @@ struct GRIPipelineStateDesc
     GRIPixelFormat        render_target_format = GRIPixelFormat::RGBA8Unorm; // Unknown = no color attachment
     GRIPixelFormat        depth_stencil_format = GRIPixelFormat::Unknown;    // Unknown = no depth
     GRIPrimitiveTopology  primitive_topology   = GRIPrimitiveTopology::TriangleList;
-    bool                  depth_write_enabled  = true;
-    GRIBlendMode          blend_mode           = GRIBlendMode::None;
+    GRIDepthStencilDesc   depth_stencil;
+    GRIRasterDesc         raster;
+    GRIBlendDesc          blend;
 };
 
 class GRIPipelineState : public GRIResource

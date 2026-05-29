@@ -200,6 +200,8 @@ void MetalCommandContext::set_graphics_pipeline_state(GRIPipelineState* pipeline
     {
         m_render_encoder->get()->setDepthStencilState(pso->get_depth_stencil_state());
     }
+    m_render_encoder->get()->setCullMode(pso->get_cull_mode());
+    m_render_encoder->get()->setTriangleFillMode(pso->get_fill_mode());
     m_state_cache.set_primitive_type(pso->get_primitive_type());
 }
 

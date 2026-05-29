@@ -11,10 +11,6 @@
 namespace Ignis
 {
 
-// TODO: we want to use a left handed coordiante system!!!!!!!!!
-
-// TODO: We should maybe only use Math::Transformf and add a convert struct to YAMLMathCodecs.h to get the individual
-// components and serialise these! But it also depends on the Scene Renderer!
 IG_CLASS(Component)
 struct TransformComponent
 {
@@ -33,18 +29,31 @@ struct TransformComponent
     }
 };
 
-// TODO: split into separate MeshRendererComponent and MaterialComponent!
+enum class MeshCategory : uint8_t
+{
+    Static,
+    Dynamic,
+    Skinned,
+};
+
 IG_CLASS(Component)
-struct MeshComponent
+struct MeshRendererComponent
 {
     IG_PROPERTY(EditAnywhere, SaveGame)
     AssetID mesh_id;
 
     IG_PROPERTY(EditAnywhere, SaveGame)
-    AssetID material_id;
+    MeshCategory category = MeshCategory::Static;
 
     IG_PROPERTY(EditAnywhere, SaveGame)
     bool is_visible = true;
+};
+
+IG_CLASS(Component)
+struct MaterialComponent
+{
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    AssetID material_id;
 };
 
 } // namespace Ignis

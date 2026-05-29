@@ -22,21 +22,33 @@ struct CullProxy
     uint32_t    entity_index;
 };
 
+// Mirrors MTLDrawIndexedPrimitivesIndirectArguments / VkDrawIndexedIndirectCommand exactly.
+// Phase 6: upload array to GPU buffer, replace emit loop with a single indirect draw call.
+struct DrawIndexedArguments
+{
+    uint32_t index_count;
+    uint32_t instance_count;
+    uint32_t first_index;
+    int32_t  base_vertex;
+    uint32_t base_instance;
+};
+
+struct DrawBatch
+{
+    DrawIndexedArguments args;
+    const RenderMesh*    mesh;
+    GRIPipelineState*    pso;
+    const Material*      material;
+    uint16_t             buffer_id;
+    uint16_t             pso_id;
+    uint16_t             material_id;
+};
+
 struct GPUInstanceData
 {
     Math::Mat4f world_matrix;
     uint32_t    material_index;
     uint32_t    padding[3];
-};
-
-struct RenderCommand
-{
-    uint64_t          sort_key;
-    const RenderMesh* mesh;
-    const Material*   material;
-    GRIPipelineState* pso;
-    uint32_t          instance_count;
-    uint32_t          base_instance;
 };
 
 class SceneRenderer
@@ -55,10 +67,15 @@ private:
 
     struct VisibleItem
     {
+        Math::Mat4f       world_matrix;
         const RenderMesh* mesh;
-        const Material*   material;
+        GRIPipelineState* pso;
         GRIPipelineState* depth_pso;
-        Math::Mat4f       world;
+        const Material*   material;
+        uint16_t          buffer_id;
+        uint16_t          pso_id;
+        uint16_t          depth_pso_id;
+        uint16_t          material_id;
         uint64_t          depth_key;
         uint64_t          fwd_key;
     };
@@ -74,10 +91,13 @@ private:
     Vector<CullProxy>       m_cull_proxies;
     Vector<VisibleItem>     m_pool;
     Vector<VisibleItem>     m_visible;
-    Vector<RenderCommand>   m_depth_cmds;
-    Vector<RenderCommand>   m_fwd_cmds;
+    Vector<DrawBatch>       m_depth_batches;
+    Vector<DrawBatch>       m_fwd_batches;
     Vector<GPUInstanceData> m_instance_data;
     GRIBufferPtr            m_instance_buffer;
+
+    SharedPtr<Material> m_fallback_material;
+    uint16_t            m_fallback_material_id = 0xFFFFu;
 };
 
 } // namespace Ignis

@@ -1,7 +1,7 @@
 # Project State
 
 ## Current Focus
-**Scene System Redesign — Phases 1–4 complete.** Full IHT pipeline, ComponentRegistry, ScriptRegistry, SceneSerializer, FlyCamera, CameraComponent, SceneRenderer overhaul, and all generated `.gen.h` files are live. Phase 4 cleanup: generator bugs fixed, ScriptComponent serializer special-case wired, all gen files regenerated.
+**GRI API Extension complete.** `GRIPipelineStateDesc` now uses `GRIDepthStencilDesc`/`GRIRasterDesc`/`GRIBlendDesc` sub-descriptors; `MaterialFactory` cache key covers all fields; Metal translation functions wired; `SceneRenderer::prepare()` derives descriptors from `AssetMaterial` surface flags; PSO IDs disjoint via `^ 0x8000u`. Build clean. Pending: Metal dynamic raster encoder (`setCullMode`), engine default material, SceneSerializer + IHT regen for `MeshRendererComponent`/`MaterialComponent`.
 
 ## Standing Systems
 
@@ -12,7 +12,7 @@
 - `SceneSerializer` — data-driven, ScriptComponent special-cased for ScriptRegistry delegation
 - `SceneCamera` + `CameraComponent` — projection state machine, IHT custom codec path
 - `FlyCamera` — engine-side free-look controller (no editor dep)
-- `SceneRenderer` — CameraData signature, FrameData UBO binding, flat TransformComponent fields
+- `SceneRenderer` — Phase 1 production arch: DrawBatch/DrawIndexedArguments, dense uint16_t IDs (ResourceCache), async PSO path in prepare(), MeshRendererComponent+MaterialComponent ECS views, MeshSlot-driven draw args, VB/IB bind-on-change in emit loops; GRI API Extension complete (GRIDepthStencilDesc/GRIRasterDesc/GRIBlendDesc, multi-pass PSO state, disjoint depth PSO IDs)
 - `Scene::update` — script dispatch; `get_primary_camera_data()` — optional CameraData query
 
 ### Project & Settings (editor-only, in-memory phase complete)
@@ -43,7 +43,7 @@ Observer-pattern project dispatch (`IProjectObserver`/`ProjectContext`), mode-aw
 ## Upcoming
 - Round-trip validation test: save scene → reload → verify field equality (post-Phase 4 smoke test)
 - IHT scan of game-project `src/Scripts/` and generated `register_all_scripts()` (when a game project exists)
-- docs/scene.md update to reflect final architecture
+- ~~docs/scene.md update to reflect final architecture~~ (complete — full architectural design doc written 2026-05-29)
 
 ## Key Invariants
 - Engine TUs: no Metal headers, no `EditorSettings`, no heavy YAML dependency in hot paths

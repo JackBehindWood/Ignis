@@ -7,10 +7,13 @@ namespace Ignis
 class AssetMaterial : public Asset
 {
 public:
-    AssetMaterial(AssetID id, Path shader_source, String vertex_layout, Vector<uint8_t> param_data)
+    AssetMaterial(AssetID id, Path shader_source, String vertex_layout, Vector<uint8_t> param_data,
+                  bool two_sided = false, bool transparent = false)
         : m_shader_source(std::move(shader_source)),
           m_vertex_layout(std::move(vertex_layout)),
-          m_param_data(std::move(param_data))
+          m_param_data(std::move(param_data)),
+          m_two_sided(two_sided),
+          m_transparent(transparent)
     {
         m_id = id;
     }
@@ -27,6 +30,14 @@ public:
     {
         return m_param_data;
     }
+    bool is_two_sided() const
+    {
+        return m_two_sided;
+    }
+    bool is_transparent() const
+    {
+        return m_transparent;
+    }
 
     static AssetType static_type()
     {
@@ -37,6 +48,8 @@ private:
     Path            m_shader_source;
     String          m_vertex_layout;
     Vector<uint8_t> m_param_data;
+    bool            m_two_sided   = false;
+    bool            m_transparent = false;
 };
 
 } // namespace Ignis

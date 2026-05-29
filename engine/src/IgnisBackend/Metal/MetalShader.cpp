@@ -59,6 +59,103 @@ static MTL::PrimitiveType metal_primitive_type(GRIPrimitiveTopology topology)
     }
 }
 
+static MTL::CompareFunction metal_compare_func(GRICompareFunc func)
+{
+    switch (func)
+    {
+        case GRICompareFunc::Never:
+            return MTL::CompareFunctionNever;
+        case GRICompareFunc::Less:
+            return MTL::CompareFunctionLess;
+        case GRICompareFunc::Equal:
+            return MTL::CompareFunctionEqual;
+        case GRICompareFunc::LessEqual:
+            return MTL::CompareFunctionLessEqual;
+        case GRICompareFunc::Greater:
+            return MTL::CompareFunctionGreater;
+        case GRICompareFunc::NotEqual:
+            return MTL::CompareFunctionNotEqual;
+        case GRICompareFunc::GreaterEqual:
+            return MTL::CompareFunctionGreaterEqual;
+        case GRICompareFunc::Always:
+            return MTL::CompareFunctionAlways;
+        default:
+            return MTL::CompareFunctionLessEqual;
+    }
+}
+
+static MTL::BlendFactor metal_blend_factor(GRIBlendFactor factor)
+{
+    switch (factor)
+    {
+        case GRIBlendFactor::Zero:
+            return MTL::BlendFactorZero;
+        case GRIBlendFactor::One:
+            return MTL::BlendFactorOne;
+        case GRIBlendFactor::SrcColor:
+            return MTL::BlendFactorSourceColor;
+        case GRIBlendFactor::InvSrcColor:
+            return MTL::BlendFactorOneMinusSourceColor;
+        case GRIBlendFactor::SrcAlpha:
+            return MTL::BlendFactorSourceAlpha;
+        case GRIBlendFactor::InvSrcAlpha:
+            return MTL::BlendFactorOneMinusSourceAlpha;
+        case GRIBlendFactor::DstAlpha:
+            return MTL::BlendFactorDestinationAlpha;
+        case GRIBlendFactor::InvDstAlpha:
+            return MTL::BlendFactorOneMinusDestinationAlpha;
+        default:
+            return MTL::BlendFactorOne;
+    }
+}
+
+static MTL::BlendOperation metal_blend_op(GRIBlendOp op)
+{
+    switch (op)
+    {
+        case GRIBlendOp::Add:
+            return MTL::BlendOperationAdd;
+        case GRIBlendOp::Subtract:
+            return MTL::BlendOperationSubtract;
+        case GRIBlendOp::RevSubtract:
+            return MTL::BlendOperationReverseSubtract;
+        case GRIBlendOp::Min:
+            return MTL::BlendOperationMin;
+        case GRIBlendOp::Max:
+            return MTL::BlendOperationMax;
+        default:
+            return MTL::BlendOperationAdd;
+    }
+}
+
+static MTL::CullMode metal_cull_mode(GRICullMode mode)
+{
+    switch (mode)
+    {
+        case GRICullMode::None:
+            return MTL::CullModeNone;
+        case GRICullMode::Front:
+            return MTL::CullModeFront;
+        case GRICullMode::Back:
+            return MTL::CullModeBack;
+        default:
+            return MTL::CullModeBack;
+    }
+}
+
+static MTL::TriangleFillMode metal_fill_mode(GRIFillMode mode)
+{
+    switch (mode)
+    {
+        case GRIFillMode::Solid:
+            return MTL::TriangleFillModeFill;
+        case GRIFillMode::Wireframe:
+            return MTL::TriangleFillModeLines;
+        default:
+            return MTL::TriangleFillModeFill;
+    }
+}
+
 } // namespace Utils
 
 GRIVertexShaderPtr MetalGRI::create_vertex_shader(const GRIShaderDesc& desc)
@@ -110,15 +207,15 @@ GRIPipelineStatePtr MetalGRI::create_graphics_pipeline_state(const GRIPipelineSt
         MTL::RenderPipelineColorAttachmentDescriptor* color_att = pipeline_desc->colorAttachments()->object(0);
         color_att->setPixelFormat(Utils::metal_pixel_format(desc.render_target_format));
 
-        if (desc.blend_mode == GRIBlendMode::AlphaBlend)
+        if (desc.blend.enable)
         {
             color_att->setBlendingEnabled(true);
-            color_att->setSourceRGBBlendFactor(MTL::BlendFactorSourceAlpha);
-            color_att->setDestinationRGBBlendFactor(MTL::BlendFactorOneMinusSourceAlpha);
-            color_att->setRgbBlendOperation(MTL::BlendOperationAdd);
-            color_att->setSourceAlphaBlendFactor(MTL::BlendFactorOne);
-            color_att->setDestinationAlphaBlendFactor(MTL::BlendFactorOneMinusSourceAlpha);
-            color_att->setAlphaBlendOperation(MTL::BlendOperationAdd);
+            color_att->setSourceRGBBlendFactor(Utils::metal_blend_factor(desc.blend.src_factor));
+            color_att->setDestinationRGBBlendFactor(Utils::metal_blend_factor(desc.blend.dst_factor));
+            color_att->setRgbBlendOperation(Utils::metal_blend_op(desc.blend.blend_op));
+            color_att->setSourceAlphaBlendFactor(Utils::metal_blend_factor(desc.blend.src_alpha));
+            color_att->setDestinationAlphaBlendFactor(Utils::metal_blend_factor(desc.blend.dst_alpha));
+            color_att->setAlphaBlendOperation(Utils::metal_blend_op(desc.blend.alpha_op));
         }
     }
 
@@ -152,8 +249,8 @@ GRIPipelineStatePtr MetalGRI::create_graphics_pipeline_state(const GRIPipelineSt
         pipeline_desc->setDepthAttachmentPixelFormat(Utils::metal_pixel_format(desc.depth_stencil_format));
 
         MTL::DepthStencilDescriptor* depth_desc = MTL::DepthStencilDescriptor::alloc()->init();
-        depth_desc->setDepthCompareFunction(MTL::CompareFunctionLessEqual);
-        depth_desc->setDepthWriteEnabled(desc.depth_write_enabled);
+        depth_desc->setDepthCompareFunction(Utils::metal_compare_func(desc.depth_stencil.depth_func));
+        depth_desc->setDepthWriteEnabled(desc.depth_stencil.depth_write);
         depth_stencil_state = m_device->get_device()->newDepthStencilState(depth_desc);
         depth_desc->release();
     }
@@ -168,8 +265,9 @@ GRIPipelineStatePtr MetalGRI::create_graphics_pipeline_state(const GRIPipelineSt
         return nullptr;
     }
 
-    return create_shared<MetalPipelineState>(pso, depth_stencil_state,
-                                             Utils::metal_primitive_type(desc.primitive_topology));
+    return create_shared<MetalPipelineState>(
+        pso, depth_stencil_state, Utils::metal_primitive_type(desc.primitive_topology),
+        Utils::metal_cull_mode(desc.raster.cull_mode), Utils::metal_fill_mode(desc.raster.fill_mode));
 }
 
 MetalVertexShader::MetalVertexShader(MTL::Function* function)
@@ -199,10 +297,13 @@ MetalPixelShader::~MetalPixelShader()
 }
 
 MetalPipelineState::MetalPipelineState(MTL::RenderPipelineState* pipeline_state,
-                                       MTL::DepthStencilState* depth_stencil_state, MTL::PrimitiveType primitive_type)
+                                       MTL::DepthStencilState* depth_stencil_state, MTL::PrimitiveType primitive_type,
+                                       MTL::CullMode cull_mode, MTL::TriangleFillMode fill_mode)
     : m_pipeline_state(pipeline_state),
       m_depth_stencil_state(depth_stencil_state),
-      m_primitive_type(primitive_type)
+      m_primitive_type(primitive_type),
+      m_cull_mode(cull_mode),
+      m_fill_mode(fill_mode)
 {
 }
 

@@ -19,17 +19,29 @@ GRIPipelineStatePtr MaterialFactory::build_pso(const CacheKey& key)
     desc.render_target_format = key.rt_format;
     desc.depth_stencil_format = key.depth_format;
     desc.primitive_topology   = GRIPrimitiveTopology::TriangleList;
-    desc.depth_write_enabled  = key.depth_write;
-    desc.blend_mode           = key.blend_mode;
+    desc.depth_stencil        = key.depth_stencil;
+    desc.raster               = key.raster;
+    desc.blend                = key.blend;
 
     return RenderSystem::get_gri()->create_graphics_pipeline_state(desc);
 }
 
 GRIPipelineState* MaterialFactory::get_depth_pso(const CacheKey& forward_key)
 {
-    CacheKey depth_key{
-        forward_key.vs, nullptr, forward_key.layout, GRIPixelFormat::Unknown, GRIPixelFormat::Depth32Float, true};
-    auto it = m_pso_cache.find(depth_key);
+    GRIDepthStencilDesc ds;
+    ds.depth_test  = true;
+    ds.depth_write = true;
+    ds.depth_func  = GRICompareFunc::LessEqual;
+
+    CacheKey depth_key{forward_key.vs,
+                       nullptr,
+                       forward_key.layout,
+                       GRIPixelFormat::Unknown,
+                       GRIPixelFormat::Depth32Float,
+                       ds,
+                       forward_key.raster,
+                       GRIBlendDesc{}};
+    auto     it = m_pso_cache.find(depth_key);
     if (it == m_pso_cache.end())
     {
         it = m_pso_cache.emplace(depth_key, build_pso(depth_key)).first;
@@ -39,9 +51,11 @@ GRIPipelineState* MaterialFactory::get_depth_pso(const CacheKey& forward_key)
 
 SharedPtr<Material> MaterialFactory::get_or_create(SharedPtr<RenderShader> vs, SharedPtr<RenderShader> ps,
                                                    const String& layout, GRIPixelFormat rt_fmt,
-                                                   GRIPixelFormat depth_fmt, bool depth_write, GRIBlendMode blend_mode)
+                                                   GRIPixelFormat depth_fmt, const GRIDepthStencilDesc& depth_stencil,
+                                                   const GRIRasterDesc& raster, const GRIBlendDesc& blend)
 {
-    CacheKey key{vs->get_shader(), ps ? ps->get_shader() : nullptr, layout, rt_fmt, depth_fmt, depth_write, blend_mode};
+    CacheKey key{
+        vs->get_shader(), ps ? ps->get_shader() : nullptr, layout, rt_fmt, depth_fmt, depth_stencil, raster, blend};
 
     auto mat_it = m_mat_cache.find(key);
     if (mat_it != m_mat_cache.end())
@@ -58,17 +72,20 @@ SharedPtr<Material> MaterialFactory::get_or_create(SharedPtr<RenderShader> vs, S
     const GRIVertexDeclaration* vd = key.layout.empty() ? nullptr : VertexDeclarationRegistry::get().find(key.layout);
     GRIPipelineState*           depth_pso = get_depth_pso(key);
 
-    auto mat = create_shared<Material>(vs, ps, pso_it->second, vd, nullptr, false, depth_pso);
+    auto mat = create_shared<Material>(vs, ps, pso_it->second, vd, nullptr, depth_pso, raster, blend);
     m_mat_cache.emplace(key, mat);
     return mat;
 }
 
 SharedPtr<Material> MaterialFactory::create_with_params(SharedPtr<RenderShader> vs, SharedPtr<RenderShader> ps,
                                                         const String& layout, GRIPixelFormat rt_fmt,
-                                                        GRIPixelFormat depth_fmt, bool depth_write,
-                                                        GRIBlendMode blend_mode, GRIBufferPtr params)
+                                                        GRIPixelFormat             depth_fmt,
+                                                        const GRIDepthStencilDesc& depth_stencil,
+                                                        const GRIRasterDesc& raster, const GRIBlendDesc& blend,
+                                                        GRIBufferPtr params)
 {
-    CacheKey key{vs->get_shader(), ps ? ps->get_shader() : nullptr, layout, rt_fmt, depth_fmt, depth_write, blend_mode};
+    CacheKey key{
+        vs->get_shader(), ps ? ps->get_shader() : nullptr, layout, rt_fmt, depth_fmt, depth_stencil, raster, blend};
 
     auto pso_it = m_pso_cache.find(key);
     if (pso_it == m_pso_cache.end())
@@ -79,7 +96,7 @@ SharedPtr<Material> MaterialFactory::create_with_params(SharedPtr<RenderShader> 
     const GRIVertexDeclaration* vd = key.layout.empty() ? nullptr : VertexDeclarationRegistry::get().find(key.layout);
     GRIPipelineState*           depth_pso = get_depth_pso(key);
 
-    return create_shared<Material>(vs, ps, pso_it->second, vd, std::move(params), false, depth_pso);
+    return create_shared<Material>(vs, ps, pso_it->second, vd, std::move(params), depth_pso, raster, blend);
 }
 
 void MaterialFactory::clear()

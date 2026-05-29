@@ -223,10 +223,12 @@ private:
     MTL::RenderPipelineState* m_pipeline_state;
     MTL::DepthStencilState*   m_depth_stencil_state;
     MTL::PrimitiveType        m_primitive_type;
+    MTL::CullMode             m_cull_mode;
+    MTL::TriangleFillMode     m_fill_mode;
 
 public:
     MetalPipelineState(MTL::RenderPipelineState* pipeline_state, MTL::DepthStencilState* depth_stencil_state,
-                       MTL::PrimitiveType primitive_type);
+                       MTL::PrimitiveType primitive_type, MTL::CullMode cull_mode, MTL::TriangleFillMode fill_mode);
     ~MetalPipelineState() override;
     inline MTL::RenderPipelineState* get_pipeline_state() const
     {
@@ -239,6 +241,14 @@ public:
     inline MTL::PrimitiveType get_primitive_type() const
     {
         return m_primitive_type;
+    }
+    inline MTL::CullMode get_cull_mode() const
+    {
+        return m_cull_mode;
+    }
+    inline MTL::TriangleFillMode get_fill_mode() const
+    {
+        return m_fill_mode;
     }
 };
 

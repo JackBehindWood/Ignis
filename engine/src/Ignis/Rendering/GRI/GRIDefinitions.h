@@ -117,6 +117,76 @@ enum class GRIBlendMode
     AlphaBlend,
 };
 
+enum class GRICompareFunc : uint8_t
+{
+    Never,
+    Less,
+    Equal,
+    LessEqual,
+    Greater,
+    NotEqual,
+    GreaterEqual,
+    Always
+};
+
+enum class GRICullMode : uint8_t
+{
+    None,
+    Front,
+    Back
+};
+enum class GRIFillMode : uint8_t
+{
+    Solid,
+    Wireframe
+};
+
+enum class GRIBlendFactor : uint8_t
+{
+    Zero,
+    One,
+    SrcColor,
+    InvSrcColor,
+    SrcAlpha,
+    InvSrcAlpha,
+    DstAlpha,
+    InvDstAlpha
+};
+
+enum class GRIBlendOp : uint8_t
+{
+    Add,
+    Subtract,
+    RevSubtract,
+    Min,
+    Max
+};
+
+struct GRIDepthStencilDesc
+{
+    bool           depth_test  = true;
+    bool           depth_write = true;
+    GRICompareFunc depth_func  = GRICompareFunc::LessEqual;
+};
+
+struct GRIRasterDesc
+{
+    GRICullMode cull_mode      = GRICullMode::Back;
+    GRIFillMode fill_mode      = GRIFillMode::Solid;
+    bool        front_face_ccw = true;
+};
+
+struct GRIBlendDesc
+{
+    bool           enable     = false;
+    GRIBlendFactor src_factor = GRIBlendFactor::One;
+    GRIBlendFactor dst_factor = GRIBlendFactor::Zero;
+    GRIBlendOp     blend_op   = GRIBlendOp::Add;
+    GRIBlendFactor src_alpha  = GRIBlendFactor::One;
+    GRIBlendFactor dst_alpha  = GRIBlendFactor::Zero;
+    GRIBlendOp     alpha_op   = GRIBlendOp::Add;
+};
+
 enum class GRILoadAction
 {
     Load,
