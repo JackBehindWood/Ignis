@@ -8,7 +8,8 @@
 #include "Ignis/Scene/FlyCamera.h"
 
 #ifdef ENGINE_IMGUI
-#include "UI/SceneEditor.h"
+#include "UI/Panels/PanelRegistry.h"
+#include "UI/Workspace/WorkspaceManager.h"
 #endif
 
 namespace Ignis
@@ -27,7 +28,8 @@ private:
     SharedPtr<Material>     m_grid_material;
 
 #ifdef ENGINE_IMGUI
-    SceneEditor m_scene_editor;
+    PanelRegistry    m_panel_registry;
+    WorkspaceManager m_workspace_manager{m_panel_registry};
 #endif
 
     void draw_grid(RGTextureHandle color, RGTextureHandle depth);

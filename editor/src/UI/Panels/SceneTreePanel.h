@@ -1,0 +1,24 @@
+#pragma once
+
+#include "IPanel.h"
+
+namespace Ignis
+{
+
+class SceneTreePanel : public IPanel
+{
+public:
+    SceneTreePanel() = default;
+
+    PanelId     get_id() const override;
+    const char* get_title() const override
+    {
+        return "Scene Tree";
+    }
+    void draw(IWorkspaceData* ctx) override;
+
+private:
+    void draw_entity_node(Scene& scene, entt::entity e, Entity& selected_entity);
+};
+
+} // namespace Ignis

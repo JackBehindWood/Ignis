@@ -13,6 +13,11 @@
 
 #ifdef ENGINE_IMGUI
 #include <Ignis/UI/ImGuiLayer.h>
+#include "UI/SceneEditor/SceneEditorWorkspace.h"
+#include "UI/Panels/SceneTreePanel.h"
+#include "UI/Panels/ConsolePanel.h"
+#include "UI/Panels/ViewportPanel.h"
+#include "UI/Panels/PropertyPanel.h"
 #endif
 
 namespace Ignis
@@ -93,22 +98,38 @@ void EditorLayer::attach()
     m_scene_ready = true;
 
 #ifdef ENGINE_IMGUI
-    m_scene_editor.set_scene(&m_active_scene);
-    m_scene_editor.set_scene_renderer(&m_scene_renderer);
-    ImGuiLayer::register_drawable(&m_scene_editor);
+    m_panel_registry.register_panel(
+        {1, "Scene Tree", []() -> UniquePtr<IPanel> { return create_unique<SceneTreePanel>(); }});
+    m_panel_registry.register_panel(
+        {2, "Viewport", []() -> UniquePtr<IPanel> { return create_unique<ViewportPanel>(); }});
+    m_panel_registry.register_panel(
+        {3, "Console", []() -> UniquePtr<IPanel> { return create_unique<ConsolePanel>(); }});
+    m_panel_registry.register_panel(
+        {4, "Properties", []() -> UniquePtr<IPanel> { return create_unique<PropertyPanel>(); }});
+
+    m_workspace_manager.register_workspace(
+        create_unique<SceneEditorWorkspace>(m_active_scene, m_scene_renderer, m_panel_registry));
+
+    m_workspace_manager.activate(1);
+
+    ImGuiLayer::register_drawable(&m_workspace_manager);
 #endif
 }
 
 void EditorLayer::detach()
 {
 #ifdef ENGINE_IMGUI
-    ImGuiLayer::unregister_drawable(&m_scene_editor);
+    ImGuiLayer::unregister_drawable(&m_workspace_manager);
 #endif
 }
 
 void EditorLayer::update(Timestep ts)
 {
     EditorAssetManager::get().update(2.0f);
+
+#ifdef ENGINE_IMGUI
+    m_workspace_manager.dispatcher().flush(m_workspace_manager);
+#endif
 
     if (!m_scene_ready)
     {

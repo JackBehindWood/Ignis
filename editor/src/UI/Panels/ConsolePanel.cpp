@@ -6,6 +6,13 @@
 namespace Ignis
 {
 
+static constexpr PanelId k_id = 3;
+
+PanelId ConsolePanel::get_id() const
+{
+    return k_id;
+}
+
 static const char* level_label(spdlog::level::level_enum lvl)
 {
     switch (lvl)
@@ -76,10 +83,8 @@ ConsolePanel::ConsolePanel()
     Log::get_client_logger()->sinks().push_back(m_sink);
 }
 
-void ConsolePanel::draw()
+void ConsolePanel::draw(IWorkspaceData*)
 {
-    ImGui::Begin("Console");
-
     if (ImGui::Button("Clear"))
     {
         m_sink->clear();
@@ -119,7 +124,6 @@ void ConsolePanel::draw()
     }
 
     ImGui::EndChild();
-    ImGui::End();
 }
 
 } // namespace Ignis

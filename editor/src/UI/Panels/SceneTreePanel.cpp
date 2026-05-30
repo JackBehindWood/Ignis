@@ -1,15 +1,27 @@
 #include "edpch.h"
 #include "SceneTreePanel.h"
 
+#include "../SceneEditor/SceneEditorContext.h"
+#include <Ignis/Scene/Scene.h>
+#include <Ignis/Scene/Entity.h>
 #include <Ignis/Scene/Components/Components.h>
 #include <imgui.h>
 
 namespace Ignis
 {
 
-void SceneTreePanel::draw(Scene& scene, Entity& selected_entity)
+static constexpr PanelId k_id = 1;
+
+PanelId SceneTreePanel::get_id() const
 {
-    ImGui::Begin("Scene Tree");
+    return k_id;
+}
+
+void SceneTreePanel::draw(IWorkspaceData* ctx)
+{
+    auto*   data            = static_cast<SceneEditorData*>(ctx);
+    Scene&  scene           = *data->scene;
+    Entity& selected_entity = *data->selected_entity;
 
     for (auto e : scene.registry().storage<entt::entity>())
     {
@@ -30,8 +42,6 @@ void SceneTreePanel::draw(Scene& scene, Entity& selected_entity)
         }
         ImGui::EndPopup();
     }
-
-    ImGui::End();
 }
 
 void SceneTreePanel::draw_entity_node(Scene& scene, entt::entity e, Entity& selected_entity)

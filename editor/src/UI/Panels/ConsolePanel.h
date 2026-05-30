@@ -1,5 +1,6 @@
 #pragma once
 
+#include "IPanel.h"
 #include <Ignis/Foundation/Foundation.h>
 #include <Ignis/Core/Log.h>
 #include <spdlog/sinks/base_sink.h>
@@ -13,8 +14,6 @@ struct LogEntry
     spdlog::level::level_enum level;
     String                    message;
 };
-
-// TODO: We should make sure our logger uses the console log, when we have it!
 
 class ConsoleSink : public spdlog::sinks::base_sink<Mutex>
 {
@@ -40,12 +39,17 @@ private:
     Deque<LogEntry> m_entries;
 };
 
-class ConsolePanel
+class ConsolePanel : public IPanel
 {
 public:
     ConsolePanel();
 
-    void draw();
+    PanelId     get_id() const override;
+    const char* get_title() const override
+    {
+        return "Console";
+    }
+    void draw(IWorkspaceData* ctx) override;
 
     std::shared_ptr<ConsoleSink> get_sink() const
     {
@@ -54,9 +58,8 @@ public:
 
 private:
     std::shared_ptr<ConsoleSink> m_sink;
-    bool                         m_filter[6]        = {true, true, true, true, true, true};
-    bool                         m_auto_scroll      = true;
-    bool                         m_scroll_to_bottom = false;
+    bool                         m_filter[6]   = {true, true, true, true, true, true};
+    bool                         m_auto_scroll = true;
 };
 
 } // namespace Ignis

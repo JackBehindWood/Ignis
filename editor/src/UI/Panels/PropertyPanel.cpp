@@ -1,11 +1,19 @@
 #include "edpch.h"
 #include "PropertyPanel.h"
 
+#include "../SceneEditor/SceneEditorContext.h"
 #include <Ignis/Scene/Components/Components.h>
 #include <imgui.h>
 
 namespace Ignis
 {
+
+static constexpr PanelId k_id = 4;
+
+PanelId PropertyPanel::get_id() const
+{
+    return k_id;
+}
 
 static void draw_transform_component(TransformComponent& t)
 {
@@ -48,20 +56,21 @@ static void draw_material_component(MaterialComponent& m)
     }
 }
 
-void PropertyPanel::draw(Scene& scene, Entity& selected_entity)
+void PropertyPanel::draw(IWorkspaceData* ctx)
 {
-    ImGui::Begin("Properties");
+    auto*   data     = static_cast<SceneEditorData*>(ctx);
+    Scene&  scene    = *data->scene;
+    Entity& selected = *data->selected_entity;
 
-    if (!selected_entity)
+    if (!selected)
     {
         ImGui::TextDisabled("No entity selected");
-        ImGui::End();
         return;
     }
 
-    if (selected_entity.has_component<NameComponent>())
+    if (selected.has_component<NameComponent>())
     {
-        auto& name = selected_entity.get_component<NameComponent>().name;
+        auto& name = selected.get_component<NameComponent>().name;
         char  buf[256];
         std::strncpy(buf, name.c_str(), sizeof(buf) - 1);
         buf[sizeof(buf) - 1] = '\0';
@@ -73,20 +82,18 @@ void PropertyPanel::draw(Scene& scene, Entity& selected_entity)
 
     ImGui::Separator();
 
-    if (selected_entity.has_component<TransformComponent>())
+    if (selected.has_component<TransformComponent>())
     {
-        draw_transform_component(selected_entity.get_component<TransformComponent>());
+        draw_transform_component(selected.get_component<TransformComponent>());
     }
-    if (selected_entity.has_component<MeshRendererComponent>())
+    if (selected.has_component<MeshRendererComponent>())
     {
-        draw_mesh_renderer_component(selected_entity.get_component<MeshRendererComponent>());
+        draw_mesh_renderer_component(selected.get_component<MeshRendererComponent>());
     }
-    if (selected_entity.has_component<MaterialComponent>())
+    if (selected.has_component<MaterialComponent>())
     {
-        draw_material_component(selected_entity.get_component<MaterialComponent>());
+        draw_material_component(selected.get_component<MaterialComponent>());
     }
-
-    ImGui::End();
 }
 
 } // namespace Ignis
