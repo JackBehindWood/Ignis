@@ -10,6 +10,17 @@ namespace Ignis
 std::shared_ptr<spdlog::logger> Log::s_core_logger;
 std::shared_ptr<spdlog::logger> Log::s_client_logger;
 
+static Vector<spdlog::sink_ptr>& pending_sinks()
+{
+    static Vector<spdlog::sink_ptr> s;
+    return s;
+}
+
+void Log::add_pending_sink(spdlog::sink_ptr sink)
+{
+    pending_sinks().push_back(std::move(sink));
+}
+
 void Log::init(bool log_to_file)
 {
     Vector<spdlog::sink_ptr> log_sinks;
@@ -22,6 +33,12 @@ void Log::init(bool log_to_file)
         log_sinks[1]->set_pattern("[%T] [%l] %n: %v");
     }
 
+    for (auto& sink : pending_sinks())
+    {
+        log_sinks.push_back(sink);
+    }
+    pending_sinks().clear();
+
     s_core_logger = std::make_shared<spdlog::logger>("IGNIS", begin(log_sinks), end(log_sinks));
     spdlog::register_logger(s_core_logger);
     s_core_logger->set_level(spdlog::level::trace);
@@ -31,6 +48,12 @@ void Log::init(bool log_to_file)
     spdlog::register_logger(s_client_logger);
     s_client_logger->set_level(spdlog::level::trace);
     s_client_logger->flush_on(spdlog::level::trace);
+}
+
+void Log::add_sink(spdlog::sink_ptr sink)
+{
+    s_core_logger->sinks().push_back(sink);
+    s_client_logger->sinks().push_back(sink);
 }
 
 } // namespace Ignis

@@ -21,7 +21,6 @@ public:
         return &m_data;
     }
     void draw_menu_bar() override;
-    void tick(Timestep ts) override;
 
     bool has_pending_resize() const override;
     void flush_resize() override;

@@ -22,6 +22,12 @@ public:
     // Deferred — transition executes at the top of the next draw_imgui() call.
     void activate(WorkspaceId id);
 
+    // Dispatches to the active workspace's update(), which ticks all panels.
+    void update(Timestep ts);
+
+    // Returns the active workspace's data pointer (null if no active workspace).
+    IWorkspaceData* active_data();
+
     // IImGuiDrawable
     void draw_imgui() override;
     bool has_pending_resize() override;

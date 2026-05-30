@@ -4,6 +4,7 @@
 #include <Ignis/Scene/Scene.h>
 #include <Ignis/Scene/Entity.h>
 #include <Ignis/Scene/SceneRenderer.h>
+#include <Ignis/Scene/CameraData.h>
 
 namespace Ignis
 {
@@ -28,6 +29,7 @@ struct SceneEditorData : IWorkspaceData
     Entity*          selected_entity = nullptr;
     SimulationState* sim_state       = nullptr;
     GizmoMode*       gizmo           = nullptr;
+    CameraData       camera_data     = CameraData::identity();
 };
 
 } // namespace Ignis

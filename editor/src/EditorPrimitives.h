@@ -5,6 +5,17 @@
 namespace Ignis
 {
 
+enum class PrimShape : int
+{
+    Triangle = 0,
+    Quad     = 1,
+    Cube     = 2,
+    Circle   = 3,
+    Sphere   = 4,
+    Pyramid  = 5,
+    Count
+};
+
 class EditorPrimitives
 {
 public:
@@ -20,8 +31,14 @@ public:
     }
     static constexpr int prim_count()
     {
-        return 6;
+        return static_cast<int>(PrimShape::Count);
     }
+
+    static Entity spawn(Scene& scene, PrimShape shape, StringView name = {});
+    static Entity spawn_cube(Scene& scene);
+    static Entity spawn_sphere(Scene& scene);
+    static Entity spawn_quad(Scene& scene);
+    static Entity spawn_pyramid(Scene& scene);
 };
 
 } // namespace Ignis

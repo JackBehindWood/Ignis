@@ -2,7 +2,9 @@
 #include "ViewportPanel.h"
 
 #include "../SceneEditor/SceneEditorContext.h"
+#include "../ImExt/ImExt.h"
 #include <Ignis/Scene/SceneRenderer.h>
+#include <Ignis/Scene/Components/Components.h>
 #include <imgui.h>
 
 namespace
@@ -85,6 +87,12 @@ namespace Ignis
 
 static constexpr PanelId k_id = 2;
 
+ViewportPanel::ViewportPanel()
+{
+    m_fly_camera.focus_on({0.0f, 0.0f, 0.0f}, {0.0f, 4.0f, -12.0f});
+    m_fly_camera.set_perspective(60.0f, 0.1f, 1000.0f);
+}
+
 PanelId ViewportPanel::get_id() const
 {
     return k_id;
@@ -103,6 +111,64 @@ void ViewportPanel::push_window_style()
 void ViewportPanel::pop_window_style()
 {
     ImGui::PopStyleVar();
+}
+
+void ViewportPanel::update(float ts, IWorkspaceData* ctx)
+{
+    ImGuiIO& io = ImGui::GetIO();
+
+    // Snap: start new animation from an orient widget click
+    if (m_orient_clicked >= 0)
+    {
+        static constexpr float k_snap_yaw[6]   = {180.0f, 0.0f, -90.0f, -90.0f, -90.0f, 90.0f};
+        static constexpr float k_snap_pitch[6] = {0.0f, 0.0f, -89.0f, 89.0f, 0.0f, 0.0f};
+        m_snap_yaw_start                       = m_fly_camera.get_yaw();
+        m_snap_pitch_start                     = m_fly_camera.get_pitch();
+        m_snap_yaw_target                      = k_snap_yaw[m_orient_clicked];
+        m_snap_pitch_target                    = k_snap_pitch[m_orient_clicked];
+        m_snap_t                               = 0.0f;
+        m_orient_clicked                       = -1;
+    }
+
+    // RMB cancels active snap
+    if (m_hovered && io.MouseClicked[1])
+    {
+        m_snap_t = 1.0f;
+        m_fly_camera.on_mouse_button(Mouse::ButtonRight, true);
+    }
+    if (io.MouseReleased[1])
+    {
+        m_fly_camera.on_mouse_button(Mouse::ButtonRight, false);
+    }
+    if (m_hovered && io.MouseWheel != 0.0f)
+    {
+        m_fly_camera.on_mouse_scroll(io.MouseWheel);
+    }
+
+    m_fly_camera.on_mouse_move(io.MousePos.x, io.MousePos.y);
+    m_fly_camera.update(ts);
+
+    // Apply smooth snap (smoothstep over ~0.2s)
+    if (m_snap_t < 1.0f)
+    {
+        m_snap_t      = Math::min(m_snap_t + ts * 5.0f, 1.0f);
+        const float s = m_snap_t * m_snap_t * (3.0f - 2.0f * m_snap_t);
+
+        float dyaw = m_snap_yaw_target - m_snap_yaw_start;
+        while (dyaw > 180.0f)
+        {
+            dyaw -= 360.0f;
+        }
+        while (dyaw < -180.0f)
+        {
+            dyaw += 360.0f;
+        }
+
+        m_fly_camera.set_orientation(m_snap_yaw_start + dyaw * s,
+                                     m_snap_pitch_start + (m_snap_pitch_target - m_snap_pitch_start) * s);
+    }
+
+    static_cast<SceneEditorData*>(ctx)->camera_data = m_fly_camera.get_camera_data();
 }
 
 void ViewportPanel::draw(IWorkspaceData* ctx)
@@ -129,6 +195,40 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
                      {static_cast<float>(m_last_w ? m_last_w : aw), static_cast<float>(m_last_h ? m_last_h : ah)});
     }
 
+    m_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup);
+
+    // Viewport bounds — valid after ImGui::Image above
+    const ImVec2 vp_min  = ImGui::GetItemRectMin();
+    const ImVec2 vp_sz   = {static_cast<float>(m_last_w ? m_last_w : aw), static_cast<float>(m_last_h ? m_last_h : ah)};
+    const CameraData& cd = data->camera_data;
+
+    if (data->selected_entity && data->selected_entity->is_valid())
+    {
+        ImExt::GizmoCtx gctx;
+        gctx.vp_min    = vp_min;
+        gctx.vp_size   = vp_sz;
+        gctx.view_proj = cd.view_projection;
+        gctx.view      = cd.view;
+        gctx.proj      = cd.projection;
+        gctx.cam_pos   = cd.position;
+
+        auto&            tc = data->selected_entity->get_component<TransformComponent>();
+        Math::Transformf xf{tc.position, tc.rotation, tc.scale};
+
+        if (ImExt::ManipulateTransform(xf, *data->gizmo, gctx))
+        {
+            tc.position = xf.position;
+            tc.rotation = xf.rotation;
+            tc.scale    = xf.scale;
+        }
+    }
+
+    // Camera orientation widget — always visible, top-right corner
+    {
+        const ImVec2 orient_center{vp_min.x + vp_sz.x - 70.0f, vp_min.y + 70.0f};
+        m_orient_clicked = ImExt::DrawCameraOrientation(cd.view, orient_center, 50.0f);
+    }
+
     if (data->sim_state && data->gizmo)
     {
         draw_toolbar_overlay(data);
@@ -144,6 +244,7 @@ void ViewportPanel::flush_resize(IWorkspaceData* ctx)
 
     auto* data = static_cast<SceneEditorData*>(ctx);
     data->scene_renderer->resize(m_pending_w, m_pending_h);
+    m_fly_camera.set_aspect(static_cast<float>(m_pending_w) / static_cast<float>(m_pending_h));
     m_last_w         = m_pending_w;
     m_last_h         = m_pending_h;
     m_resize_pending = false;

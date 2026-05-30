@@ -30,6 +30,21 @@ void WorkspaceManager::activate(WorkspaceId id)
     m_pending_id = id;
 }
 
+void WorkspaceManager::update(Timestep ts)
+{
+    auto it = m_workspaces.find(m_active_id);
+    if (it != m_workspaces.end())
+    {
+        it->second->update(ts);
+    }
+}
+
+IWorkspaceData* WorkspaceManager::active_data()
+{
+    auto it = m_workspaces.find(m_active_id);
+    return it != m_workspaces.end() ? it->second->data() : nullptr;
+}
+
 void WorkspaceManager::draw_imgui()
 {
     m_dispatcher.flush(*this);

@@ -141,6 +141,49 @@ static SharedPtr<RenderMesh> build_sphere(int rings = 16, int segs = 32)
 
 } // namespace
 
+static const char* k_prim_names[] = {"Triangle", "Plane", "Cube", "Circle", "Sphere", "Pyramid"};
+
+static Entity spawn_prim(Scene& scene, int idx, StringView name)
+{
+    const StringView resolved = name.empty() ? StringView(k_prim_names[idx]) : name;
+    Entity           e        = scene.create_entity(resolved);
+
+    TransformComponent trans;
+    e.add_component<TransformComponent>(trans);
+
+    MeshRendererComponent mrc;
+    mrc.mesh_id = AssetID{EditorPrimitives::prim_mesh_key(idx)};
+    e.add_component<MeshRendererComponent>(mrc);
+
+    MaterialComponent matc;
+    matc.material_id = AssetID{EditorPrimitives::prim_material_key()};
+    e.add_component<MaterialComponent>(matc);
+
+    return e;
+}
+
+Entity EditorPrimitives::spawn(Scene& scene, PrimShape shape, StringView name)
+{
+    return spawn_prim(scene, static_cast<int>(shape), name);
+}
+
+Entity EditorPrimitives::spawn_cube(Scene& scene)
+{
+    return spawn_prim(scene, 2, {});
+}
+Entity EditorPrimitives::spawn_sphere(Scene& scene)
+{
+    return spawn_prim(scene, 4, {});
+}
+Entity EditorPrimitives::spawn_quad(Scene& scene)
+{
+    return spawn_prim(scene, 1, {});
+}
+Entity EditorPrimitives::spawn_pyramid(Scene& scene)
+{
+    return spawn_prim(scene, 5, {});
+}
+
 void EditorPrimitives::init()
 {
     const RendererConfig& cfg = Renderer::get_config();

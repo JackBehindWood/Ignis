@@ -9,7 +9,7 @@
 #include "Ignis/Rendering/RenderMesh.h"
 #include "EditorShaderCache.h"
 #include "EditorPrimitives.h"
-#include "Ignis/Events/MouseEvent.h"
+#include "UI/SceneEditor/SceneEditorContext.h"
 
 #ifdef ENGINE_IMGUI
 #include <Ignis/UI/ImGuiLayer.h>
@@ -47,36 +47,23 @@ void EditorLayer::attach()
     IG_ASSERT(ProjectManager::get().is_open(), "EditorLayer requires an open project before attach");
 
     const RendererConfig& cfg = Renderer::get_config();
+    ComponentInspector::register_defaults();
     EditorPrimitives::init();
 
-    constexpr int k_count = EditorPrimitives::prim_count();
+    static const PrimShape k_default_shapes[] = {
+        PrimShape::Triangle, PrimShape::Quad, PrimShape::Cube, PrimShape::Circle, PrimShape::Sphere, PrimShape::Pyramid,
+    };
+    constexpr int k_count = static_cast<int>(std::size(k_default_shapes));
     for (int i = 0; i < k_count; ++i)
     {
-        TransformComponent trans;
-        trans.position = Math::Vec3f{(i - (k_count - 1) * 0.5f) * 2.5f, 0.0f, 0.0f};
-
-        Entity e = m_active_scene.create_entity();
-        e.add_component<TransformComponent>(trans);
-
-        MeshRendererComponent mrc;
-        mrc.mesh_id = AssetID{EditorPrimitives::prim_mesh_key(i)};
-        e.add_component<MeshRendererComponent>(mrc);
-
-        MaterialComponent matc;
-        matc.material_id = AssetID{EditorPrimitives::prim_material_key()};
-        e.add_component<MaterialComponent>(matc);
+        Entity e   = EditorPrimitives::spawn(m_active_scene, k_default_shapes[i]);
+        auto&  t   = e.get_component<TransformComponent>();
+        t.position = Math::Vec3f{(i - (k_count - 1) * 0.5f) * 2.5f, 0.0f, 0.0f};
     }
 
-    m_fly_camera.focus_on(Math::Vec3f{0.0f, 0.0f, 0.0f}, Math::Vec3f{0.0f, 4.0f, -12.0f});
-
-    GRIViewport* viewport = Application::get().get_window().get_viewport();
-    const float  aspect   = (viewport && viewport->get_height() > 0)
-                                ? static_cast<float>(viewport->get_width()) / static_cast<float>(viewport->get_height())
-                                : 1.778f;
-    m_fly_camera.set_aspect(aspect);
-
-    const uint32_t init_w = viewport ? viewport->get_width() : 1280u;
-    const uint32_t init_h = viewport ? viewport->get_height() : 720u;
+    GRIViewport*   viewport = Application::get().get_window().get_viewport();
+    const uint32_t init_w   = viewport ? viewport->get_width() : 1280u;
+    const uint32_t init_h   = viewport ? viewport->get_height() : 720u;
     m_scene_renderer.resize(init_w, init_h);
 
     m_grid_vs = EditorShaderCache::get().get_or_compile("grid.hlsl", GRIShaderStage::Vertex);
@@ -127,17 +114,16 @@ void EditorLayer::update(Timestep ts)
 {
     EditorAssetManager::get().update(2.0f);
 
-#ifdef ENGINE_IMGUI
-    m_workspace_manager.dispatcher().flush(m_workspace_manager);
-#endif
-
     if (!m_scene_ready)
     {
         return;
     }
 
     m_active_scene.update(ts);
-    m_fly_camera.update(ts);
+
+#ifdef ENGINE_IMGUI
+    m_workspace_manager.update(ts);
+#endif
 
     m_scene_renderer.prepare(m_active_scene);
 }
@@ -149,8 +135,18 @@ void EditorLayer::render()
         return;
     }
 
-    GRIViewport*     viewport = Application::get().get_window().get_viewport();
-    const CameraData camera   = m_fly_camera.get_camera_data();
+#ifdef ENGINE_IMGUI
+    auto* ws_data = static_cast<SceneEditorData*>(m_workspace_manager.active_data());
+    if (!ws_data)
+    {
+        return;
+    }
+    const CameraData& camera = ws_data->camera_data;
+#else
+    const CameraData camera = CameraData::identity();
+#endif
+
+    GRIViewport* viewport = Application::get().get_window().get_viewport();
 
     Renderer::begin_frame(viewport);
     Renderer::upload_frame_data({camera.view_projection, camera.position});
@@ -168,10 +164,6 @@ void EditorLayer::event(Event& event)
 {
     EventDispatcher dispatcher(event);
     dispatcher.dispatch<KeyPressedEvent>(IG_BIND_EVENT_FN(EditorLayer::key_pressed));
-    dispatcher.dispatch<MouseButtonPressedEvent>(IG_BIND_EVENT_FN(EditorLayer::mouse_button_pressed));
-    dispatcher.dispatch<MouseButtonReleasedEvent>(IG_BIND_EVENT_FN(EditorLayer::mouse_button_released));
-    dispatcher.dispatch<MouseMovedEvent>(IG_BIND_EVENT_FN(EditorLayer::mouse_moved));
-    dispatcher.dispatch<MouseScrolledEvent>(IG_BIND_EVENT_FN(EditorLayer::mouse_scrolled));
     dispatcher.dispatch<WindowResizeEvent>(IG_BIND_EVENT_FN(EditorLayer::window_resized));
 }
 
@@ -187,38 +179,8 @@ bool EditorLayer::key_pressed(KeyPressedEvent& e)
     return false;
 }
 
-bool EditorLayer::mouse_button_pressed(MouseButtonPressedEvent& e)
+bool EditorLayer::window_resized(WindowResizeEvent&)
 {
-    m_fly_camera.on_mouse_button(e.get_mouse_button(), true);
-    return false;
-}
-
-bool EditorLayer::mouse_button_released(MouseButtonReleasedEvent& e)
-{
-    m_fly_camera.on_mouse_button(e.get_mouse_button(), false);
-    return false;
-}
-
-bool EditorLayer::mouse_moved(MouseMovedEvent& e)
-{
-    m_fly_camera.on_mouse_move(e.get_x(), e.get_y());
-    return false;
-}
-
-bool EditorLayer::mouse_scrolled(MouseScrolledEvent& e)
-{
-    m_fly_camera.on_mouse_scroll(e.get_y_offset());
-    return false;
-}
-
-bool EditorLayer::window_resized(WindowResizeEvent& e)
-{
-    GRIViewport* viewport = e.get_viewport();
-    const float  aspect   = (viewport && viewport->get_height() > 0)
-                                ? static_cast<float>(viewport->get_width()) / static_cast<float>(viewport->get_height())
-                                : 1.778f;
-    m_fly_camera.set_aspect(aspect);
-
     return false;
 }
 

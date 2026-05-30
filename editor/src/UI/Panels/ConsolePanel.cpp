@@ -55,39 +55,13 @@ static ImVec4 level_color(spdlog::level::level_enum lvl)
     }
 }
 
-void ConsoleSink::sink_it_(const spdlog::details::log_msg& msg)
-{
-    spdlog::memory_buf_t formatted;
-    base_sink<std::mutex>::formatter_->format(msg, formatted);
-
-    LogEntry& entry = m_entries.emplace_back();
-    entry.level     = msg.level;
-    entry.message   = String(formatted.data(), formatted.size());
-
-    if (!entry.message.empty() && entry.message.back() == '\n')
-    {
-        entry.message.pop_back();
-    }
-
-    if (m_entries.size() > k_capacity)
-    {
-        m_entries.pop_front();
-    }
-}
-
-ConsolePanel::ConsolePanel()
-{
-    m_sink = std::make_shared<ConsoleSink>();
-    m_sink->set_level(spdlog::level::trace);
-    Log::get_core_logger()->sinks().push_back(m_sink);
-    Log::get_client_logger()->sinks().push_back(m_sink);
-}
-
 void ConsolePanel::draw(IWorkspaceData*)
 {
+    ConsoleSink& sink = ConsoleSink::get();
+
     if (ImGui::Button("Clear"))
     {
-        m_sink->clear();
+        sink.clear();
     }
     ImGui::SameLine();
 
@@ -103,7 +77,7 @@ void ConsolePanel::draw(IWorkspaceData*)
     ImGui::Separator();
     ImGui::BeginChild("##console_scroll", {0, 0}, false, ImGuiWindowFlags_HorizontalScrollbar);
 
-    for (const LogEntry& e : m_sink->entries())
+    for (const LogEntry& e : sink.entries())
     {
         int idx = static_cast<int>(e.level);
         if (idx < 0 || idx > 5 || !m_filter[idx])

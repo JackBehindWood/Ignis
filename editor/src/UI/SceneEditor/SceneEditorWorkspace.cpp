@@ -5,6 +5,7 @@
 #include "../Panels/ConsolePanel.h"
 #include "../Panels/ViewportPanel.h"
 #include "../Panels/PropertyPanel.h"
+#include "EditorPrimitives.h"
 
 #ifdef ENGINE_IMGUI
 #include <imgui.h>
@@ -81,10 +82,6 @@ WorkspaceDefinition SceneEditorWorkspace::make_definition(PanelRegistry&)
     return def;
 }
 
-void SceneEditorWorkspace::tick(Timestep)
-{
-}
-
 void SceneEditorWorkspace::draw_menu_bar()
 {
 #ifdef ENGINE_IMGUI
@@ -106,6 +103,32 @@ void SceneEditorWorkspace::draw_menu_bar()
 
     if (ImGui::BeginMenu("Edit"))
     {
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("Create"))
+    {
+        if (ImGui::MenuItem("Empty Entity"))
+        {
+            m_data.scene->create_entity("Entity");
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Cube"))
+        {
+            EditorPrimitives::spawn_cube(*m_data.scene);
+        }
+        if (ImGui::MenuItem("Sphere"))
+        {
+            EditorPrimitives::spawn_sphere(*m_data.scene);
+        }
+        if (ImGui::MenuItem("Plane"))
+        {
+            EditorPrimitives::spawn_quad(*m_data.scene);
+        }
+        if (ImGui::MenuItem("Pyramid"))
+        {
+            EditorPrimitives::spawn_pyramid(*m_data.scene);
+        }
         ImGui::EndMenu();
     }
 

@@ -16,6 +16,8 @@ class Log
 {
 public:
     static void init(bool log_to_file = true);
+    static void add_sink(spdlog::sink_ptr sink);
+    static void add_pending_sink(spdlog::sink_ptr sink);
 
     static std::shared_ptr<spdlog::logger>& get_core_logger()
     {

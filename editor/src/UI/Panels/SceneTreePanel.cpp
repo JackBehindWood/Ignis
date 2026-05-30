@@ -2,6 +2,7 @@
 #include "SceneTreePanel.h"
 
 #include "../SceneEditor/SceneEditorContext.h"
+#include "EditorPrimitives.h"
 #include <Ignis/Scene/Scene.h>
 #include <Ignis/Scene/Entity.h>
 #include <Ignis/Scene/Components/Components.h>
@@ -23,6 +24,16 @@ void SceneTreePanel::draw(IWorkspaceData* ctx)
     Scene&  scene           = *data->scene;
     Entity& selected_entity = *data->selected_entity;
 
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {2.0f, 2.0f});
+    if (ImGui::SmallButton("+"))
+    {
+        scene.create_entity("Entity");
+    }
+    ImGui::PopStyleVar();
+    ImGui::SameLine();
+    ImGui::TextDisabled("(%zu)", scene.registry().storage<entt::entity>().size());
+    ImGui::Separator();
+
     for (auto e : scene.registry().storage<entt::entity>())
     {
         draw_entity_node(scene, e, selected_entity);
@@ -33,12 +44,38 @@ void SceneTreePanel::draw(IWorkspaceData* ctx)
         selected_entity = Entity{};
     }
 
+    if (selected_entity && ImGui::IsWindowFocused() && ImGui::IsKeyPressed(ImGuiKey_Delete, false))
+    {
+        scene.registry().destroy(static_cast<entt::entity>(selected_entity));
+        selected_entity = Entity{};
+    }
+
     if (ImGui::BeginPopupContextWindow("##SceneTreeCtx",
                                        ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
     {
-        if (ImGui::MenuItem("Create Entity"))
+        if (ImGui::MenuItem("Create Empty"))
         {
-            scene.create_entity();
+            scene.create_entity("Entity");
+        }
+        if (ImGui::BeginMenu("Create Primitive"))
+        {
+            if (ImGui::MenuItem("Cube"))
+            {
+                EditorPrimitives::spawn_cube(scene);
+            }
+            if (ImGui::MenuItem("Sphere"))
+            {
+                EditorPrimitives::spawn_sphere(scene);
+            }
+            if (ImGui::MenuItem("Plane"))
+            {
+                EditorPrimitives::spawn_quad(scene);
+            }
+            if (ImGui::MenuItem("Pyramid"))
+            {
+                EditorPrimitives::spawn_pyramid(scene);
+            }
+            ImGui::EndMenu();
         }
         ImGui::EndPopup();
     }

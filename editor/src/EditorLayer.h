@@ -5,7 +5,6 @@
 #include <Ignis/Rendering/RenderGraph/RGResource.h>
 #include <Ignis/Rendering/Shaders/RenderShader.h>
 #include <Ignis/Rendering/Material.h>
-#include "Ignis/Scene/FlyCamera.h"
 
 #ifdef ENGINE_IMGUI
 #include "UI/Panels/PanelRegistry.h"
@@ -19,7 +18,6 @@ class EditorLayer : public Layer
 private:
     Scene         m_active_scene;
     SceneRenderer m_scene_renderer;
-    FlyCamera     m_fly_camera;
     RGBuilder     m_builder;
     bool          m_scene_ready = false;
 
@@ -45,10 +43,6 @@ public:
     virtual void event(Event& event) override;
 
     bool key_pressed(KeyPressedEvent& e);
-    bool mouse_button_pressed(MouseButtonPressedEvent& e);
-    bool mouse_button_released(MouseButtonReleasedEvent& e);
-    bool mouse_moved(MouseMovedEvent& e);
-    bool mouse_scrolled(MouseScrolledEvent& e);
     bool window_resized(WindowResizeEvent& e);
 };
 } // namespace Ignis

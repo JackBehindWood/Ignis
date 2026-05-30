@@ -20,6 +20,12 @@ public:
     // e.g. "Asset Browser (3)###AssetBrowser"
     virtual const char* get_title() const = 0;
 
+    // Called once per frame before draw(), driven by WorkspaceBase::update().
+    // ctx may be null for context-free panels.
+    virtual void update(float ts, IWorkspaceData* ctx)
+    {
+    }
+
     // ctx is null for context-free panels (ConsolePanel, ProfilerPanel, etc.).
     // Context-needing panels static_cast to their concrete IWorkspaceData subtype.
     virtual void draw(IWorkspaceData* ctx) = 0;
