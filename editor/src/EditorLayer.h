@@ -3,8 +3,6 @@
 #include <Ignis.h>
 #include <Ignis/Rendering/RenderGraph/RGBuilder.h>
 #include <Ignis/Rendering/RenderGraph/RGResource.h>
-#include <Ignis/Rendering/Shaders/RenderShader.h>
-#include <Ignis/Rendering/Material.h>
 
 #ifdef ENGINE_IMGUI
 #include "UI/Panels/PanelRegistry.h"
@@ -21,16 +19,13 @@ private:
     RGBuilder     m_builder;
     bool          m_scene_ready = false;
 
-    SharedPtr<RenderShader> m_grid_vs;
-    SharedPtr<RenderShader> m_grid_ps;
-    SharedPtr<Material>     m_grid_material;
-
 #ifdef ENGINE_IMGUI
     PanelRegistry    m_panel_registry;
     WorkspaceManager m_workspace_manager{m_panel_registry};
 #endif
 
     void draw_grid(RGTextureHandle color, RGTextureHandle depth);
+    void draw_outline_composite(RGTextureHandle color_rt, RGTextureHandle mask_rt);
 
 public:
     EditorLayer();

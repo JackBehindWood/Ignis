@@ -3,3 +3,4 @@
 #include <Ignis.h>
 #include "Logging/ConsoleSink.h"
 #include "UI/ComponentInspector.h"
+#include "EditorResourceCache.h"

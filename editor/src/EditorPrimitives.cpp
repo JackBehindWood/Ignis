@@ -184,12 +184,12 @@ Entity EditorPrimitives::spawn_pyramid(Scene& scene)
     return spawn_prim(scene, 5, {});
 }
 
-void EditorPrimitives::init()
+void EditorPrimitives::init(EditorShaderCache& shader_cache)
 {
     const RendererConfig& cfg = Renderer::get_config();
 
-    SharedPtr<RenderShader> vs = EditorShaderCache::get().get_or_compile("primitive.hlsl", GRIShaderStage::Vertex);
-    SharedPtr<RenderShader> ps = EditorShaderCache::get().get_or_compile("primitive.hlsl", GRIShaderStage::Pixel);
+    SharedPtr<RenderShader> vs = shader_cache.get_or_compile("primitive.hlsl", GRIShaderStage::Vertex);
+    SharedPtr<RenderShader> ps = shader_cache.get_or_compile("primitive.hlsl", GRIShaderStage::Pixel);
 
     GRIRasterDesc raster;
     raster.cull_mode = GRICullMode::None;

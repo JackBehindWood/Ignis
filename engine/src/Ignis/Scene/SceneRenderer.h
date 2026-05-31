@@ -64,6 +64,10 @@ public:
 
     SceneRenderHandles render_scene(Scene&, const CameraData&, RGBuilder&);
 
+    // Returns a valid RGTextureHandle when the selected entity has a visible mesh;
+    // returns an invalid handle otherwise (caller must guard).
+    RGTextureHandle draw_selection_mask(Entity selected, RGTextureHandle depth_rt, RGBuilder& builder);
+
     void resize(uint32_t w, uint32_t h);
 
     GRITexture2D* get_color_rt() const
@@ -73,6 +77,10 @@ public:
     GRITexture2D* get_depth_rt() const
     {
         return m_depth_rt.get();
+    }
+    GRITexture2D* get_sel_mask_rt() const
+    {
+        return m_sel_mask_rt.get();
     }
 
 private:
@@ -109,11 +117,15 @@ private:
 
     GRITexture2DPtr m_color_rt;
     GRITexture2DPtr m_depth_rt;
+    GRITexture2DPtr m_sel_mask_rt;
     uint32_t        m_rt_width  = 0;
     uint32_t        m_rt_height = 0;
 
     SharedPtr<Material> m_fallback_material;
     uint16_t            m_fallback_material_id = 0xFFFFu;
+
+    SharedPtr<Material> m_sel_mask_material;
+    GRIBufferPtr        m_sel_instance_buf;
 };
 
 } // namespace Ignis

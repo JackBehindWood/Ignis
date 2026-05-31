@@ -24,6 +24,10 @@ struct GizmoDragState
     float  ring_r_ss   = 1.0f;
 };
 
+// NOTE / TODO: Using a single global static variable for drag state will break
+// if the editor implements multiple active 3D viewports (e.g., side-by-side Perspective and Ortho).
+// To support multi-viewport setups, this state should be moved into a context-specific struct
+// or mapped dynamically using ImGui IDs tied to the transform address: ImGui::GetID(&transform).
 static GizmoDragState g_drag;
 
 static const Math::Vec3f k_axes[3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
@@ -139,7 +143,9 @@ static bool draw_translate(Math::Transformf& t, const ImExt::GizmoCtx& ctx, ImVe
         const ImVec2 c_ss =
             world_to_screen(t.position + k_axes[i] * handle_len, ctx.view_proj, ctx.vp_min, ctx.vp_size);
         const float ss_len = Utils::len2(c_ss.x - o_ss.x, c_ss.y - o_ss.y);
-        if (ss_len > 0.5f)
+
+        // Prevent division explosion when looking almost perpendicular down the axis line
+        if (ss_len > 2.0f)
         {
             const float dir_x  = (c_ss.x - o_ss.x) / ss_len;
             const float dir_y  = (c_ss.y - o_ss.y) / ss_len;
@@ -272,26 +278,32 @@ static bool draw_rotate(Math::Transformf& t, const ImExt::GizmoCtx& ctx, ImVec2 
         g_drag.rot0        = t.rotation;
         g_drag.grab_angle  = ga;
         g_drag.angle_accum = 0.0f;
-
-        const Math::Vec3f grab_ws =
-            t.position + k_tan1[ax] * (Math::cos(ga) * handle_len) + k_tan2[ax] * (Math::sin(ga) * handle_len);
-        const Math::Vec3f tang_ws = k_tan2[ax] * Math::cos(ga) - k_tan1[ax] * Math::sin(ga);
-
-        const ImVec2 grab_ss = world_to_screen(grab_ws, ctx.view_proj, ctx.vp_min, ctx.vp_size);
-        const ImVec2 tang_tip =
-            world_to_screen(grab_ws + tang_ws * (handle_len * 0.3f), ctx.view_proj, ctx.vp_min, ctx.vp_size);
-        const float tx    = tang_tip.x - grab_ss.x;
-        const float ty    = tang_tip.y - grab_ss.y;
-        const float tlen  = len2(tx, ty);
-        g_drag.tangent_ss = tlen > 0.01f ? ImVec2{tx / tlen, ty / tlen} : ImVec2{1.0f, 0.0f};
-        g_drag.ring_r_ss  = Math::max(len2(grab_ss.x - ent_ss.x, grab_ss.y - ent_ss.y), 1.0f);
     }
 
     bool modified = false;
     if (g_drag.axis != -1 && io.MouseDown[0])
     {
-        const float dot_px = io.MouseDelta.x * g_drag.tangent_ss.x + io.MouseDelta.y * g_drag.tangent_ss.y;
-        g_drag.angle_accum += dot_px / g_drag.ring_r_ss;
+        // FIX (Item 1): Continuous polar coordinates prevent the gizmo from flipping direction
+        // when dragging across the screen-space tangent borders.
+        const ImVec2 o_ss = world_to_screen(t.position, ctx.view_proj, ctx.vp_min, ctx.vp_size);
+
+        ImVec2 v_curr = {io.MousePos.x - o_ss.x, io.MousePos.y - o_ss.y};
+        ImVec2 v_prev = {(io.MousePos.x - io.MouseDelta.x) - o_ss.x, (io.MousePos.y - io.MouseDelta.y) - o_ss.y};
+
+        float cross       = v_prev.x * v_curr.y - v_prev.y * v_curr.x;
+        float dot         = v_prev.x * v_curr.x + v_prev.y * v_curr.y;
+        float delta_angle = Math::atan2(cross, dot);
+
+        // Account for coordinate flipping depending on whether we face the front or back of the ring
+        const float facing =
+            k_axes[g_drag.axis].x * cam_fwd.x + k_axes[g_drag.axis].y * cam_fwd.y + k_axes[g_drag.axis].z * cam_fwd.z;
+
+        if (facing > 0.0f)
+        {
+            delta_angle = -delta_angle;
+        }
+
+        g_drag.angle_accum += delta_angle;
         t.rotation = Math::Quatf::from_axis_angle(k_axes[g_drag.axis], g_drag.angle_accum) * g_drag.rot0;
         modified   = true;
     }
@@ -316,8 +328,10 @@ static bool draw_rotate(Math::Transformf& t, const ImExt::GizmoCtx& ctx, ImVec2 
                 t.position + k_tan1[ax] * (Math::cos(a0) * handle_len) + k_tan2[ax] * (Math::sin(a0) * handle_len);
             const Math::Vec3f p1_ws =
                 t.position + k_tan1[ax] * (Math::cos(a1) * handle_len) + k_tan2[ax] * (Math::sin(a1) * handle_len);
-            const ImVec2 ss0 = world_to_screen(p0_ws, ctx.view_proj, ctx.vp_min, ctx.vp_size);
-            const ImVec2 ss1 = world_to_screen(p1_ws, ctx.view_proj, ctx.vp_min, ctx.vp_size);
+
+            bool         front0 = false, front1 = false;
+            const ImVec2 ss0 = world_to_screen(p0_ws, ctx.view_proj, ctx.vp_min, ctx.vp_size, &front0);
+            const ImVec2 ss1 = world_to_screen(p1_ws, ctx.view_proj, ctx.vp_min, ctx.vp_size, &front1);
 
             const bool front = facing >= 0.0f;
             ImU32      col;
@@ -338,7 +352,12 @@ static bool draw_rotate(Math::Transformf& t, const ImExt::GizmoCtx& ctx, ImVec2 
                 lw  = front ? 2.0f : 1.2f;
             }
 
-            dl->AddLine(ss0, ss1, col, lw);
+            // FIX (Item 2): Reject lines where either endpoint passes behind the camera's near plane
+            // to eliminate chaotic projection lines tearing across the screen.
+            if (front0 && front1)
+            {
+                dl->AddLine(ss0, ss1, col, lw);
+            }
         }
     }
 
@@ -357,8 +376,15 @@ static bool draw_rotate(Math::Transformf& t, const ImExt::GizmoCtx& ctx, ImVec2 
                 t.position + k_tan1[ax] * (Math::cos(a0) * handle_len) + k_tan2[ax] * (Math::sin(a0) * handle_len);
             const Math::Vec3f w1 =
                 t.position + k_tan1[ax] * (Math::cos(a1) * handle_len) + k_tan2[ax] * (Math::sin(a1) * handle_len);
-            dl->AddTriangleFilled(ent_ss, world_to_screen(w0, ctx.view_proj, ctx.vp_min, ctx.vp_size),
-                                  world_to_screen(w1, ctx.view_proj, ctx.vp_min, ctx.vp_size), k_arc_fill[ax]);
+
+            bool   f0 = false, f1 = false;
+            ImVec2 arc_ss0 = world_to_screen(w0, ctx.view_proj, ctx.vp_min, ctx.vp_size, &f0);
+            ImVec2 arc_ss1 = world_to_screen(w1, ctx.view_proj, ctx.vp_min, ctx.vp_size, &f1);
+
+            if (f0 && f1)
+            {
+                dl->AddTriangleFilled(ent_ss, arc_ss0, arc_ss1, k_arc_fill[ax]);
+            }
         }
 
         // Wrap rotation readout to [0, 360)
@@ -431,7 +457,8 @@ static bool draw_scale(Math::Transformf& t, const ImExt::GizmoCtx& ctx, ImVec2 e
         const ImVec2      o_ss = world_to_screen(t.position, ctx.view_proj, ctx.vp_min, ctx.vp_size);
         const ImVec2      c_ss = world_to_screen(t.position + la * handle_len, ctx.view_proj, ctx.vp_min, ctx.vp_size);
         const float       ss_len = len2(c_ss.x - o_ss.x, c_ss.y - o_ss.y);
-        if (ss_len > 0.5f)
+
+        if (ss_len > 2.0f)
         {
             const float dir_x = (c_ss.x - o_ss.x) / ss_len;
             const float dir_y = (c_ss.y - o_ss.y) / ss_len;
@@ -616,10 +643,35 @@ int DrawCameraOrientation(const Math::Mat4f& view, ImVec2 center, float size)
         // Centered text inside the circle
         ImVec2 text_size = ImGui::CalcTextSize(k_lbl[i]);
         ImVec2 text_pos  = {pos_tip[i].x - text_size.x * 0.5f, pos_tip[i].y - text_size.y * 0.5f};
-        ImU32  text_col  = hov ? IM_COL32(0, 0, 0, 255) : IM_COL32(0, 0, 0, 255);
+        ImU32  text_col  = IM_COL32(0, 0, 0, 255);
         dl->AddText(text_pos, text_col, k_lbl[i]);
     }
 
     return clicked;
+}
+
+WorldRay screen_to_world_ray(ImVec2 screen_px, ImVec2 vp_min, ImVec2 vp_size, const CameraData& cam)
+{
+    const float ndcx = (screen_px.x - vp_min.x) / vp_size.x * 2.0f - 1.0f;
+    const float ndcy = 1.0f - (screen_px.y - vp_min.y) / vp_size.y * 2.0f;
+
+    // View matrix rows give camera basis vectors in world space.
+    // Row 0 = right, Row 1 = up, Row 2 = -forward (back).
+    // Column-major storage: m[col*4 + row], so row r, col c = m[c*4+r].
+    const Math::Mat4f& v       = cam.view;
+    const Math::Vec3f  right   = {v.m[0], v.m[4], v.m[8]};
+    const Math::Vec3f  up      = {v.m[1], v.m[5], v.m[9]};
+    const Math::Vec3f  forward = {-v.m[2], -v.m[6], -v.m[10]};
+
+    // proj.m[0] = P[0][0] = cot(fov/2)/aspect,  proj.m[5] = P[1][1] = cot(fov/2).
+    const Math::Mat4f& p   = cam.projection;
+    const Math::Vec3f  dir = forward + right * (ndcx / p.m[0]) + up * (ndcy / p.m[5]);
+
+    return {cam.position, dir.normalized()};
+}
+
+bool IsGizmoActive()
+{
+    return g_drag.axis != -1;
 }
 } // namespace ImExt

@@ -5,9 +5,7 @@
 #include "Project/ProjectManager.h"
 #include "Ignis/Rendering/Renderer.h"
 #include "Ignis/Rendering/RenderSystem.h"
-#include "Ignis/Rendering/MaterialFactory.h"
 #include "Ignis/Rendering/RenderMesh.h"
-#include "EditorShaderCache.h"
 #include "EditorPrimitives.h"
 #include "UI/SceneEditor/SceneEditorContext.h"
 
@@ -23,16 +21,45 @@
 namespace Ignis
 {
 
+void EditorLayer::draw_outline_composite(RGTextureHandle color_rt, RGTextureHandle mask_rt)
+{
+    GRITexture2D* mask_tex    = m_scene_renderer.get_sel_mask_rt();
+    Material*     outline_mat = EditorResourceCache::get().get_material(EditorMaterial::SelectionOutline).get();
+    GRIBuffer*    params_buf  = EditorResourceCache::get().get_outline_params();
+    if (!mask_tex || !outline_mat || !params_buf)
+    {
+        return;
+    }
+
+    m_builder.write_render_target(0, color_rt, RGColorAttachmentDesc::load());
+    m_builder.read_texture(mask_rt);
+    m_builder.add_pass("OutlineComposite",
+                       [outline_mat, params_buf, mask_tex](GRICommandList& cmd)
+                       {
+                           cmd.set_graphics_pipeline_state(outline_mat->get_pipeline_state());
+                           cmd.set_texture(mask_tex, 0, GRIShaderStage::Pixel);
+                           cmd.set_uniform_buffer(params_buf, static_cast<uint32_t>(UniformSlot::MaterialArgs),
+                                                  GRIShaderStage::Pixel);
+                           cmd.draw_primitives(3);
+                       });
+}
+
 void EditorLayer::draw_grid(RGTextureHandle color, RGTextureHandle depth)
 {
+    Material* grid_mat = EditorResourceCache::get().get_material(EditorMaterial::Grid).get();
+    if (!grid_mat)
+    {
+        return;
+    }
+
     m_builder.write_render_target(0, color, RGColorAttachmentDesc::load());
     m_builder.read_depth_stencil(depth, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
 
     m_builder.add_pass("EditorGrid",
-                       [this](GRICommandList& cmd)
+                       [grid_mat](GRICommandList& cmd)
                        {
                            Renderer::bind_frame_data(cmd);
-                           cmd.set_graphics_pipeline_state(m_grid_material->get_pipeline_state());
+                           cmd.set_graphics_pipeline_state(grid_mat->get_pipeline_state());
                            cmd.draw_primitives(6);
                        });
 }
@@ -46,9 +73,7 @@ void EditorLayer::attach()
 {
     IG_ASSERT(ProjectManager::get().is_open(), "EditorLayer requires an open project before attach");
 
-    const RendererConfig& cfg = Renderer::get_config();
     ComponentInspector::register_defaults();
-    EditorPrimitives::init();
 
     static const PrimShape k_default_shapes[] = {
         PrimShape::Triangle, PrimShape::Quad, PrimShape::Cube, PrimShape::Circle, PrimShape::Sphere, PrimShape::Pyramid,
@@ -65,22 +90,6 @@ void EditorLayer::attach()
     const uint32_t init_w   = viewport ? viewport->get_width() : 1280u;
     const uint32_t init_h   = viewport ? viewport->get_height() : 720u;
     m_scene_renderer.resize(init_w, init_h);
-
-    m_grid_vs = EditorShaderCache::get().get_or_compile("grid.hlsl", GRIShaderStage::Vertex);
-    m_grid_ps = EditorShaderCache::get().get_or_compile("grid.hlsl", GRIShaderStage::Pixel);
-
-    GRIBlendDesc grid_blend;
-    grid_blend.enable     = true;
-    grid_blend.src_factor = GRIBlendFactor::SrcAlpha;
-    grid_blend.dst_factor = GRIBlendFactor::InvSrcAlpha;
-    grid_blend.blend_op   = GRIBlendOp::Add;
-    grid_blend.src_alpha  = GRIBlendFactor::One;
-    grid_blend.dst_alpha  = GRIBlendFactor::InvSrcAlpha;
-    grid_blend.alpha_op   = GRIBlendOp::Add;
-    GRIRasterDesc grid_raster;
-    grid_raster.cull_mode = GRICullMode::None;
-    m_grid_material = Renderer::get_material_factory().get_or_create(m_grid_vs, m_grid_ps, "", cfg.render_target_format,
-                                                                     cfg.depth_format, {}, grid_raster, grid_blend);
 
     m_scene_ready = true;
 
@@ -156,6 +165,21 @@ void EditorLayer::render()
     auto [color_rt, depth_rt] = m_scene_renderer.render_scene(m_active_scene, camera, m_builder);
     draw_grid(color_rt, depth_rt);
 
+#ifdef ENGINE_IMGUI
+    if (ws_data)
+    {
+        const Entity* sel = ws_data->selected_entity;
+        if (sel && sel->is_valid())
+        {
+            RGTextureHandle mask_rt = m_scene_renderer.draw_selection_mask(*sel, depth_rt, m_builder);
+            if (mask_rt.is_valid())
+            {
+                draw_outline_composite(color_rt, mask_rt);
+            }
+        }
+    }
+#endif
+
     m_builder.execute(cmd);
     Renderer::end_frame();
 }
@@ -174,6 +198,7 @@ bool EditorLayer::key_pressed(KeyPressedEvent& e)
         Renderer::get_resource_cache().clear();
         Renderer::clear_pipeline_cache();
         EditorAssetManager::get().reload_all();
+        EditorResourceCache::get().reload();
         return true;
     }
     return false;

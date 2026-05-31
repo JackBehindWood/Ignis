@@ -4,13 +4,59 @@
 #include "../SceneEditor/SceneEditorContext.h"
 #include "../ImExt/ImExt.h"
 #include <Ignis/Scene/SceneRenderer.h>
+#include <Ignis/Scene/Entity.h>
 #include <Ignis/Scene/Components/Components.h>
+#include <Ignis/Rendering/Renderer.h>
+#include <Ignis/Rendering/RenderMesh.h>
 #include <imgui.h>
 
-namespace
+namespace Ignis
 {
 
-static void draw_toolbar_overlay(Ignis::SceneEditorData* data)
+static constexpr PanelId k_id = 2;
+
+namespace Utils
+{
+
+static Entity pick_entity(Scene& scene, const ImExt::WorldRay& ray)
+{
+    using namespace Ignis;
+    auto   view   = scene.registry().view<TransformComponent, MeshRendererComponent>();
+    float  best_t = FLT_MAX;
+    Entity hit    = {};
+
+    for (auto [handle, tc, mrc] : view.each())
+    {
+        const uint64_t        key  = static_cast<uint64_t>(mrc.mesh_id);
+        SharedPtr<RenderMesh> mesh = Renderer::get_resource_cache().find_mesh(key);
+        if (!mesh)
+        {
+            continue;
+        }
+
+        const Math::Vec3f world_center = tc.position;
+        const float world_radius = mesh->get_bounds_radius() * Math::max(tc.scale.x, Math::max(tc.scale.y, tc.scale.z));
+
+        // Analytic ray-sphere: t = -b ± sqrt(b²-c)
+        const Math::Vec3f oc   = ray.origin - world_center;
+        const float       b    = oc.dot(ray.dir);
+        const float       c    = oc.dot(oc) - world_radius * world_radius;
+        const float       disc = b * b - c;
+        if (disc < 0.0f)
+        {
+            continue;
+        }
+        const float t = -b - Math::sqrt(disc);
+        if (t > 0.0f && t < best_t)
+        {
+            best_t = t;
+            hit    = Entity{handle, &scene};
+        }
+    }
+    return hit;
+}
+
+static void draw_toolbar_overlay(SceneEditorData* data)
 {
     using namespace Ignis;
 
@@ -80,12 +126,7 @@ static void draw_toolbar_overlay(Ignis::SceneEditorData* data)
     ImGui::PopStyleVar(2);
 }
 
-} // namespace
-
-namespace Ignis
-{
-
-static constexpr PanelId k_id = 2;
+} // namespace Utils
 
 ViewportPanel::ViewportPanel()
 {
@@ -115,7 +156,24 @@ void ViewportPanel::pop_window_style()
 
 void ViewportPanel::update(float ts, IWorkspaceData* ctx)
 {
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO&         io   = ImGui::GetIO();
+    SceneEditorData* data = static_cast<SceneEditorData*>(ctx);
+
+    if (io.KeyShift && data && data->gizmo)
+    {
+        if (ImGui::IsKeyPressed(ImGuiKey_T))
+        {
+            *data->gizmo = GizmoMode::Translate;
+        }
+        else if (ImGui::IsKeyPressed(ImGuiKey_R))
+        {
+            *data->gizmo = GizmoMode::Rotate;
+        }
+        else if (ImGui::IsKeyPressed(ImGuiKey_S))
+        {
+            *data->gizmo = GizmoMode::Scale;
+        }
+    }
 
     // Snap: start new animation from an orient widget click
     if (m_orient_clicked >= 0)
@@ -146,7 +204,13 @@ void ViewportPanel::update(float ts, IWorkspaceData* ctx)
     }
 
     m_fly_camera.on_mouse_move(io.MousePos.x, io.MousePos.y);
-    m_fly_camera.update(ts);
+
+    const bool pressing_gizmo_shortcut =
+        io.KeyShift && (ImGui::IsKeyDown(ImGuiKey_T) || ImGui::IsKeyDown(ImGuiKey_R) || ImGui::IsKeyDown(ImGuiKey_S));
+    if (!pressing_gizmo_shortcut)
+    {
+        m_fly_camera.update(ts);
+    }
 
     // Apply smooth snap (smoothstep over ~0.2s)
     if (m_snap_t < 1.0f)
@@ -168,13 +232,16 @@ void ViewportPanel::update(float ts, IWorkspaceData* ctx)
                                      m_snap_pitch_start + (m_snap_pitch_target - m_snap_pitch_start) * s);
     }
 
-    static_cast<SceneEditorData*>(ctx)->camera_data = m_fly_camera.get_camera_data();
+    if (data)
+    {
+        data->camera_data = m_fly_camera.get_camera_data();
+    }
 }
 
 void ViewportPanel::draw(IWorkspaceData* ctx)
 {
-    auto*          data = static_cast<SceneEditorData*>(ctx);
-    SceneRenderer& sr   = *data->scene_renderer;
+    SceneEditorData* data = static_cast<SceneEditorData*>(ctx);
+    SceneRenderer&   sr   = *data->scene_renderer;
 
     ImVec2   avail = ImGui::GetContentRegionAvail();
     uint32_t aw    = static_cast<uint32_t>(avail.x);
@@ -223,6 +290,12 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
         }
     }
 
+    if (m_hovered && ImGui::IsMouseClicked(0) && !ImExt::IsGizmoActive())
+    {
+        const ImExt::WorldRay ray = ImExt::screen_to_world_ray(ImGui::GetMousePos(), vp_min, vp_sz, cd);
+        *data->selected_entity    = Utils::pick_entity(*data->scene, ray);
+    }
+
     // Camera orientation widget — always visible, top-right corner
     {
         const ImVec2 orient_center{vp_min.x + vp_sz.x - 70.0f, vp_min.y + 70.0f};
@@ -231,7 +304,7 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
 
     if (data->sim_state && data->gizmo)
     {
-        draw_toolbar_overlay(data);
+        Utils::draw_toolbar_overlay(data);
     }
 }
 
@@ -242,7 +315,7 @@ void ViewportPanel::flush_resize(IWorkspaceData* ctx)
         return;
     }
 
-    auto* data = static_cast<SceneEditorData*>(ctx);
+    SceneEditorData* data = static_cast<SceneEditorData*>(ctx);
     data->scene_renderer->resize(m_pending_w, m_pending_h);
     m_fly_camera.set_aspect(static_cast<float>(m_pending_w) / static_cast<float>(m_pending_h));
     m_last_w         = m_pending_w;

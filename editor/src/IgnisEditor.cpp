@@ -4,7 +4,6 @@
 #include "IgnisEditor.h"
 #include "EditorLayer.h"
 #include "EditorAssetManager.h"
-#include "EditorShaderCache.h"
 #include "EditorSettingsManager.h"
 #include "Project/ProjectManager.h"
 #include "Ignis/Rendering/Renderer.h"
@@ -34,6 +33,7 @@ Editor::Editor(const ApplicationSpecification& spec)
 
 Editor::~Editor()
 {
+    EditorResourceCache::get().shutdown();
     ProjectManager::get().close();
     EditorSettingsManager::get().save();
     EditorSettingsManager::get().save_engine();
@@ -43,13 +43,13 @@ void Editor::bootstrap(const Path& engine_root)
 {
     // --- Engine-root setup (order matters) ---
     EditorAssetManager::get().set_engine_root(engine_root);
-    EditorShaderCache::get().set_engine_root(engine_root);
+    EditorResourceCache::get().init(engine_root);
 
     // --- Register project observers (deterministic order) ---
-    // EditorAssetManager is the sole gateway to AssetManager; ShaderCache follows.
+    // EditorAssetManager is the sole gateway to AssetManager; EditorResourceCache follows.
     ProjectManager& pm = ProjectManager::get();
     pm.add_observer(&EditorAssetManager::get());
-    pm.add_observer(&EditorShaderCache::get());
+    pm.add_observer(&EditorResourceCache::get());
 
     // --- Load persisted settings ---
     EditorSettingsManager::get().load();

@@ -6,6 +6,7 @@
 #include "Ignis/Rendering/RenderResourceCache.h"
 #include "Ignis/Rendering/MaterialFactory.h"
 #include "Ignis/Rendering/FrameUniformAllocator.h"
+#include "Ignis/Rendering/GlobalEngineCache.h"
 
 namespace Ignis
 {
@@ -60,6 +61,10 @@ public:
     {
         return s_material_factory;
     }
+    static GlobalEngineCache& get_global_cache()
+    {
+        return s_global_cache;
+    }
     static const RendererConfig& get_config()
     {
         return s_config;
@@ -76,5 +81,6 @@ private:
     inline static RenderResourceCache               s_resource_cache;
     inline static MaterialFactory                   s_material_factory;
     inline static FrameUniformAllocator             s_frame_alloc;
+    inline static GlobalEngineCache                 s_global_cache;
 };
 } // namespace Ignis
