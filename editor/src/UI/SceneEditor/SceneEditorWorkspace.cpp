@@ -43,7 +43,7 @@ WorkspaceDefinition SceneEditorWorkspace::make_definition(PanelRegistry&)
     def.version                 = 1;
     def.name                    = "Scene Editor";
     def.allowed_panels          = {k_panel_scene_tree, k_panel_viewport, k_panel_console, k_panel_properties};
-    def.policies.allow_closing  = true;
+    def.policies.allow_closing  = false;
     def.policies.allow_floating = false;
     def.theme_id                = 0;
 

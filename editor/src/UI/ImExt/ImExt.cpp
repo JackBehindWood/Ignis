@@ -655,17 +655,10 @@ WorldRay screen_to_world_ray(ImVec2 screen_px, ImVec2 vp_min, ImVec2 vp_size, co
     const float ndcx = (screen_px.x - vp_min.x) / vp_size.x * 2.0f - 1.0f;
     const float ndcy = 1.0f - (screen_px.y - vp_min.y) / vp_size.y * 2.0f;
 
-    // View matrix rows give camera basis vectors in world space.
-    // Row 0 = right, Row 1 = up, Row 2 = -forward (back).
-    // Column-major storage: m[col*4 + row], so row r, col c = m[c*4+r].
-    const Math::Mat4f& v       = cam.view;
-    const Math::Vec3f  right   = {v.m[0], v.m[4], v.m[8]};
-    const Math::Vec3f  up      = {v.m[1], v.m[5], v.m[9]};
-    const Math::Vec3f  forward = {-v.m[2], -v.m[6], -v.m[10]};
-
-    // proj.m[0] = P[0][0] = cot(fov/2)/aspect,  proj.m[5] = P[1][1] = cot(fov/2).
-    const Math::Mat4f& p   = cam.projection;
-    const Math::Vec3f  dir = forward + right * (ndcx / p.m[0]) + up * (ndcy / p.m[5]);
+    const Math::ViewBasis         basis    = Math::extract_view_basis(cam.view);
+    const Math::PerspectiveParams pp       = Math::extract_perspective_params(cam.projection);
+    const float                   half_tan = Math::tan(pp.fov_y * 0.5f);
+    const Math::Vec3f dir = basis.forward + basis.right * (ndcx * pp.aspect * half_tan) + basis.up * (ndcy * half_tan);
 
     return {cam.position, dir.normalized()};
 }

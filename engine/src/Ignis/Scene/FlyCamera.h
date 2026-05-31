@@ -47,7 +47,8 @@ public:
     void move(const Math::Vec3f& delta);
     void rotate(float delta_yaw_deg, float delta_pitch_deg);
 
-    CameraData get_camera_data() const;
+    CameraData  get_camera_data() const;
+    Math::Mat4f get_inverse_projection() const;
 
 private:
     Math::Vec3f m_position     = {0.0f, 0.0f, 3.0f};

@@ -92,7 +92,8 @@ static SharedPtr<RenderMesh> build_circle(int segs = 32)
         indices.push_back(static_cast<uint32_t>(1 + (i + 1) % segs));
     }
     return RenderMesh::create(verts.data(), static_cast<uint32_t>(verts.size() * sizeof(PrimVertex)), indices.data(),
-                              static_cast<uint32_t>(indices.size()));
+                              static_cast<uint32_t>(indices.size()), GRIIndexFormat::Uint32,
+                              Math::Vec3f{0.0f, 0.0f, 0.0f}, 0.5f);
 }
 
 static SharedPtr<RenderMesh> build_sphere(int rings = 16, int segs = 32)
@@ -136,7 +137,8 @@ static SharedPtr<RenderMesh> build_sphere(int rings = 16, int segs = 32)
         }
     }
     return RenderMesh::create(verts.data(), static_cast<uint32_t>(verts.size() * sizeof(PrimVertex)), indices.data(),
-                              static_cast<uint32_t>(indices.size()));
+                              static_cast<uint32_t>(indices.size()), GRIIndexFormat::Uint32,
+                              Math::Vec3f{0.0f, 0.0f, 0.0f}, 0.5f);
 }
 
 } // namespace
@@ -199,15 +201,19 @@ void EditorPrimitives::init(EditorShaderCache& shader_cache)
     Renderer::get_resource_cache().register_material(prim_material_key(), mat);
 
     Renderer::get_resource_cache().register_mesh(
-        prim_mesh_key(0), RenderMesh::create(k_tri_verts, sizeof(k_tri_verts), k_tri_indices, 3));
+        prim_mesh_key(0), RenderMesh::create(k_tri_verts, sizeof(k_tri_verts), k_tri_indices, 3, GRIIndexFormat::Uint32,
+                                             Math::Vec3f{0.0f, 0.0f, 0.0f}, 0.5f));
     Renderer::get_resource_cache().register_mesh(
-        prim_mesh_key(1), RenderMesh::create(k_quad_verts, sizeof(k_quad_verts), k_quad_indices, 6));
+        prim_mesh_key(1), RenderMesh::create(k_quad_verts, sizeof(k_quad_verts), k_quad_indices, 6,
+                                             GRIIndexFormat::Uint32, Math::Vec3f{0.0f, 0.0f, 0.0f}, 0.7071068f));
     Renderer::get_resource_cache().register_mesh(
-        prim_mesh_key(2), RenderMesh::create(k_cube_verts, sizeof(k_cube_verts), k_cube_indices, 36));
+        prim_mesh_key(2), RenderMesh::create(k_cube_verts, sizeof(k_cube_verts), k_cube_indices, 36,
+                                             GRIIndexFormat::Uint32, Math::Vec3f{0.0f, 0.0f, 0.0f}, 0.8660254f));
     Renderer::get_resource_cache().register_mesh(prim_mesh_key(3), build_circle());
     Renderer::get_resource_cache().register_mesh(prim_mesh_key(4), build_sphere());
     Renderer::get_resource_cache().register_mesh(
-        prim_mesh_key(5), RenderMesh::create(k_pyramid_verts, sizeof(k_pyramid_verts), k_pyramid_indices, 18));
+        prim_mesh_key(5), RenderMesh::create(k_pyramid_verts, sizeof(k_pyramid_verts), k_pyramid_indices, 18,
+                                             GRIIndexFormat::Uint32, Math::Vec3f{0.0f, 0.0f, 0.0f}, 0.8660254f));
 }
 
 } // namespace Ignis

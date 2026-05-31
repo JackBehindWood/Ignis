@@ -30,6 +30,10 @@ void ImGuiLayer::attach()
 
     apply_dark_theme();
 
+    io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 13.0f);
+    s_mono_font = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Menlo.ttc", 12.0f);
+    IG_CORE_ASSERT(s_mono_font, "Menlo.ttc not found — monospace font unavailable");
+
     MetalGRI*      gri = static_cast<MetalGRI*>(RenderSystem::get_gri());
     MetalViewport* vp  = static_cast<MetalViewport*>(Application::get().get_window().get_viewport());
 

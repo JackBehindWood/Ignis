@@ -13,6 +13,7 @@ namespace Ignis
 struct LogEntry
 {
     spdlog::level::level_enum level;
+    String                    timestamp;
     String                    message;
 };
 
@@ -31,6 +32,8 @@ public:
     {
         m_entries.clear();
     }
+
+    void push_user_input(const String& message);
 
 protected:
     void sink_it_(const spdlog::details::log_msg& msg) override;

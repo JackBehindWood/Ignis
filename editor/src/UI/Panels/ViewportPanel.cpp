@@ -25,6 +25,9 @@ static Entity pick_entity(Scene& scene, const ImExt::WorldRay& ray)
     float  best_t = FLT_MAX;
     Entity hit    = {};
 
+    Math::Vec3f ray_dir = ray.dir;
+    ray_dir.normalize();
+
     for (auto [handle, tc, mrc] : view.each())
     {
         const uint64_t        key  = static_cast<uint64_t>(mrc.mesh_id);
@@ -35,18 +38,26 @@ static Entity pick_entity(Scene& scene, const ImExt::WorldRay& ray)
         }
 
         const Math::Vec3f world_center = tc.position;
-        const float world_radius = mesh->get_bounds_radius() * Math::max(tc.scale.x, Math::max(tc.scale.y, tc.scale.z));
+        const float       max_scale =
+            Math::max(Math::abs(tc.scale.x), Math::max(Math::abs(tc.scale.y), Math::abs(tc.scale.z)));
+        const float world_radius = mesh->get_bounds_radius() * max_scale;
 
-        // Analytic ray-sphere: t = -b ± sqrt(b²-c)
         const Math::Vec3f oc   = ray.origin - world_center;
-        const float       b    = oc.dot(ray.dir);
+        const float       b    = oc.dot(ray_dir);
         const float       c    = oc.dot(oc) - world_radius * world_radius;
         const float       disc = b * b - c;
+
         if (disc < 0.0f)
         {
             continue;
         }
-        const float t = -b - Math::sqrt(disc);
+        float disc_sqrt = Math::sqrt(disc);
+        float t         = -b - disc_sqrt;
+        if (t < 0.0f)
+        {
+            t = -b + disc_sqrt; // Try the back-side of the sphere
+        }
+
         if (t > 0.0f && t < best_t)
         {
             best_t = t;
@@ -60,9 +71,9 @@ static void draw_toolbar_overlay(SceneEditorData* data)
 {
     using namespace Ignis;
 
-    constexpr float k_padding = 8.0f;
-    constexpr float k_btn_h   = 22.0f;
-    constexpr float k_sep_w   = 6.0f;
+    constexpr float k_padding = 10.0f;
+    constexpr float k_btn_h   = 24.0f;
+    constexpr float k_sep_w   = 10.0f;
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {4.0f, 0.0f});
@@ -71,7 +82,7 @@ static void draw_toolbar_overlay(SceneEditorData* data)
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.22f, 0.22f, 0.22f, 0.88f});
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, {0.30f, 0.30f, 0.30f, 1.00f});
 
-    const ImVec4 k_accent = {0.26f, 0.59f, 1.00f, 1.00f};
+    const ImVec4 k_accent = {0.38f, 0.52f, 0.67f, 1.00f};
 
     ImGui::SetCursorPos({k_padding, k_padding});
 
@@ -213,6 +224,7 @@ void ViewportPanel::update(float ts, IWorkspaceData* ctx)
     }
 
     // Apply smooth snap (smoothstep over ~0.2s)
+    // TODO: we should probably create an Editor Animation System, for things like this!
     if (m_snap_t < 1.0f)
     {
         m_snap_t      = Math::min(m_snap_t + ts * 5.0f, 1.0f);
@@ -269,6 +281,8 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
     const ImVec2 vp_sz   = {static_cast<float>(m_last_w ? m_last_w : aw), static_cast<float>(m_last_h ? m_last_h : ah)};
     const CameraData& cd = data->camera_data;
 
+    bool gizmo_intercepted = false;
+
     if (data->selected_entity && data->selected_entity->is_valid())
     {
         ImExt::GizmoCtx gctx;
@@ -279,8 +293,8 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
         gctx.proj      = cd.projection;
         gctx.cam_pos   = cd.position;
 
-        auto&            tc = data->selected_entity->get_component<TransformComponent>();
-        Math::Transformf xf{tc.position, tc.rotation, tc.scale};
+        TransformComponent& tc = data->selected_entity->get_component<TransformComponent>();
+        Math::Transformf    xf{tc.position, tc.rotation, tc.scale};
 
         if (ImExt::ManipulateTransform(xf, *data->gizmo, gctx))
         {
@@ -288,23 +302,36 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
             tc.rotation = xf.rotation;
             tc.scale    = xf.scale;
         }
-    }
 
-    if (m_hovered && ImGui::IsMouseClicked(0) && !ImExt::IsGizmoActive())
-    {
-        const ImExt::WorldRay ray = ImExt::screen_to_world_ray(ImGui::GetMousePos(), vp_min, vp_sz, cd);
-        *data->selected_entity    = Utils::pick_entity(*data->scene, ray);
-    }
-
-    // Camera orientation widget — always visible, top-right corner
-    {
-        const ImVec2 orient_center{vp_min.x + vp_sz.x - 70.0f, vp_min.y + 70.0f};
-        m_orient_clicked = ImExt::DrawCameraOrientation(cd.view, orient_center, 50.0f);
+        gizmo_intercepted = ImExt::IsGizmoActive();
     }
 
     if (data->sim_state && data->gizmo)
     {
         Utils::draw_toolbar_overlay(data);
+    }
+
+    const ImVec2 orient_center{vp_min.x + vp_sz.x - 70.0f, vp_min.y + 70.0f};
+    m_orient_clicked = ImExt::DrawCameraOrientation(cd.view, orient_center, 50.0f);
+
+    ImVec2 mouse_pos          = ImGui::GetMousePos();
+    float  dx                 = mouse_pos.x - orient_center.x;
+    float  dy                 = mouse_pos.y - orient_center.y;
+    bool   over_orient_widget = (dx * dx + dy * dy) <= (50.0f * 50.0f);
+
+    if (m_hovered && ImGui::IsMouseClicked(0) && !gizmo_intercepted && !over_orient_widget)
+    {
+        ImVec2 win_pos      = ImGui::GetWindowPos();
+        bool   over_toolbar = (mouse_pos.x >= win_pos.x && mouse_pos.x <= win_pos.x + 240.0f &&
+                               mouse_pos.y >= win_pos.y && mouse_pos.y <= win_pos.y + 44.0f);
+
+        if (!over_toolbar)
+        {
+            const ImExt::WorldRay ray        = ImExt::screen_to_world_ray(mouse_pos, vp_min, vp_sz, cd);
+            Entity                hit_entity = Utils::pick_entity(*data->scene, ray);
+
+            *data->selected_entity = hit_entity;
+        }
     }
 }
 

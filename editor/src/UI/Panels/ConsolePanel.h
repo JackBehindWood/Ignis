@@ -17,8 +17,9 @@ public:
     void draw(IWorkspaceData* ctx) override;
 
 private:
-    bool m_filter[6]   = {true, true, true, true, true, true};
-    bool m_auto_scroll = true;
+    bool m_filter[6]      = {true, true, true, true, true, true};
+    bool m_auto_scroll    = true;
+    char m_input_buf[256] = {};
 };
 
 } // namespace Ignis

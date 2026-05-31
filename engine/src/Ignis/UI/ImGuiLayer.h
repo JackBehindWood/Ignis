@@ -6,6 +6,8 @@
 #include "Ignis/Core/Layer.h"
 #include "Ignis/Foundation/Foundation.h"
 
+struct ImFont;
+
 namespace Ignis
 {
 
@@ -28,10 +30,16 @@ public:
 
     void set_ini_path(const String& path);
 
+    static ImFont* mono_font()
+    {
+        return s_mono_font;
+    }
+
 private:
     static void                           apply_dark_theme();
     String                                m_ini_path;
     inline static Vector<IImGuiDrawable*> s_drawables;
+    inline static ImFont*                 s_mono_font = nullptr;
 };
 
 } // namespace Ignis

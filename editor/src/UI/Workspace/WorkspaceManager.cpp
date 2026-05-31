@@ -163,7 +163,7 @@ void WorkspaceManager::cmd_activate_workspace(WorkspaceId id)
 
 void WorkspaceManager::draw_workspace_tab_bar()
 {
-    ImGui::PushStyleColor(ImGuiCol_TabSelectedOverline, ImVec4(0.26f, 0.59f, 1.00f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_TabSelectedOverline, ImVec4(0.38f, 0.52f, 0.67f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_Tab, ImVec4(0.10f, 0.10f, 0.10f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_TabHovered, ImVec4(0.18f, 0.18f, 0.18f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_TabSelected, ImVec4(0.14f, 0.14f, 0.14f, 1.0f));

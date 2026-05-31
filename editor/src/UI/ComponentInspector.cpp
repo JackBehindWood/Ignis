@@ -38,6 +38,9 @@ static void draw_transform(Entity& e)
     }
     auto& t = e.get_component<TransformComponent>();
 
+    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 72.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.5f);
+
     float pos[3] = {t.position.x, t.position.y, t.position.z};
     if (ImGui::DragFloat3("Position", pos, 0.1f))
     {
@@ -72,6 +75,9 @@ static void draw_transform(Entity& e)
     {
         t.scale = {scl[0], scl[1], scl[2]};
     }
+
+    ImGui::PopStyleVar();
+    ImGui::PopItemWidth();
 }
 
 // ---------- MeshRenderer ----------
@@ -91,8 +97,15 @@ static void draw_mesh_renderer(Entity& e)
         return;
     }
     auto& m = e.get_component<MeshRendererComponent>();
+
+    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 72.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.5f);
+
     ImGui::Checkbox("Visible", &m.is_visible);
     ImGui::LabelText("Mesh ID", "%llu", static_cast<uint64_t>(m.mesh_id));
+
+    ImGui::PopStyleVar();
+    ImGui::PopItemWidth();
 }
 
 // ---------- Material ----------
@@ -112,7 +125,14 @@ static void draw_material(Entity& e)
         return;
     }
     auto& m = e.get_component<MaterialComponent>();
+
+    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 72.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.5f);
+
     ImGui::LabelText("Material ID", "%llu", static_cast<uint64_t>(m.material_id));
+
+    ImGui::PopStyleVar();
+    ImGui::PopItemWidth();
 }
 
 // ---------- Camera ----------

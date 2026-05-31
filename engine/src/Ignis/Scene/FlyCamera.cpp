@@ -150,6 +150,11 @@ void FlyCamera::rotate(float delta_yaw_deg, float delta_pitch_deg)
     m_pitch = Math::clamp(m_pitch, -89.0f, 89.0f);
 }
 
+Math::Mat4f FlyCamera::get_inverse_projection() const
+{
+    return Math::inverse_perspective(Math::radians(m_fov), m_aspect, m_near, m_far);
+}
+
 CameraData FlyCamera::get_camera_data() const
 {
     const Math::Vec3f forward = Utils::compute_forward(m_yaw, m_pitch);

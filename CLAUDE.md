@@ -6,7 +6,7 @@ Developer: Jack Agterdenbos. Deep systems-level C++, terse style.
 
 1. **Design First**: Update `.claude/memory/design.md` with objective, approach, and impact before any plan or code. Flow: `design.md` → scratchpad → code.
 2. **Plan & Scratchpad**: State a max 2-sentence plan before touching any file. For 3+ files or sequential steps, write a step checklist to `.claude/memory/scratchpad.md`; check off items as you go and clear on completion.
-3. **No Filler**: No reasoning narration, no C++/Metal explanations, no post-mortems unless asked. Max 2 sentences of reasoning before the first code block. Prioritize direct action.
+3. **No Filler or Overthinking**: No reasoning narration, no C++/Metal explanations, and no post-mortems unless explicitly asked. Max 2 sentences of architectural context before a code block. Do not weigh pros/cons, analyse multiple speculative approaches, or over-reason edge cases—select the most direct, idiomatic C++20 path fitting the design doc and execute immediately.
 4. **Lazy Reads**: Read only files in the immediate scope of the requested change. Prefer targeted line ranges. Flag heavy context load immediately. Do not speculatively read adjacent files.
 5. **Docs Autonomy**: Freely update `.claude/docs/` and `.claude/memory/` as the system evolves.
 
@@ -61,6 +61,10 @@ Never rewrite a memory file in full. Surgical edits only:
 | `.claude/docs/renderer/metal.md` | anything in `IgnisBackend/Metal/`, metal-cpp ownership, `MetalGRI`, `MetalCommandContext`, `MetalShaderLibrary` |
 | `.claude/docs/asset-system.md` | `AssetManager`, `AssetHandle`, `AssetShader`, `AssetMesh`, asset cooking, `AssetType`, binary streams |
 | `.claude/docs/build.md` | build system, Premake, vendor layout, plugins, entry points |
-| `.claude/docs/editor.md` | `EditorLayer`, `EditorAssetManager`, `resources/` layout |
+| `.claude/docs/editor/overview.md` | `EditorLayer`, `EditorSettingsManager`, bootstrap order, settings split |
+| `.claude/docs/editor/project.md` | `ProjectManager`, `IProjectObserver`, `EditorAssetManager`, asset root layout |
+| `.claude/docs/editor/imgui.md` | `ImGuiLayer`, `IImGuiDrawable`, Metal ImGui backend, frame flow, viewport resize protocol |
+| `.claude/docs/editor/workspace.md` | `WorkspaceManager`, `DockManager`, `CommandDispatcher`, all panels, `ComponentInspector`, `EditorPrimitives`, `ConsoleSink` |
+| `.claude/docs/editor/resource-cache.md` | `EditorResourceCache`, `EditorShaderCache`, `GlobalEngineCache` |
 | `.claude/docs/scene.md` | `Scene`, `Entity`, `Component`, `SceneRenderer`, ECS model, culling/sorting/batching |
 | `.claude/docs/docs.md` | doc layout, domain boundary rules, where to put new docs |

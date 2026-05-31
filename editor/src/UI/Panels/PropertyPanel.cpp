@@ -28,8 +28,8 @@ void PropertyPanel::draw(IWorkspaceData* ctx)
 
     if (selected.has_component<NameComponent>())
     {
-        auto& name = selected.get_component<NameComponent>().name;
-        char  buf[256];
+        String& name = selected.get_component<NameComponent>().name;
+        char    buf[256];
         std::strncpy(buf, name.c_str(), sizeof(buf) - 1);
         buf[sizeof(buf) - 1] = '\0';
         if (ImGui::InputText("Name", buf, sizeof(buf)))
