@@ -1,4 +1,5 @@
 #include "edpch.h"
+#include "Ignis/Core/Input.h"
 #include "EditorLayer.h"
 #include "EditorAssetManager.h"
 #include "EditorSettingsManager.h"
@@ -94,6 +95,7 @@ void EditorLayer::attach()
     m_scene_ready = true;
 
 #ifdef ENGINE_IMGUI
+    // TODO: this should probably be done per workspace!
     m_panel_registry.register_panel(
         {1, "Scene Tree", []() -> UniquePtr<IPanel> { return create_unique<SceneTreePanel>(); }});
     m_panel_registry.register_panel(
@@ -104,7 +106,7 @@ void EditorLayer::attach()
         {4, "Properties", []() -> UniquePtr<IPanel> { return create_unique<PropertyPanel>(); }});
 
     m_workspace_manager.register_workspace(
-        create_unique<SceneEditorWorkspace>(m_active_scene, m_scene_renderer, m_panel_registry));
+        create_unique<SceneEditorWorkspace>(m_active_scene, m_scene_renderer, m_panel_registry, m_dispatcher));
 
     m_workspace_manager.activate(1);
 
@@ -145,7 +147,7 @@ void EditorLayer::render()
     }
 
 #ifdef ENGINE_IMGUI
-    auto* ws_data = static_cast<SceneEditorData*>(m_workspace_manager.active_data());
+    SceneEditorData* ws_data = static_cast<SceneEditorData*>(m_workspace_manager.active_data());
     if (!ws_data)
     {
         return;
@@ -201,6 +203,21 @@ bool EditorLayer::key_pressed(KeyPressedEvent& e)
         EditorResourceCache::get().reload();
         return true;
     }
+
+    if (Input::is_key_pressed(Key::LeftSuper) || Input::is_key_pressed(Key::RightSuper))
+    {
+        if (e.get_key_code() == Key::Z)
+        {
+            m_dispatcher.undo();
+            return true;
+        }
+        if (e.get_key_code() == Key::Y)
+        {
+            m_dispatcher.redo();
+            return true;
+        }
+    }
+
     return false;
 }
 

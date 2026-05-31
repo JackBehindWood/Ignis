@@ -20,22 +20,90 @@ PanelId SceneTreePanel::get_id() const
 
 void SceneTreePanel::draw(IWorkspaceData* ctx)
 {
-    auto*   data            = static_cast<SceneEditorData*>(ctx);
-    Scene&  scene           = *data->scene;
-    Entity& selected_entity = *data->selected_entity;
+    SceneEditorData* data            = static_cast<SceneEditorData*>(ctx);
+    Scene&           scene           = *data->scene;
+    Entity&          selected_entity = *data->selected_entity;
 
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {2.0f, 2.0f});
-    if (ImGui::SmallButton("+"))
+    float counter_width    = ImGui::CalcTextSize("(9999)").x;
+    float add_button_width = ImGui::GetContentRegionAvail().x - counter_width - ImGui::GetStyle().ItemSpacing.x;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {4.0f, 3.0f});
+    if (ImGui::Button("Add Entity...", {add_button_width, 0.0f}))
     {
-        scene.create_entity("Entity");
+        ImGui::OpenPopup("AddEntityPopup");
     }
     ImGui::PopStyleVar();
+
+    if (ImGui::BeginPopup("AddEntityPopup"))
+    {
+        if (ImGui::MenuItem("Create Empty"))
+        {
+            if (data->dispatcher)
+            {
+                data->dispatcher->commit(create_unique<CreateEntityCmd>(&scene, "Entity", &selected_entity));
+            }
+        }
+        if (ImGui::BeginMenu("Create Primitive"))
+        {
+            if (ImGui::MenuItem("Cube"))
+            {
+                EditorPrimitives::spawn_cube(scene);
+            }
+            if (ImGui::MenuItem("Sphere"))
+            {
+                EditorPrimitives::spawn_sphere(scene);
+            }
+            if (ImGui::MenuItem("Plane"))
+            {
+                EditorPrimitives::spawn_quad(scene);
+            }
+            if (ImGui::MenuItem("Pyramid"))
+            {
+                EditorPrimitives::spawn_pyramid(scene);
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndPopup();
+    }
+
     ImGui::SameLine();
+    float right_edge_counter = ImGui::GetWindowWidth() - counter_width - ImGui::GetStyle().WindowPadding.x;
+    ImGui::SetCursorPosX(right_edge_counter);
+    ImGui::AlignTextToFramePadding();
     ImGui::TextDisabled("(%zu)", scene.registry().storage<entt::entity>().size());
+
+    float clear_btn_width = ImGui::CalcTextSize("Clear").x + (ImGui::GetStyle().FramePadding.x * 2.0f);
+
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clear_btn_width - ImGui::GetStyle().ItemSpacing.x);
+    ImGui::InputText("##Search", m_search_buffer, sizeof(m_search_buffer));
+
+    ImGui::SameLine();
+    if (ImGui::Button("Clear") || ImGui::IsKeyPressed(ImGuiKey_Escape))
+    {
+        m_search_buffer[0] = '\0';
+    }
+
     ImGui::Separator();
+
+    String search_query(m_search_buffer);
+    bool   has_filter = !search_query.empty();
 
     for (auto e : scene.registry().storage<entt::entity>())
     {
+        if (has_filter)
+        {
+            Entity      entity{e, &scene};
+            const char* name = "Entity";
+            if (entity.has_component<NameComponent>())
+            {
+                name = entity.get_component<NameComponent>().name.c_str();
+            }
+            if (!str_icontains(name, search_query.c_str()))
+            {
+                continue;
+            }
+        }
+
         draw_entity_node(scene, e, selected_entity);
     }
 
@@ -55,7 +123,10 @@ void SceneTreePanel::draw(IWorkspaceData* ctx)
     {
         if (ImGui::MenuItem("Create Empty"))
         {
-            scene.create_entity("Entity");
+            if (data->dispatcher)
+            {
+                data->dispatcher->commit(create_unique<CreateEntityCmd>(&scene, "Entity", &selected_entity));
+            }
         }
         if (ImGui::BeginMenu("Create Primitive"))
         {

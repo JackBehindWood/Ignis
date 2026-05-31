@@ -14,7 +14,7 @@ class WorkspaceManager : public IImGuiDrawable
 public:
     using ThemeApplyFn = void (*)();
 
-    explicit WorkspaceManager(PanelRegistry& registry);
+    WorkspaceManager(PanelRegistry& registry, CommandDispatcher& dispatcher);
 
     void register_workspace(UniquePtr<IWorkspace> ws);
     void register_theme(ThemeId id, ThemeApplyFn fn);
@@ -49,9 +49,9 @@ private:
     void apply_theme(ThemeId id);
     void do_activate(WorkspaceId id);
 
-    PanelRegistry&    m_registry;
-    DockManager       m_dock;
-    CommandDispatcher m_dispatcher;
+    PanelRegistry&     m_registry;
+    DockManager        m_dock;
+    CommandDispatcher& m_dispatcher;
 
     UnorderedMap<WorkspaceId, UniquePtr<IWorkspace>> m_workspaces;
     UnorderedMap<ThemeId, ThemeApplyFn>              m_themes;

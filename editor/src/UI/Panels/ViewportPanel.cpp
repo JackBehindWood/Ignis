@@ -1,5 +1,6 @@
 #include "edpch.h"
 #include "ViewportPanel.h"
+#include "../Commands/SceneCommands.h"
 
 #include "../SceneEditor/SceneEditorContext.h"
 #include "../ImExt/ImExt.h"
@@ -303,7 +304,21 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
             tc.scale    = xf.scale;
         }
 
-        gizmo_intercepted = ImExt::IsGizmoActive();
+        const bool gizmo_active = ImExt::IsGizmoActive();
+
+        if (gizmo_active && !m_gizmo_was_active)
+        {
+            m_gizmo_before = {tc.position, tc.rotation, tc.scale};
+        }
+
+        if (!gizmo_active && m_gizmo_was_active && data->dispatcher)
+        {
+            data->dispatcher->commit(create_unique<ChangeTransformCmd>(
+                *data->selected_entity, m_gizmo_before, Math::Transformf{tc.position, tc.rotation, tc.scale}));
+        }
+
+        m_gizmo_was_active = gizmo_active;
+        gizmo_intercepted  = gizmo_active;
     }
 
     if (data->sim_state && data->gizmo)

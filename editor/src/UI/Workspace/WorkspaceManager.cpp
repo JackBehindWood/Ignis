@@ -8,9 +8,10 @@
 namespace Ignis
 {
 
-WorkspaceManager::WorkspaceManager(PanelRegistry& registry)
+WorkspaceManager::WorkspaceManager(PanelRegistry& registry, CommandDispatcher& dispatcher)
     : m_registry(registry),
-      m_dock(registry)
+      m_dock(registry),
+      m_dispatcher(dispatcher)
 {
 }
 

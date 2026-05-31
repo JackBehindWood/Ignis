@@ -8,8 +8,10 @@ namespace Ignis
 struct ComponentDescriptor
 {
     const char* name;
+    const char* category;
     bool (*has)(Entity&);
     void (*add)(Entity&);
+    void (*remove)(Entity&);
     void (*draw)(Entity&);
 };
 

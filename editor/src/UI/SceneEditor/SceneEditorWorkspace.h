@@ -10,7 +10,7 @@ namespace Ignis
 class SceneEditorWorkspace : public WorkspaceBase
 {
 public:
-    SceneEditorWorkspace(Scene& scene, SceneRenderer& sr, PanelRegistry& registry);
+    SceneEditorWorkspace(Scene& scene, SceneRenderer& sr, PanelRegistry& registry, CommandDispatcher& dispatcher);
 
     const WorkspaceDefinition& definition() const override
     {

@@ -20,13 +20,15 @@ static constexpr PanelId     k_panel_console    = 3;
 static constexpr PanelId     k_panel_properties = 4;
 static constexpr WorkspaceId k_workspace_id     = 1;
 
-SceneEditorWorkspace::SceneEditorWorkspace(Scene& scene, SceneRenderer& sr, PanelRegistry& registry)
+SceneEditorWorkspace::SceneEditorWorkspace(Scene& scene, SceneRenderer& sr, PanelRegistry& registry,
+                                           CommandDispatcher& dispatcher)
 {
     m_data.scene           = &scene;
     m_data.scene_renderer  = &sr;
     m_data.selected_entity = &m_selected_entity;
     m_data.sim_state       = &m_sim_state;
     m_data.gizmo           = &m_gizmo;
+    m_data.dispatcher      = &dispatcher;
 
     m_def = make_definition(registry);
 
@@ -103,6 +105,15 @@ void SceneEditorWorkspace::draw_menu_bar()
 
     if (ImGui::BeginMenu("Edit"))
     {
+        auto* d = m_data.dispatcher;
+        if (ImGui::MenuItem("Undo", "Ctrl+Z", false, d && d->can_undo()))
+        {
+            d->undo();
+        }
+        if (ImGui::MenuItem("Redo", "Ctrl+Y", false, d && d->can_redo()))
+        {
+            d->redo();
+        }
         ImGui::EndMenu();
     }
 
@@ -110,7 +121,7 @@ void SceneEditorWorkspace::draw_menu_bar()
     {
         if (ImGui::MenuItem("Empty Entity"))
         {
-            m_data.scene->create_entity("Entity");
+            m_data.dispatcher->commit(create_unique<CreateEntityCmd>(m_data.scene, "Entity", m_data.selected_entity));
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Cube"))

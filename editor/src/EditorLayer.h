@@ -6,6 +6,7 @@
 
 #ifdef ENGINE_IMGUI
 #include "UI/Panels/PanelRegistry.h"
+#include "UI/Commands/CommandDispatcher.h"
 #include "UI/Workspace/WorkspaceManager.h"
 #endif
 
@@ -20,8 +21,9 @@ private:
     bool          m_scene_ready = false;
 
 #ifdef ENGINE_IMGUI
-    PanelRegistry    m_panel_registry;
-    WorkspaceManager m_workspace_manager{m_panel_registry};
+    PanelRegistry     m_panel_registry;
+    CommandDispatcher m_dispatcher;
+    WorkspaceManager  m_workspace_manager{m_panel_registry, m_dispatcher};
 #endif
 
     void draw_grid(RGTextureHandle color, RGTextureHandle depth);

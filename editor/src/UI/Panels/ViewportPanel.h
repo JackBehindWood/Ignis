@@ -2,6 +2,7 @@
 
 #include "IPanel.h"
 #include <Ignis/Scene/FlyCamera.h>
+#include <Ignis/Math/Transform.h>
 
 namespace Ignis
 {
@@ -46,6 +47,9 @@ private:
     float m_snap_yaw_target   = 0.0f;
     float m_snap_pitch_start  = 0.0f;
     float m_snap_pitch_target = 0.0f;
+
+    Math::Transformf m_gizmo_before     = {};
+    bool             m_gizmo_was_active = false;
 };
 
 } // namespace Ignis
