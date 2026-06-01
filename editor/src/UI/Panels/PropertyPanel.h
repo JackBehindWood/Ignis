@@ -11,7 +11,7 @@ class PropertyPanel : public IPanel
 {
 private:
     char m_component_search[128] = "";
-    void draw_add_component_popup(SceneEditorData* data, Entity& selected);
+    void draw_add_component_popup(SceneEditorData* data, Entity* selected);
 
 public:
     PropertyPanel() = default;

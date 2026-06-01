@@ -18,7 +18,7 @@ public:
     void draw(IWorkspaceData* ctx) override;
 
 private:
-    void draw_entity_node(Scene& scene, entt::entity e, Entity& selected_entity);
+    void draw_entity_node(SceneEditorData* data, Entity& e);
 
     char m_search_buffer[256] = "";
 };

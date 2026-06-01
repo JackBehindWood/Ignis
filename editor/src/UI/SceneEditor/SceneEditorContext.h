@@ -6,6 +6,7 @@
 #include <Ignis/Scene/Entity.h>
 #include <Ignis/Scene/SceneRenderer.h>
 #include <Ignis/Scene/CameraData.h>
+#include <Ignis/Rendering/RenderGraph/RGBuilder.h>
 
 namespace Ignis
 {
@@ -32,6 +33,8 @@ struct SceneEditorData : IWorkspaceData
     GizmoMode*         gizmo           = nullptr;
     CameraData         camera_data     = CameraData::identity();
     CommandDispatcher* dispatcher      = nullptr;
+    RGBuilder*         builder         = nullptr;
+    Optional<Path>     current_scene_path;
 };
 
 } // namespace Ignis

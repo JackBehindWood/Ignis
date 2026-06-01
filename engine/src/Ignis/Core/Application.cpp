@@ -67,7 +67,7 @@ void Application::push_overlay(Layer* layer)
 
 void Application::run()
 {
-    m_last_frame_time = Platform::get_time();
+    reset_frame_time();
     while (m_running)
     {
         float    time     = Platform::get_time();

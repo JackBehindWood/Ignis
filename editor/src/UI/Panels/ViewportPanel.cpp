@@ -4,17 +4,67 @@
 
 #include "../SceneEditor/SceneEditorContext.h"
 #include "../ImExt/ImExt.h"
+#include "EditorResourceCache.h"
 #include <Ignis/Scene/SceneRenderer.h>
 #include <Ignis/Scene/Entity.h>
 #include <Ignis/Scene/Components/Components.h>
 #include <Ignis/Rendering/Renderer.h>
+#include <Ignis/Rendering/RenderSystem.h>
 #include <Ignis/Rendering/RenderMesh.h>
+#include <Ignis/Rendering/RenderGraph/RGBuilder.h>
+#include <Ignis/Core/Application.h>
 #include <imgui.h>
 
 namespace Ignis
 {
 
 static constexpr PanelId k_id = 2;
+
+namespace
+{
+
+static void draw_grid(RGTextureHandle color, RGTextureHandle depth, RGBuilder& builder)
+{
+    Material* grid_mat = EditorResourceCache::get().get_material(EditorMaterial::Grid).get();
+    if (!grid_mat)
+    {
+        return;
+    }
+    builder.write_render_target(0, color, RGColorAttachmentDesc::load());
+    builder.read_depth_stencil(depth, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
+    builder.add_pass("EditorGrid",
+                     [grid_mat](GRICommandList& cmd)
+                     {
+                         Renderer::bind_frame_data(cmd);
+                         cmd.set_graphics_pipeline_state(grid_mat->get_pipeline_state());
+                         cmd.draw_primitives(6);
+                     });
+}
+
+static void draw_outline_composite(RGTextureHandle color_rt, RGTextureHandle mask_rt, SceneRenderer& sr,
+                                   RGBuilder& builder)
+{
+    GRITexture2D* mask_tex    = sr.get_sel_mask_rt();
+    Material*     outline_mat = EditorResourceCache::get().get_material(EditorMaterial::SelectionOutline).get();
+    GRIBuffer*    params_buf  = EditorResourceCache::get().get_outline_params();
+    if (!mask_tex || !outline_mat || !params_buf)
+    {
+        return;
+    }
+    builder.write_render_target(0, color_rt, RGColorAttachmentDesc::load());
+    builder.read_texture(mask_rt);
+    builder.add_pass("OutlineComposite",
+                     [outline_mat, params_buf, mask_tex](GRICommandList& cmd)
+                     {
+                         cmd.set_graphics_pipeline_state(outline_mat->get_pipeline_state());
+                         cmd.set_texture(mask_tex, 0, GRIShaderStage::Pixel);
+                         cmd.set_uniform_buffer(params_buf, static_cast<uint32_t>(UniformSlot::MaterialArgs),
+                                                GRIShaderStage::Pixel);
+                         cmd.draw_primitives(3);
+                     });
+}
+
+} // namespace
 
 namespace Utils
 {
@@ -255,8 +305,9 @@ void ViewportPanel::update(float ts, IWorkspaceData* ctx)
 
 void ViewportPanel::draw(IWorkspaceData* ctx)
 {
-    SceneEditorData* data = static_cast<SceneEditorData*>(ctx);
-    SceneRenderer&   sr   = *data->scene_renderer;
+    SceneEditorData* data    = static_cast<SceneEditorData*>(ctx);
+    SceneRenderer&   sr      = *data->scene_renderer;
+    RGBuilder&       builder = *data->builder;
 
     ImVec2   avail = ImGui::GetContentRegionAvail();
     uint32_t aw    = static_cast<uint32_t>(avail.x);
@@ -268,6 +319,26 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
         m_pending_h      = ah;
         m_resize_pending = true;
     }
+
+    GRIViewport* viewport = Application::get().get_window().get_viewport();
+    Renderer::begin_frame(viewport);
+    Renderer::upload_frame_data({data->camera_data.view_projection, data->camera_data.position});
+
+    GRICommandList& cmd               = RenderSystem::get_command_list();
+    auto [color_handle, depth_handle] = sr.render_scene(*data->scene, data->camera_data, builder);
+    draw_grid(color_handle, depth_handle, builder);
+
+    if (data->selected_entity && data->selected_entity->is_valid())
+    {
+        RGTextureHandle mask_rt = sr.draw_selection_mask(*data->selected_entity, depth_handle, builder);
+        if (mask_rt.is_valid())
+        {
+            draw_outline_composite(color_handle, mask_rt, sr, builder);
+        }
+    }
+
+    builder.execute(cmd);
+    Renderer::end_frame();
 
     GRITexture2D* color_rt = sr.get_color_rt();
     if (color_rt)

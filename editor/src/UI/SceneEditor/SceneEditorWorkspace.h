@@ -3,6 +3,7 @@
 #include "../Workspace/IWorkspace.h"
 #include "../Panels/PanelRegistry.h"
 #include "SceneEditorContext.h"
+#include <Ignis/Rendering/RenderGraph/RGBuilder.h>
 
 namespace Ignis
 {
@@ -30,6 +31,7 @@ private:
     static WorkspaceDefinition make_definition(PanelRegistry& registry);
 
     WorkspaceDefinition m_def;
+    RGBuilder           m_builder;
     SceneEditorData     m_data;
     Entity              m_selected_entity;
     SimulationState     m_sim_state = SimulationState::Stopped;

@@ -2,6 +2,7 @@
 #include "SceneTreePanel.h"
 
 #include "../SceneEditor/SceneEditorContext.h"
+#include "../Commands/SceneCommands.h"
 #include "EditorPrimitives.h"
 #include <Ignis/Scene/Scene.h>
 #include <Ignis/Scene/Entity.h>
@@ -20,9 +21,8 @@ PanelId SceneTreePanel::get_id() const
 
 void SceneTreePanel::draw(IWorkspaceData* ctx)
 {
-    SceneEditorData* data            = static_cast<SceneEditorData*>(ctx);
-    Scene&           scene           = *data->scene;
-    Entity&          selected_entity = *data->selected_entity;
+    SceneEditorData* data  = static_cast<SceneEditorData*>(ctx);
+    Scene&           scene = *data->scene;
 
     float counter_width    = ImGui::CalcTextSize("(9999)").x;
     float add_button_width = ImGui::GetContentRegionAvail().x - counter_width - ImGui::GetStyle().ItemSpacing.x;
@@ -40,7 +40,7 @@ void SceneTreePanel::draw(IWorkspaceData* ctx)
         {
             if (data->dispatcher)
             {
-                data->dispatcher->commit(create_unique<CreateEntityCmd>(&scene, "Entity", &selected_entity));
+                data->dispatcher->commit(create_unique<CreateEntityCmd>(&scene, "Entity", data->selected_entity));
             }
         }
         if (ImGui::BeginMenu("Create Primitive"))
@@ -88,11 +88,10 @@ void SceneTreePanel::draw(IWorkspaceData* ctx)
     String search_query(m_search_buffer);
     bool   has_filter = !search_query.empty();
 
-    for (auto e : scene.registry().storage<entt::entity>())
+    for (Entity entity : scene.get_entities())
     {
         if (has_filter)
         {
-            Entity      entity{e, &scene};
             const char* name = "Entity";
             if (entity.has_component<NameComponent>())
             {
@@ -104,18 +103,21 @@ void SceneTreePanel::draw(IWorkspaceData* ctx)
             }
         }
 
-        draw_entity_node(scene, e, selected_entity);
+        draw_entity_node(data, entity);
     }
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && ImGui::IsWindowHovered())
     {
-        selected_entity = Entity{};
+        *data->selected_entity = Entity{};
     }
 
-    if (selected_entity && ImGui::IsWindowFocused() && ImGui::IsKeyPressed(ImGuiKey_Delete, false))
+    if (data->selected_entity->is_valid() && ImGui::IsWindowFocused() && ImGui::IsKeyPressed(ImGuiKey_Delete, false))
     {
-        scene.registry().destroy(static_cast<entt::entity>(selected_entity));
-        selected_entity = Entity{};
+        if (data->dispatcher)
+        {
+            data->dispatcher->commit(
+                create_unique<RemoveEntityCmd>(&scene, *data->selected_entity, data->selected_entity));
+        }
     }
 
     if (ImGui::BeginPopupContextWindow("##SceneTreeCtx",
@@ -125,7 +127,7 @@ void SceneTreePanel::draw(IWorkspaceData* ctx)
         {
             if (data->dispatcher)
             {
-                data->dispatcher->commit(create_unique<CreateEntityCmd>(&scene, "Entity", &selected_entity));
+                data->dispatcher->commit(create_unique<CreateEntityCmd>(&scene, "Entity", data->selected_entity));
             }
         }
         if (ImGui::BeginMenu("Create Primitive"))
@@ -152,18 +154,18 @@ void SceneTreePanel::draw(IWorkspaceData* ctx)
     }
 }
 
-void SceneTreePanel::draw_entity_node(Scene& scene, entt::entity e, Entity& selected_entity)
+void SceneTreePanel::draw_entity_node(SceneEditorData* data, Entity& e)
 {
-    Entity entity{e, &scene};
+    Scene& scene = *data->scene;
 
     String label = "Entity##" + std::to_string(static_cast<uint32_t>(e));
-    if (entity.has_component<NameComponent>())
+    if (e.has_component<NameComponent>())
     {
-        label = entity.get_component<NameComponent>().name + "##" + std::to_string(static_cast<uint32_t>(e));
+        label = e.get_component<NameComponent>().name + "##" + std::to_string(static_cast<uint32_t>(e));
     }
 
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_SpanAvailWidth;
-    if (selected_entity == entity)
+    if (data->selected_entity->is_valid() && *data->selected_entity == e)
     {
         flags |= ImGuiTreeNodeFlags_Selected;
     }
@@ -172,7 +174,7 @@ void SceneTreePanel::draw_entity_node(Scene& scene, entt::entity e, Entity& sele
 
     if (ImGui::IsItemClicked())
     {
-        selected_entity = entity;
+        *data->selected_entity = e;
     }
 
     bool destroy = false;
@@ -190,13 +192,9 @@ void SceneTreePanel::draw_entity_node(Scene& scene, entt::entity e, Entity& sele
         ImGui::TreePop();
     }
 
-    if (destroy)
+    if (destroy && data->dispatcher)
     {
-        if (selected_entity == entity)
-        {
-            selected_entity = Entity{};
-        }
-        scene.registry().destroy(e);
+        data->dispatcher->commit(create_unique<RemoveEntityCmd>(&scene, e, data->selected_entity));
     }
 }
 

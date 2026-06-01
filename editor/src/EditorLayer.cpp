@@ -4,9 +4,8 @@
 #include "EditorSettingsManager.h"
 #include "Project/ProjectManager.h"
 #include "Ignis/Rendering/Renderer.h"
-#include "Ignis/Rendering/RenderSystem.h"
-#include "Ignis/Rendering/RenderMesh.h"
-#include "EditorPrimitives.h"
+#include <Ignis/Core/FileDialog.h>
+#include "UI/Commands/SceneCommands.h"
 #include "UI/SceneEditor/SceneEditorContext.h"
 
 #ifdef ENGINE_IMGUI
@@ -23,52 +22,15 @@ namespace Ignis
 
 namespace
 {
-constexpr InputMapping s_global_editor_mappings[] = {{EditorActions::k_undo, {Key::Z, Modifier::Super}},
-                                                     {EditorActions::k_redo, {Key::Y, Modifier::Super}},
-                                                     {EditorActions::k_reload_assets, {Key::F5, Modifier::None}}};
-}
-
-void EditorLayer::draw_outline_composite(RGTextureHandle color_rt, RGTextureHandle mask_rt)
-{
-    GRITexture2D* mask_tex    = m_scene_renderer.get_sel_mask_rt();
-    Material*     outline_mat = EditorResourceCache::get().get_material(EditorMaterial::SelectionOutline).get();
-    GRIBuffer*    params_buf  = EditorResourceCache::get().get_outline_params();
-    if (!mask_tex || !outline_mat || !params_buf)
-    {
-        return;
-    }
-
-    m_builder.write_render_target(0, color_rt, RGColorAttachmentDesc::load());
-    m_builder.read_texture(mask_rt);
-    m_builder.add_pass("OutlineComposite",
-                       [outline_mat, params_buf, mask_tex](GRICommandList& cmd)
-                       {
-                           cmd.set_graphics_pipeline_state(outline_mat->get_pipeline_state());
-                           cmd.set_texture(mask_tex, 0, GRIShaderStage::Pixel);
-                           cmd.set_uniform_buffer(params_buf, static_cast<uint32_t>(UniformSlot::MaterialArgs),
-                                                  GRIShaderStage::Pixel);
-                           cmd.draw_primitives(3);
-                       });
-}
-
-void EditorLayer::draw_grid(RGTextureHandle color, RGTextureHandle depth)
-{
-    Material* grid_mat = EditorResourceCache::get().get_material(EditorMaterial::Grid).get();
-    if (!grid_mat)
-    {
-        return;
-    }
-
-    m_builder.write_render_target(0, color, RGColorAttachmentDesc::load());
-    m_builder.read_depth_stencil(depth, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
-
-    m_builder.add_pass("EditorGrid",
-                       [grid_mat](GRICommandList& cmd)
-                       {
-                           Renderer::bind_frame_data(cmd);
-                           cmd.set_graphics_pipeline_state(grid_mat->get_pipeline_state());
-                           cmd.draw_primitives(6);
-                       });
+constexpr InputMapping s_global_editor_mappings[] = {
+    {EditorActions::k_undo, {Key::Z, Modifier::Super}},
+    {EditorActions::k_redo, {Key::Y, Modifier::Super}},
+    {EditorActions::k_reload_assets, {Key::F5, Modifier::None}},
+    {EditorActions::k_new_scene, {Key::N, Modifier::Super}},
+    {EditorActions::k_save_scene, {Key::S, Modifier::Super}},
+    {EditorActions::k_save_project, {Key::S, Modifier::Super | Modifier::Shift}},
+    {EditorActions::k_load_scene, {Key::O, Modifier::Super}},
+    {EditorActions::k_load_project, {Key::O, Modifier::Super | Modifier::Shift}}};
 }
 
 EditorLayer::EditorLayer()
@@ -82,17 +44,6 @@ void EditorLayer::attach()
     IG_ASSERT(ProjectManager::get().is_open(), "EditorLayer requires an open project before attach");
 
     ComponentInspector::register_defaults();
-
-    static const PrimShape k_default_shapes[] = {
-        PrimShape::Triangle, PrimShape::Quad, PrimShape::Cube, PrimShape::Circle, PrimShape::Sphere, PrimShape::Pyramid,
-    };
-    constexpr int k_count = static_cast<int>(std::size(k_default_shapes));
-    for (int i = 0; i < k_count; ++i)
-    {
-        Entity e   = EditorPrimitives::spawn(m_active_scene, k_default_shapes[i]);
-        auto&  t   = e.get_component<TransformComponent>();
-        t.position = Math::Vec3f{(i - (k_count - 1) * 0.5f) * 2.5f, 0.0f, 0.0f};
-    }
 
     GRIViewport*   viewport = Application::get().get_window().get_viewport();
     const uint32_t init_w   = viewport ? viewport->get_width() : 1280u;
@@ -161,6 +112,74 @@ void EditorLayer::update(Timestep ts)
         EditorAssetManager::get().reload_all();
         EditorResourceCache::get().reload();
     }
+
+    auto* ws_data = static_cast<SceneEditorData*>(m_workspace_manager.active_data());
+
+    if (InputSystem::was_action_started(k_new_scene))
+    {
+        m_dispatcher.enqueue(create_unique<NewSceneCmd>(&m_active_scene, &m_dispatcher));
+    }
+    if (InputSystem::was_action_started(k_load_scene))
+    {
+        FileDialogOptions opts;
+        auto&             pm = ProjectManager::get();
+        if (pm.is_open())
+        {
+            opts.initial_dir = pm.descriptor().root / pm.descriptor().asset_source_dir;
+        }
+        if (auto path = FileDialog::open(FileDialogMode::OpenScene, opts))
+        {
+            Application::get().reset_frame_time();
+            if (ws_data)
+            {
+                ws_data->current_scene_path = *path;
+            }
+            m_dispatcher.enqueue(create_unique<LoadSceneCmd>(&m_active_scene, *path, &m_dispatcher));
+        }
+    }
+    if (InputSystem::was_action_started(k_save_scene))
+    {
+        if (ws_data && ws_data->current_scene_path)
+        {
+            m_dispatcher.enqueue(create_unique<SaveSceneCmd>(&m_active_scene, *ws_data->current_scene_path));
+        }
+        else
+        {
+            FileDialogOptions opts;
+            auto&             pm = ProjectManager::get();
+            if (pm.is_open())
+            {
+                opts.initial_dir = pm.descriptor().root / pm.descriptor().asset_source_dir;
+            }
+            if (auto path = FileDialog::save_scene(opts))
+            {
+                Application::get().reset_frame_time();
+                if (ws_data)
+                {
+                    ws_data->current_scene_path = *path;
+                }
+                m_dispatcher.enqueue(create_unique<SaveSceneCmd>(&m_active_scene, *path));
+            }
+        }
+    }
+    if (InputSystem::was_action_started(k_load_project))
+    {
+        FileDialogOptions opts;
+        auto&             pm = ProjectManager::get();
+        if (pm.is_open())
+        {
+            opts.initial_dir = pm.descriptor().root.parent_path();
+        }
+        if (auto path = FileDialog::open(FileDialogMode::OpenProject, opts))
+        {
+            Application::get().reset_frame_time();
+            m_dispatcher.enqueue(create_unique<LoadProjectCmd>(*path, &m_dispatcher));
+        }
+    }
+    if (InputSystem::was_action_started(k_save_project))
+    {
+        m_dispatcher.enqueue(create_unique<SaveProjectCmd>());
+    }
 #endif
 
     m_active_scene.update(ts);
@@ -174,49 +193,6 @@ void EditorLayer::update(Timestep ts)
 
 void EditorLayer::render()
 {
-    if (!m_scene_ready)
-    {
-        return;
-    }
-
-#ifdef ENGINE_IMGUI
-    SceneEditorData* ws_data = static_cast<SceneEditorData*>(m_workspace_manager.active_data());
-    if (!ws_data)
-    {
-        return;
-    }
-    const CameraData& camera = ws_data->camera_data;
-#else
-    const CameraData camera = CameraData::identity();
-#endif
-
-    GRIViewport* viewport = Application::get().get_window().get_viewport();
-
-    Renderer::begin_frame(viewport);
-    Renderer::upload_frame_data({camera.view_projection, camera.position});
-
-    GRICommandList& cmd = RenderSystem::get_command_list();
-
-    auto [color_rt, depth_rt] = m_scene_renderer.render_scene(m_active_scene, camera, m_builder);
-    draw_grid(color_rt, depth_rt);
-
-#ifdef ENGINE_IMGUI
-    if (ws_data)
-    {
-        const Entity* sel = ws_data->selected_entity;
-        if (sel && sel->is_valid())
-        {
-            RGTextureHandle mask_rt = m_scene_renderer.draw_selection_mask(*sel, depth_rt, m_builder);
-            if (mask_rt.is_valid())
-            {
-                draw_outline_composite(color_rt, mask_rt);
-            }
-        }
-    }
-#endif
-
-    m_builder.execute(cmd);
-    Renderer::end_frame();
 }
 
 void EditorLayer::event(Event& event)

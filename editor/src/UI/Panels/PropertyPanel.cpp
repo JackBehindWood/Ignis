@@ -18,17 +18,17 @@ PanelId PropertyPanel::get_id() const
 void PropertyPanel::draw(IWorkspaceData* ctx)
 {
     SceneEditorData* data     = static_cast<SceneEditorData*>(ctx);
-    Entity&          selected = *data->selected_entity;
+    Entity*          selected = data->selected_entity;
 
-    if (!selected)
+    if (!selected || !selected->is_valid())
     {
         ImGui::TextDisabled("No entity selected");
         return;
     }
 
-    if (selected.has_component<NameComponent>())
+    if (selected->has_component<NameComponent>())
     {
-        String& name = selected.get_component<NameComponent>().name;
+        String& name = selected->get_component<NameComponent>().name;
         char    buf[256];
         std::strncpy(buf, name.c_str(), sizeof(buf) - 1);
         buf[sizeof(buf) - 1] = '\0';
@@ -37,7 +37,7 @@ void PropertyPanel::draw(IWorkspaceData* ctx)
         {
             if (data->dispatcher)
             {
-                data->dispatcher->commit(create_unique<ChangeNameCmd>(selected, before, String(buf)));
+                data->dispatcher->commit(create_unique<ChangeNameCmd>(*selected, before, String(buf)));
             }
         }
     }
@@ -47,9 +47,9 @@ void PropertyPanel::draw(IWorkspaceData* ctx)
     CommandDispatcher::set_active(data->dispatcher);
     for (const auto& desc : ComponentInspector::all())
     {
-        if (desc.has(selected))
+        if (desc.has(*selected))
         {
-            desc.draw(selected);
+            desc.draw(*selected);
         }
     }
     CommandDispatcher::set_active(nullptr);
@@ -67,7 +67,7 @@ void PropertyPanel::draw(IWorkspaceData* ctx)
     draw_add_component_popup(data, selected);
 }
 
-void PropertyPanel::draw_add_component_popup(SceneEditorData* data, Entity& selected)
+void PropertyPanel::draw_add_component_popup(SceneEditorData* data, Entity* selected)
 {
     ImGui::SetNextWindowSize({280.0f, 0.0f});
     if (ImGui::BeginPopup("##AddComponent"))
@@ -86,11 +86,11 @@ void PropertyPanel::draw_add_component_popup(SceneEditorData* data, Entity& sele
             {
                 if (data->dispatcher)
                 {
-                    data->dispatcher->commit(create_unique<AddComponentCmd>(selected, desc.add, desc.remove));
+                    data->dispatcher->commit(create_unique<AddComponentCmd>(*selected, desc.add, desc.remove));
                 }
                 else
                 {
-                    desc.add(selected);
+                    desc.add(*selected);
                 }
                 m_component_search[0] = '\0';
             }
@@ -104,7 +104,7 @@ void PropertyPanel::draw_add_component_popup(SceneEditorData* data, Entity& sele
 
         for (const ComponentDescriptor& desc : ComponentInspector::all())
         {
-            if (!desc.has(selected))
+            if (!desc.has(*selected))
             {
                 attached_all = false;
 

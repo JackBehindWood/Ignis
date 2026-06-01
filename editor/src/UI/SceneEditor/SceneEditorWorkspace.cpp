@@ -1,11 +1,16 @@
 #include "edpch.h"
 #include "SceneEditorWorkspace.h"
 
+#include "../Commands/SceneCommands.h"
 #include "../Panels/SceneTreePanel.h"
 #include "../Panels/ConsolePanel.h"
 #include "../Panels/ViewportPanel.h"
 #include "../Panels/PropertyPanel.h"
 #include "EditorPrimitives.h"
+#include "EditorAssetManager.h"
+
+#include <Ignis/Core/FileDialog.h>
+#include "Project/ProjectManager.h"
 
 #ifdef ENGINE_IMGUI
 #include <imgui.h>
@@ -16,6 +21,7 @@ namespace Ignis
 
 namespace
 {
+
 static constexpr InputMapping k_viewport_mappings[] = {
     {EditorActions::k_gizmo_translate, {Key::T, Modifier::Shift}},
     {EditorActions::k_gizmo_rotate, {Key::R, Modifier::Shift}},
@@ -47,6 +53,7 @@ SceneEditorWorkspace::SceneEditorWorkspace(Scene& scene, SceneRenderer& sr, Pane
     m_data.sim_state       = &m_sim_state;
     m_data.gizmo           = &m_gizmo;
     m_data.dispatcher      = &dispatcher;
+    m_data.builder         = &m_builder;
 
     m_def = make_definition(registry);
 
@@ -117,11 +124,83 @@ void SceneEditorWorkspace::draw_menu_bar()
 
     if (ImGui::BeginMenu("File"))
     {
+        if (ImGui::MenuItem("New Scene", Utils::get_shortcut_name(k_new_scene)))
+        {
+            m_data.dispatcher->enqueue(create_unique<NewSceneCmd>(m_data.scene, m_data.dispatcher));
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Load Project...", Utils::get_shortcut_name(k_load_project)))
+        {
+            ProjectManager&   pm = ProjectManager::get();
+            FileDialogOptions opts;
+            if (pm.is_open())
+            {
+                opts.initial_dir = pm.descriptor().root.parent_path();
+            }
+            if (auto path = FileDialog::open(FileDialogMode::OpenProject, opts))
+            {
+                Application::get().reset_frame_time();
+                m_data.dispatcher->enqueue(create_unique<LoadProjectCmd>(*path, m_data.dispatcher));
+            }
+        }
+        if (ImGui::MenuItem("Save Project", Utils::get_shortcut_name(k_save_project), false,
+                            ProjectManager::get().is_open()))
+        {
+            m_data.dispatcher->enqueue(create_unique<SaveProjectCmd>());
+        }
+
+        ImGui::Separator();
         if (ImGui::MenuItem("Save Scene", Utils::get_shortcut_name(k_save_scene)))
         {
+            if (m_data.current_scene_path)
+            {
+                m_data.dispatcher->enqueue(create_unique<SaveSceneCmd>(m_data.scene, *m_data.current_scene_path));
+            }
+            else
+            {
+                FileDialogOptions opts;
+                auto&             pm = ProjectManager::get();
+                if (pm.is_open())
+                {
+                    opts.initial_dir = pm.descriptor().root / pm.descriptor().asset_source_dir;
+                }
+                if (auto path = FileDialog::save_scene(opts))
+                {
+                    Application::get().reset_frame_time();
+                    m_data.current_scene_path = *path;
+                    m_data.dispatcher->enqueue(create_unique<SaveSceneCmd>(m_data.scene, *path));
+                }
+            }
+        }
+        if (ImGui::MenuItem("Save Scene As..."))
+        {
+            FileDialogOptions opts;
+            auto&             pm = ProjectManager::get();
+            if (pm.is_open())
+            {
+                opts.initial_dir = pm.descriptor().root / pm.descriptor().asset_source_dir;
+            }
+            if (auto path = FileDialog::save_scene(opts))
+            {
+                Application::get().reset_frame_time();
+                m_data.current_scene_path = *path;
+                m_data.dispatcher->enqueue(create_unique<SaveSceneCmd>(m_data.scene, *path));
+            }
         }
         if (ImGui::MenuItem("Load Scene", Utils::get_shortcut_name(k_load_scene)))
         {
+            FileDialogOptions opts;
+            ProjectManager&   pm = ProjectManager::get();
+            if (pm.is_open())
+            {
+                opts.initial_dir = pm.descriptor().root / pm.descriptor().asset_source_dir;
+            }
+            if (auto path = FileDialog::open(FileDialogMode::OpenScene, opts))
+            {
+                Application::get().reset_frame_time();
+                m_data.current_scene_path = *path;
+                m_data.dispatcher->enqueue(create_unique<LoadSceneCmd>(m_data.scene, *path, m_data.dispatcher));
+            }
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Exit"))

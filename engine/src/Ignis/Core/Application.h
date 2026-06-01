@@ -2,6 +2,7 @@
 
 #include "LayerStack.h"
 #include "Window.h"
+#include "Platform.h"
 
 #include "Ignis/Events/Event.h"
 #include "Ignis/Events/ApplicationEvent.h"
@@ -57,6 +58,11 @@ public:
     inline void close()
     {
         m_running = false;
+    }
+
+    inline void reset_frame_time()
+    {
+        m_last_frame_time = static_cast<float>(Platform::get_time());
     }
 
     void event(Event& e);
