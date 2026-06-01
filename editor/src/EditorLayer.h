@@ -24,6 +24,7 @@ private:
     PanelRegistry     m_panel_registry;
     CommandDispatcher m_dispatcher;
     WorkspaceManager  m_workspace_manager{m_panel_registry, m_dispatcher};
+    InputContext      m_global_editor_ctx{"EditorGlobal", 100};
 #endif
 
     void draw_grid(RGTextureHandle color, RGTextureHandle depth);
@@ -39,7 +40,6 @@ public:
     virtual void render() override;
     virtual void event(Event& event) override;
 
-    bool key_pressed(KeyPressedEvent& e);
     bool window_resized(WindowResizeEvent& e);
 };
 } // namespace Ignis

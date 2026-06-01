@@ -20,6 +20,14 @@ static constexpr PanelId     k_panel_console    = 3;
 static constexpr PanelId     k_panel_properties = 4;
 static constexpr WorkspaceId k_workspace_id     = 1;
 
+namespace Utils
+{
+inline constexpr ImGuiShortcutString get_shortcut_name(ActionID id)
+{
+    return {InputSystem::get_action_label(id)};
+}
+} // namespace Utils
+
 SceneEditorWorkspace::SceneEditorWorkspace(Scene& scene, SceneRenderer& sr, PanelRegistry& registry,
                                            CommandDispatcher& dispatcher)
 {
@@ -36,6 +44,18 @@ SceneEditorWorkspace::SceneEditorWorkspace(Scene& scene, SceneRenderer& sr, Pane
     m_panels.push_back(registry.create(k_panel_viewport));
     m_panels.push_back(registry.create(k_panel_console));
     m_panels.push_back(registry.create(k_panel_properties));
+
+    using namespace EditorActions;
+    m_viewport_ctx.map_action(k_gizmo_translate, Key::T, Modifier::Shift)
+        .map_action(k_gizmo_rotate, Key::R, Modifier::Shift)
+        .map_action(k_gizmo_scale, Key::S, Modifier::Shift);
+    InputSystem::register_context(&m_viewport_ctx);
+    EditorInputManager::register_panel_context(&m_viewport_ctx, "Viewport");
+}
+
+SceneEditorWorkspace::~SceneEditorWorkspace()
+{
+    InputSystem::unregister_context(&m_viewport_ctx);
 }
 
 WorkspaceDefinition SceneEditorWorkspace::make_definition(PanelRegistry&)
@@ -87,12 +107,14 @@ WorkspaceDefinition SceneEditorWorkspace::make_definition(PanelRegistry&)
 void SceneEditorWorkspace::draw_menu_bar()
 {
 #ifdef ENGINE_IMGUI
+    using namespace EditorActions;
+
     if (ImGui::BeginMenu("File"))
     {
-        if (ImGui::MenuItem("Save Scene", "Ctrl+S"))
+        if (ImGui::MenuItem("Save Scene", Utils::get_shortcut_name(k_save_scene)))
         {
         }
-        if (ImGui::MenuItem("Load Scene", "Ctrl+O"))
+        if (ImGui::MenuItem("Load Scene", Utils::get_shortcut_name(k_load_scene)))
         {
         }
         ImGui::Separator();
@@ -106,11 +128,11 @@ void SceneEditorWorkspace::draw_menu_bar()
     if (ImGui::BeginMenu("Edit"))
     {
         auto* d = m_data.dispatcher;
-        if (ImGui::MenuItem("Undo", "Ctrl+Z", false, d && d->can_undo()))
+        if (ImGui::MenuItem("Undo", Utils::get_shortcut_name(k_undo), false, d && d->can_undo()))
         {
             d->undo();
         }
-        if (ImGui::MenuItem("Redo", "Ctrl+Y", false, d && d->can_redo()))
+        if (ImGui::MenuItem("Redo", Utils::get_shortcut_name(k_redo), false, d && d->can_redo()))
         {
             d->redo();
         }

@@ -48,6 +48,7 @@ IWorkspaceData* WorkspaceManager::active_data()
 
 void WorkspaceManager::draw_imgui()
 {
+    EditorInputManager::begin_frame();
     m_dispatcher.flush(*this);
 
     if (m_pending_id != m_active_id)
@@ -111,6 +112,8 @@ void WorkspaceManager::draw_imgui()
         panel->push_window_style();
         ImGui::Begin(panel->get_title(), p_open, panel->get_window_flags());
         panel->draw(active_ws.data());
+        EditorInputManager::set_panel_active(panel->get_title(),
+                                             ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup));
         ImGui::End();
         panel->pop_window_style();
 

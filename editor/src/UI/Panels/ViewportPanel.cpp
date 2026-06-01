@@ -171,17 +171,18 @@ void ViewportPanel::update(float ts, IWorkspaceData* ctx)
     ImGuiIO&         io   = ImGui::GetIO();
     SceneEditorData* data = static_cast<SceneEditorData*>(ctx);
 
-    if (io.KeyShift && data && data->gizmo)
+    using namespace EditorActions;
+    if (data && data->gizmo)
     {
-        if (ImGui::IsKeyPressed(ImGuiKey_T))
+        if (InputSystem::was_action_started(k_gizmo_translate))
         {
             *data->gizmo = GizmoMode::Translate;
         }
-        else if (ImGui::IsKeyPressed(ImGuiKey_R))
+        else if (InputSystem::was_action_started(k_gizmo_rotate))
         {
             *data->gizmo = GizmoMode::Rotate;
         }
-        else if (ImGui::IsKeyPressed(ImGuiKey_S))
+        else if (InputSystem::was_action_started(k_gizmo_scale))
         {
             *data->gizmo = GizmoMode::Scale;
         }
@@ -217,8 +218,9 @@ void ViewportPanel::update(float ts, IWorkspaceData* ctx)
 
     m_fly_camera.on_mouse_move(io.MousePos.x, io.MousePos.y);
 
-    const bool pressing_gizmo_shortcut =
-        io.KeyShift && (ImGui::IsKeyDown(ImGuiKey_T) || ImGui::IsKeyDown(ImGuiKey_R) || ImGui::IsKeyDown(ImGuiKey_S));
+    const bool pressing_gizmo_shortcut = InputSystem::is_action_triggered(k_gizmo_translate) ||
+                                         InputSystem::is_action_triggered(k_gizmo_rotate) ||
+                                         InputSystem::is_action_triggered(k_gizmo_scale);
     if (!pressing_gizmo_shortcut)
     {
         m_fly_camera.update(ts);

@@ -11,6 +11,7 @@ class SceneEditorWorkspace : public WorkspaceBase
 {
 public:
     SceneEditorWorkspace(Scene& scene, SceneRenderer& sr, PanelRegistry& registry, CommandDispatcher& dispatcher);
+    ~SceneEditorWorkspace();
 
     const WorkspaceDefinition& definition() const override
     {
@@ -33,6 +34,7 @@ private:
     Entity              m_selected_entity;
     SimulationState     m_sim_state = SimulationState::Stopped;
     GizmoMode           m_gizmo     = GizmoMode::Translate;
+    InputContext        m_viewport_ctx{"EditorViewport", 200};
 };
 
 } // namespace Ignis

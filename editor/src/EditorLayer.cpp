@@ -1,5 +1,4 @@
 #include "edpch.h"
-#include "Ignis/Core/Input.h"
 #include "EditorLayer.h"
 #include "EditorAssetManager.h"
 #include "EditorSettingsManager.h"
@@ -111,6 +110,14 @@ void EditorLayer::attach()
     m_workspace_manager.activate(1);
 
     ImGuiLayer::register_drawable(&m_workspace_manager);
+
+    using namespace EditorActions;
+    m_global_editor_ctx.map_action(k_undo, Key::Z, Modifier::Super)
+        .map_action(k_redo, Key::Y, Modifier::Super)
+        .map_action(k_reload_assets, Key::F5);
+
+    InputSystem::register_context(&m_global_editor_ctx);
+    EditorInputManager::init();
 #endif
 }
 
@@ -118,17 +125,40 @@ void EditorLayer::detach()
 {
 #ifdef ENGINE_IMGUI
     ImGuiLayer::unregister_drawable(&m_workspace_manager);
+    InputSystem::unregister_context(&m_global_editor_ctx);
+    EditorInputManager::shutdown();
 #endif
 }
 
 void EditorLayer::update(Timestep ts)
 {
+    InputSystem::begin_frame();
+
     EditorAssetManager::get().update(2.0f);
 
     if (!m_scene_ready)
     {
         return;
     }
+
+#ifdef ENGINE_IMGUI
+    using namespace EditorActions;
+    if (InputSystem::was_action_started(k_undo))
+    {
+        m_dispatcher.undo();
+    }
+    if (InputSystem::was_action_started(k_redo))
+    {
+        m_dispatcher.redo();
+    }
+    if (InputSystem::was_action_started(k_reload_assets))
+    {
+        Renderer::get_resource_cache().clear();
+        Renderer::clear_pipeline_cache();
+        EditorAssetManager::get().reload_all();
+        EditorResourceCache::get().reload();
+    }
+#endif
 
     m_active_scene.update(ts);
 
@@ -188,37 +218,9 @@ void EditorLayer::render()
 
 void EditorLayer::event(Event& event)
 {
+    InputSystem::on_event(event);
     EventDispatcher dispatcher(event);
-    dispatcher.dispatch<KeyPressedEvent>(IG_BIND_EVENT_FN(EditorLayer::key_pressed));
     dispatcher.dispatch<WindowResizeEvent>(IG_BIND_EVENT_FN(EditorLayer::window_resized));
-}
-
-bool EditorLayer::key_pressed(KeyPressedEvent& e)
-{
-    if (e.get_key_code() == Key::F5)
-    {
-        Renderer::get_resource_cache().clear();
-        Renderer::clear_pipeline_cache();
-        EditorAssetManager::get().reload_all();
-        EditorResourceCache::get().reload();
-        return true;
-    }
-
-    if (Input::is_key_pressed(Key::LeftSuper) || Input::is_key_pressed(Key::RightSuper))
-    {
-        if (e.get_key_code() == Key::Z)
-        {
-            m_dispatcher.undo();
-            return true;
-        }
-        if (e.get_key_code() == Key::Y)
-        {
-            m_dispatcher.redo();
-            return true;
-        }
-    }
-
-    return false;
 }
 
 bool EditorLayer::window_resized(WindowResizeEvent&)

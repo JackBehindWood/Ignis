@@ -18,3 +18,7 @@
 #include "Ignis/Core/Log.h"
 #include "Ignis/Core/UUID.h"
 #include "Ignis/Core/IHTAnnotations.h"
+
+#include "Ignis/Input/InputTypes.h"
+#include "Ignis/Input/InputContext.h"
+#include "Ignis/Input/InputSystem.h"

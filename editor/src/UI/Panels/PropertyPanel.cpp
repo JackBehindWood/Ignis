@@ -102,7 +102,7 @@ void PropertyPanel::draw_add_component_popup(SceneEditorData* data, Entity& sele
         Vector<String>                                    category_order;
         UnorderedMap<String, Vector<ComponentDescriptor>> grouped;
 
-        for (const auto& desc : ComponentInspector::all())
+        for (const ComponentDescriptor& desc : ComponentInspector::all())
         {
             if (!desc.has(selected))
             {
@@ -138,7 +138,7 @@ void PropertyPanel::draw_add_component_popup(SceneEditorData* data, Entity& sele
         }
         else
         {
-            for (auto& d : ungrouped)
+            for (ComponentDescriptor& d : ungrouped)
             {
                 draw_popup_item(d);
             }
