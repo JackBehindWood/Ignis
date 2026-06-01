@@ -10,6 +10,16 @@ class InputContext
 public:
     explicit InputContext(const char* name, int32_t priority = 0);
 
+    constexpr InputContext(const char* name, const InputMapping* static_mappings, size_t count,
+                           int32_t priority = 0) noexcept
+        : m_name(name),
+          m_priority(priority),
+          m_static_mappings(static_mappings),
+          m_mapping_count(count),
+          m_is_static(true)
+    {
+    }
+
     InputContext& map_action(ActionID action, uint32_t hw_code, Modifier mods = Modifier::None,
                              ModifierPolicy policy = ModifierPolicy::Exact, float scale = 1.0f);
 
@@ -31,16 +41,13 @@ public:
     }
 
 private:
-    struct Mapping
-    {
-        ActionID     action;
-        InputBinding binding;
-    };
-
-    const char*     m_name;
-    int32_t         m_priority;
-    bool            m_active = true;
-    Vector<Mapping> m_mappings;
+    const char*          m_name;
+    int32_t              m_priority;
+    bool                 m_active    = true;
+    bool                 m_is_static = false;
+    Vector<InputMapping> m_mappings;
+    const InputMapping*  m_static_mappings = nullptr;
+    size_t               m_mapping_count   = 0;
 
     friend class InputSystem;
 };

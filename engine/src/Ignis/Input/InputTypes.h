@@ -63,6 +63,12 @@ struct InputBinding
     float          scale         = 1.0f;
 };
 
+struct InputMapping
+{
+    ActionID     action;
+    InputBinding binding;
+};
+
 constexpr ActionID action_id(const char* s) noexcept
 {
     ActionID h = 5381;

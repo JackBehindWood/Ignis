@@ -185,13 +185,15 @@ void InputSystem::process_pressed(uint32_t hw_code)
         {
             continue;
         }
-        for (const auto& mapping : ctx->m_mappings)
+        const InputMapping* begin = ctx->m_is_static ? ctx->m_static_mappings : ctx->m_mappings.data();
+        size_t              count = ctx->m_is_static ? ctx->m_mapping_count : ctx->m_mappings.size();
+        for (size_t i = 0; i < count; ++i)
         {
-            if (chord_matches(mapping.binding, hw_code, snapshot))
+            if (chord_matches(begin[i].binding, hw_code, snapshot))
             {
-                auto& state = s_pending_states[mapping.action];
+                auto& state = s_pending_states[begin[i].action];
                 state.state = state.state | InputState::Started | InputState::Triggered;
-                state.value = mapping.binding.scale;
+                state.value = begin[i].binding.scale;
                 return;
             }
         }
@@ -202,13 +204,15 @@ void InputSystem::process_released(uint32_t hw_code)
 {
     for (InputContext* ctx : s_contexts)
     {
-        for (const auto& mapping : ctx->m_mappings)
+        const InputMapping* begin = ctx->m_is_static ? ctx->m_static_mappings : ctx->m_mappings.data();
+        size_t              count = ctx->m_is_static ? ctx->m_mapping_count : ctx->m_mappings.size();
+        for (size_t i = 0; i < count; ++i)
         {
-            if (mapping.binding.hardware_code != hw_code)
+            if (begin[i].binding.hardware_code != hw_code)
             {
                 continue;
             }
-            auto it = s_pending_states.find(mapping.action);
+            auto it = s_pending_states.find(begin[i].action);
             if (it != s_pending_states.end() && has_state(it->second.state, InputState::Triggered))
             {
                 it->second.state = (it->second.state & ~InputState::Triggered) | InputState::Completed;
@@ -275,11 +279,13 @@ FixedInputString<32> InputSystem::get_action_label(ActionID action)
 {
     for (InputContext* ctx : s_contexts)
     {
-        for (const InputContext::Mapping& m : ctx->m_mappings)
+        const InputMapping* begin = ctx->m_is_static ? ctx->m_static_mappings : ctx->m_mappings.data();
+        size_t              count = ctx->m_is_static ? ctx->m_mapping_count : ctx->m_mappings.size();
+        for (size_t i = 0; i < count; ++i)
         {
-            if (m.action == action)
+            if (begin[i].action == action)
             {
-                return Utils::format_binding(m.binding); // Completely constexpr formatting!
+                return Utils::format_binding(begin[i].binding);
             }
         }
     }

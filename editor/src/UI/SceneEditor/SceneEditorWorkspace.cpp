@@ -14,11 +14,20 @@
 namespace Ignis
 {
 
+namespace
+{
+static constexpr InputMapping k_viewport_mappings[] = {
+    {EditorActions::k_gizmo_translate, {Key::T, Modifier::Shift}},
+    {EditorActions::k_gizmo_rotate, {Key::R, Modifier::Shift}},
+    {EditorActions::k_gizmo_scale, {Key::S, Modifier::Shift}},
+};
+
 static constexpr PanelId     k_panel_scene_tree = 1;
 static constexpr PanelId     k_panel_viewport   = 2;
 static constexpr PanelId     k_panel_console    = 3;
 static constexpr PanelId     k_panel_properties = 4;
 static constexpr WorkspaceId k_workspace_id     = 1;
+} // namespace
 
 namespace Utils
 {
@@ -30,6 +39,7 @@ inline constexpr ImGuiShortcutString get_shortcut_name(ActionID id)
 
 SceneEditorWorkspace::SceneEditorWorkspace(Scene& scene, SceneRenderer& sr, PanelRegistry& registry,
                                            CommandDispatcher& dispatcher)
+    : m_viewport_ctx("EditorViewport", k_viewport_mappings, std::size(k_viewport_mappings), 200)
 {
     m_data.scene           = &scene;
     m_data.scene_renderer  = &sr;
@@ -45,10 +55,6 @@ SceneEditorWorkspace::SceneEditorWorkspace(Scene& scene, SceneRenderer& sr, Pane
     m_panels.push_back(registry.create(k_panel_console));
     m_panels.push_back(registry.create(k_panel_properties));
 
-    using namespace EditorActions;
-    m_viewport_ctx.map_action(k_gizmo_translate, Key::T, Modifier::Shift)
-        .map_action(k_gizmo_rotate, Key::R, Modifier::Shift)
-        .map_action(k_gizmo_scale, Key::S, Modifier::Shift);
     InputSystem::register_context(&m_viewport_ctx);
     EditorInputManager::register_panel_context(&m_viewport_ctx, "Viewport");
 }

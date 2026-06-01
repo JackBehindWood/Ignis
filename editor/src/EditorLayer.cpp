@@ -21,6 +21,13 @@
 namespace Ignis
 {
 
+namespace
+{
+constexpr InputMapping s_global_editor_mappings[] = {{EditorActions::k_undo, {Key::Z, Modifier::Super}},
+                                                     {EditorActions::k_redo, {Key::Y, Modifier::Super}},
+                                                     {EditorActions::k_reload_assets, {Key::F5, Modifier::None}}};
+}
+
 void EditorLayer::draw_outline_composite(RGTextureHandle color_rt, RGTextureHandle mask_rt)
 {
     GRITexture2D* mask_tex    = m_scene_renderer.get_sel_mask_rt();
@@ -65,7 +72,8 @@ void EditorLayer::draw_grid(RGTextureHandle color, RGTextureHandle depth)
 }
 
 EditorLayer::EditorLayer()
-    : Layer("EditorLayer")
+    : Layer("EditorLayer"),
+      m_global_editor_ctx("GlobalEditor", s_global_editor_mappings, std::size(s_global_editor_mappings), 100)
 {
 }
 
@@ -110,11 +118,6 @@ void EditorLayer::attach()
     m_workspace_manager.activate(1);
 
     ImGuiLayer::register_drawable(&m_workspace_manager);
-
-    using namespace EditorActions;
-    m_global_editor_ctx.map_action(k_undo, Key::Z, Modifier::Super)
-        .map_action(k_redo, Key::Y, Modifier::Super)
-        .map_action(k_reload_assets, Key::F5);
 
     InputSystem::register_context(&m_global_editor_ctx);
     EditorInputManager::init();

@@ -34,7 +34,7 @@ private:
     Entity              m_selected_entity;
     SimulationState     m_sim_state = SimulationState::Stopped;
     GizmoMode           m_gizmo     = GizmoMode::Translate;
-    InputContext        m_viewport_ctx{"EditorViewport", 200};
+    InputContext        m_viewport_ctx;
 };
 
 } // namespace Ignis
