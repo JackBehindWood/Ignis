@@ -292,4 +292,10 @@ FixedInputString<32> InputSystem::get_action_label(ActionID action)
     return {};
 }
 
+void InputSystem::trigger_action(ActionID action)
+{
+    s_pending_states[action].state = s_pending_states[action].state | InputState::Started | InputState::Triggered;
+    s_pending_states[action].value = 1.0f;
+}
+
 } // namespace Ignis

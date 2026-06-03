@@ -324,7 +324,13 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
     Renderer::begin_frame(viewport);
     Renderer::upload_frame_data({data->camera_data.view_projection, data->camera_data.position});
 
-    GRICommandList& cmd               = RenderSystem::get_command_list();
+    GRICommandList& cmd = RenderSystem::get_command_list();
+
+    if (EditorResourceCache::get().has_pending_render())
+    {
+        EditorResourceCache::get().flush_render_thumbnails();
+    }
+
     auto [color_handle, depth_handle] = sr.render_scene(*data->scene, data->camera_data, builder);
     draw_grid(color_handle, depth_handle, builder);
 
@@ -346,6 +352,91 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
         ImTextureID tex_id = reinterpret_cast<ImTextureID>(color_rt->get_native_handle());
         ImGui::Image(tex_id,
                      {static_cast<float>(m_last_w ? m_last_w : aw), static_cast<float>(m_last_h ? m_last_h : ah)});
+    }
+
+    if (ImExt::DragDrop::begin_target())
+    {
+        if (const auto* hover = ImExt::DragDrop::peek<AssetDragPayload>())
+        {
+            bool has_mesh = false;
+            bool has_tex  = false;
+            bool has_mat  = false;
+            for (uint32_t i = 0; i < hover->count; ++i)
+            {
+                const char* tl = hover->items[i].type_label;
+                if (std::strcmp(tl, "MSH") == 0)
+                {
+                    has_mesh = true;
+                }
+                else if (std::strcmp(tl, "TEX") == 0)
+                {
+                    has_tex = true;
+                }
+                else if (std::strcmp(tl, "MAT") == 0)
+                {
+                    has_mat = true;
+                }
+            }
+            const bool compat = has_mesh || has_tex || has_mat;
+            ImVec2     rmin   = ImGui::GetItemRectMin();
+            ImVec2     rmax   = ImGui::GetItemRectMax();
+            ImU32      tint   = compat ? IM_COL32(100, 200, 100, 30) : IM_COL32(200, 80, 80, 30);
+            ImGui::GetWindowDrawList()->AddRectFilled(rmin, rmax, tint);
+            ImGui::GetWindowDrawList()->AddRect(
+                rmin, rmax, compat ? IM_COL32(100, 200, 100, 200) : IM_COL32(200, 80, 80, 200), 0.0f, 0, 1.5f);
+            if (has_mesh)
+            {
+                ImGui::SetTooltip("Drop to spawn mesh");
+            }
+            else if (has_tex || has_mat)
+            {
+                ImGui::SetTooltip("Drop to assign to selected entity");
+            }
+        }
+        if (const AssetDragPayload* p = ImExt::DragDrop::accept<AssetDragPayload>())
+        {
+            auto& pm = ProjectManager::get();
+            if (pm.is_open() && data->dispatcher)
+            {
+                for (uint32_t i = 0; i < p->count; ++i)
+                {
+                    const auto& item = p->items[i];
+                    Path        abs  = pm.descriptor().root / pm.descriptor().asset_source_dir / item.rel_path;
+
+                    if (std::strcmp(item.type_label, "MSH") == 0)
+                    {
+                        String name = Path(item.rel_path).stem().string();
+                        data->dispatcher->commit(create_unique<SpawnMeshFromAssetCmd>(data->scene, abs, std::move(name),
+                                                                                      data->selected_entity));
+                    }
+                    else if (std::strcmp(item.type_label, "TEX") == 0 && data->selected_entity &&
+                             data->selected_entity->is_valid())
+                    {
+                        AssetID tex_id = AssetManager::get().import(abs, AssetType::Texture2D);
+                        Entity& ent    = *data->selected_entity;
+                        if (!ent.has_component<TextureComponent>())
+                        {
+                            ent.add_component<TextureComponent>();
+                        }
+                        AssetID before = ent.get_component<TextureComponent>().texture_id;
+                        data->dispatcher->commit(create_unique<AssignTextureToEntityCmd>(ent, before, tex_id));
+                    }
+                    else if (std::strcmp(item.type_label, "MAT") == 0 && data->selected_entity &&
+                             data->selected_entity->is_valid())
+                    {
+                        AssetID mat_id = AssetManager::get().import(abs, AssetType::Material);
+                        Entity& ent    = *data->selected_entity;
+                        if (!ent.has_component<MaterialComponent>())
+                        {
+                            ent.add_component<MaterialComponent>();
+                        }
+                        AssetID before = ent.get_component<MaterialComponent>().material_id;
+                        data->dispatcher->commit(create_unique<AssignMaterialToEntityCmd>(ent, before, mat_id));
+                    }
+                }
+            }
+        }
+        ImExt::DragDrop::end_target();
     }
 
     m_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup);

@@ -3,7 +3,7 @@
 
 #include "IgnisEditor.h"
 #include "EditorLayer.h"
-#include "EditorAssetManager.h"
+#include "Asset/EditorAssetManager.h"
 #include "EditorSettingsManager.h"
 #include "Project/ProjectManager.h"
 #include "Ignis/Rendering/Renderer.h"

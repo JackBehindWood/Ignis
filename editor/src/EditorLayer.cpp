@@ -1,6 +1,6 @@
 #include "edpch.h"
 #include "EditorLayer.h"
-#include "EditorAssetManager.h"
+#include "Asset/EditorAssetManager.h"
 #include "EditorSettingsManager.h"
 #include "Project/ProjectManager.h"
 #include "Ignis/Rendering/Renderer.h"
@@ -15,6 +15,7 @@
 #include "UI/Panels/ConsolePanel.h"
 #include "UI/Panels/ViewportPanel.h"
 #include "UI/Panels/PropertyPanel.h"
+#include "UI/Panels/AssetBrowserPanel.h"
 #endif
 
 namespace Ignis
@@ -25,7 +26,7 @@ namespace
 constexpr InputMapping s_global_editor_mappings[] = {
     {EditorActions::k_undo, {Key::Z, Modifier::Super}},
     {EditorActions::k_redo, {Key::Y, Modifier::Super}},
-    {EditorActions::k_reload_assets, {Key::F5, Modifier::None}},
+    {EditorActions::k_reload_assets, {Key::F5}},
     {EditorActions::k_new_scene, {Key::N, Modifier::Super}},
     {EditorActions::k_save_scene, {Key::S, Modifier::Super}},
     {EditorActions::k_save_project, {Key::S, Modifier::Super | Modifier::Shift}},
@@ -62,6 +63,8 @@ void EditorLayer::attach()
         {3, "Console", []() -> UniquePtr<IPanel> { return create_unique<ConsolePanel>(); }});
     m_panel_registry.register_panel(
         {4, "Properties", []() -> UniquePtr<IPanel> { return create_unique<PropertyPanel>(); }});
+    m_panel_registry.register_panel(
+        {5, "Asset Browser", []() -> UniquePtr<IPanel> { return create_unique<AssetBrowserPanel>(); }});
 
     m_workspace_manager.register_workspace(
         create_unique<SceneEditorWorkspace>(m_active_scene, m_scene_renderer, m_panel_registry, m_dispatcher));
@@ -107,6 +110,7 @@ void EditorLayer::update(Timestep ts)
     }
     if (InputSystem::was_action_started(k_reload_assets))
     {
+        IG_INFO("Reloading assets...");
         Renderer::get_resource_cache().clear();
         Renderer::clear_pipeline_cache();
         EditorAssetManager::get().reload_all();

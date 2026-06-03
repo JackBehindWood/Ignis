@@ -20,6 +20,8 @@ public:
     static float                get_axis_value(ActionID action);
     static FixedInputString<32> get_action_label(ActionID action);
 
+    static void trigger_action(ActionID action);
+
     static void set_block_game_input(bool block)
     {
         s_block_game_input = block;

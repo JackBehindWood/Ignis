@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <Ignis/Math/Mat4.h>
 #include <Ignis/Math/Transform.h>
 #include "UI/SceneEditor/SceneEditorContext.h"
@@ -38,5 +39,57 @@ WorldRay screen_to_world_ray(ImVec2 screen_px, ImVec2 vp_min, ImVec2 vp_size, co
 
 // True when a gizmo handle is actively being dragged this frame.
 bool IsGizmoActive();
+
+namespace DragDrop
+{
+
+inline bool begin_source(ImGuiDragDropFlags flags = 0)
+{
+    return ImGui::BeginDragDropSource(flags);
+}
+
+template <typename T>
+void set_payload(const T& data)
+{
+    ImGui::SetDragDropPayload(T::k_type, &data, sizeof(T));
+}
+
+inline void end_source()
+{
+    ImGui::EndDragDropSource();
+}
+
+inline bool begin_target()
+{
+    return ImGui::BeginDragDropTarget();
+}
+
+template <typename T>
+const T* accept(ImGuiDragDropFlags flags = 0)
+{
+    const ImGuiPayload* p = ImGui::AcceptDragDropPayload(T::k_type, flags);
+    return p ? static_cast<const T*>(p->Data) : nullptr;
+}
+
+template <typename T>
+const T* peek()
+{
+    return accept<T>(ImGuiDragDropFlags_AcceptBeforeDelivery | ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
+}
+
+inline void end_target()
+{
+    ImGui::EndDragDropTarget();
+}
+
+// Makes the entire current child window a drop target.
+// Guard with !ImGui::IsAnyItemHovered() to yield priority to item-level targets.
+inline bool begin_window_target()
+{
+    ImGuiWindow* w = ImGui::GetCurrentWindow();
+    return ImGui::BeginDragDropTargetCustom(w->Rect(), w->ID);
+}
+
+} // namespace DragDrop
 
 } // namespace ImExt

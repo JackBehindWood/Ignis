@@ -119,6 +119,8 @@ public:
     void reload_all();
     void prune_cache();
 
+    size_t get_active_count() const;
+
     template <typename T>
     SharedPtr<T> load_sync(AssetID id, float timeout_ms = 1000.0f)
     {

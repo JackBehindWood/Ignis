@@ -51,6 +51,9 @@ static ObjIndex parse_face_vertex(const String& token)
 template <typename R>
 static SharedPtr<Asset> parse_mesh_payload(AssetID id, R& r)
 {
+    float bd[10];
+    r.read_bytes(bd, sizeof(bd));
+
     const uint32_t vertex_stride = r.read_u32();
     const uint32_t vertex_count  = r.read_u32();
     const size_t   vertex_bytes  = static_cast<size_t>(vertex_count) * vertex_stride;

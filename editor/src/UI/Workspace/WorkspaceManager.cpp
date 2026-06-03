@@ -8,6 +8,9 @@
 namespace Ignis
 {
 
+// TODO: remove hardcoded colours and style values and replace with theme system integration!
+constexpr int32_t MIN_WORKSPACES_FOR_TABS = 2;
+
 WorkspaceManager::WorkspaceManager(PanelRegistry& registry, CommandDispatcher& dispatcher)
     : m_registry(registry),
       m_dock(registry),
@@ -65,9 +68,49 @@ void WorkspaceManager::draw_imgui()
     IWorkspace&                active_ws  = *ws_it->second;
     const WorkspaceDefinition& active_def = active_ws.definition();
 
-    const ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(vp->Pos);
-    ImGui::SetNextWindowSize(vp->Size);
+    const ImGuiViewport* vp        = ImGui::GetMainViewport();
+    ImVec2               host_pos  = vp->Pos;
+    ImVec2               host_size = vp->Size;
+
+    const bool show_tabs = m_workspaces.size() > (MIN_WORKSPACES_FOR_TABS - 1);
+
+    if (show_tabs)
+    {
+        float tab_bar_height = ImGui::GetFrameHeight();
+
+        ImGui::SetNextWindowPos(host_pos);
+        ImGui::SetNextWindowSize({host_size.x, tab_bar_height});
+        ImGui::SetNextWindowViewport(vp->ID);
+
+        ImGuiWindowFlags tab_host_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar |
+                                          ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+                                          ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus |
+                                          ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoScrollbar;
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0.0f, 0.0f});
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, {0.0f, 0.0f});
+
+        ImVec4 theme_bg    = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+        ImVec4 header_tint = ImVec4(theme_bg.x * 0.7f, theme_bg.y * 0.7f, theme_bg.z * 0.7f, theme_bg.w);
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, header_tint);
+        if (ImGui::Begin("##WorkspaceTabsHost", nullptr, tab_host_flags))
+        {
+            draw_workspace_tab_bar();
+        }
+        ImGui::End();
+
+        ImGui::PopStyleColor(1);
+        ImGui::PopStyleVar(4);
+
+        host_pos.y += tab_bar_height;
+        host_size.y -= tab_bar_height;
+    }
+
+    // Main Host Window Configuration
+    ImGui::SetNextWindowPos(host_pos);
+    ImGui::SetNextWindowSize(host_size);
     ImGui::SetNextWindowViewport(vp->ID);
 
     ImGuiWindowFlags host_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar |
@@ -87,17 +130,17 @@ void WorkspaceManager::draw_imgui()
         ImGui::EndMenuBar();
     }
 
-    draw_workspace_tab_bar();
-
     ImGuiID ds_id =
         ImGui::DockSpace(ImGui::GetID("##MainDockspace"), {0.0f, 0.0f}, ImGuiDockNodeFlags_PassthruCentralNode);
 
     if (m_layout_dirty)
     {
-        m_dock.compile_layout(ds_id, active_def.default_layout, vp->Size);
+        m_dock.compile_layout(ds_id, active_def.default_layout, host_size);
         m_layout_dirty = false;
     }
 
+    // TODO: style the panel title bars! Also find a way to have them stand more out from the menu bar when they are
+    // docked at the top, as currently they blend together a bit too much.
     for (const auto& panel : active_ws.get_active_panels())
     {
         auto it = m_panel_open.find(panel->get_id());

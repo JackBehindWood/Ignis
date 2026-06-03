@@ -60,40 +60,6 @@ float4 PSMain(VertexOut input) : SV_TARGET { return float4(1.0, 0.0, 1.0, 1.0); 
 
 } // namespace
 
-GRITexture2D* SceneRenderer::resolve_texture(AssetID id)
-{
-    AssetManager&             am  = AssetManager::get();
-    SharedPtr<AssetTexture2D> tex = am.get_asset_as<AssetTexture2D>(id);
-    if (!tex)
-    {
-        tex = static_pointer_cast<AssetTexture2D>(am.get_fallback(AssetType::Texture2D));
-    }
-    if (!tex)
-    {
-        return nullptr;
-    }
-
-    const uint64_t             key    = static_cast<uint64_t>(tex->get_id());
-    SharedPtr<RenderTexture2D> cached = Renderer::get_resource_cache().find_texture(key);
-    if (!cached)
-    {
-        GRITexture2DDesc desc;
-        desc.width             = tex->get_width();
-        desc.height            = tex->get_height();
-        desc.num_mip_levels    = 1;
-        desc.format            = static_cast<GRIPixelFormat>(tex->get_format());
-        desc.initial_data      = tex->get_pixels().data();
-        desc.initial_data_size = static_cast<uint32_t>(tex->get_pixels().size());
-
-        if (GRITexture2DPtr gri_tex = RenderSystem::get_gri()->create_texture2d(desc))
-        {
-            cached = create_shared<RenderTexture2D>(std::move(gri_tex), desc.width, desc.height, desc.format);
-            Renderer::get_resource_cache().register_texture(key, cached);
-        }
-    }
-    return cached ? cached->get_texture() : nullptr;
-}
-
 // #NOTE: Fallback shader seems to fail with compiling!
 void SceneRenderer::prepare(Scene& scene)
 {

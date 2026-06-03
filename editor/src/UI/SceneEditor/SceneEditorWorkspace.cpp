@@ -6,8 +6,9 @@
 #include "../Panels/ConsolePanel.h"
 #include "../Panels/ViewportPanel.h"
 #include "../Panels/PropertyPanel.h"
+#include "../Panels/AssetBrowserPanel.h"
 #include "EditorPrimitives.h"
-#include "EditorAssetManager.h"
+#include "Asset/EditorAssetManager.h"
 
 #include <Ignis/Core/FileDialog.h>
 #include "Project/ProjectManager.h"
@@ -28,11 +29,12 @@ static constexpr InputMapping k_viewport_mappings[] = {
     {EditorActions::k_gizmo_scale, {Key::S, Modifier::Shift}},
 };
 
-static constexpr PanelId     k_panel_scene_tree = 1;
-static constexpr PanelId     k_panel_viewport   = 2;
-static constexpr PanelId     k_panel_console    = 3;
-static constexpr PanelId     k_panel_properties = 4;
-static constexpr WorkspaceId k_workspace_id     = 1;
+static constexpr PanelId     k_panel_scene_tree    = 1;
+static constexpr PanelId     k_panel_viewport      = 2;
+static constexpr PanelId     k_panel_console       = 3;
+static constexpr PanelId     k_panel_properties    = 4;
+static constexpr PanelId     k_panel_asset_browser = 5;
+static constexpr WorkspaceId k_workspace_id        = 1;
 } // namespace
 
 namespace Utils
@@ -61,6 +63,7 @@ SceneEditorWorkspace::SceneEditorWorkspace(Scene& scene, SceneRenderer& sr, Pane
     m_panels.push_back(registry.create(k_panel_viewport));
     m_panels.push_back(registry.create(k_panel_console));
     m_panels.push_back(registry.create(k_panel_properties));
+    m_panels.push_back(registry.create(k_panel_asset_browser));
 
     InputSystem::register_context(&m_viewport_ctx);
     EditorInputManager::register_panel_context(&m_viewport_ctx, "Viewport");
@@ -77,7 +80,8 @@ WorkspaceDefinition SceneEditorWorkspace::make_definition(PanelRegistry&)
     def.id                      = k_workspace_id;
     def.version                 = 1;
     def.name                    = "Scene Editor";
-    def.allowed_panels          = {k_panel_scene_tree, k_panel_viewport, k_panel_console, k_panel_properties};
+    def.allowed_panels          = {k_panel_scene_tree, k_panel_viewport, k_panel_console, k_panel_properties,
+                                   k_panel_asset_browser};
     def.policies.allow_closing  = false;
     def.policies.allow_floating = false;
     def.theme_id                = 0;
@@ -95,6 +99,7 @@ WorkspaceDefinition SceneEditorWorkspace::make_definition(PanelRegistry&)
     center_bottom->ratio     = 0.25f;
     center_bottom->child_a   = create_unique<LayoutNode>();
     center_bottom->child_a->panel_ids.push_back(k_panel_console);
+    center_bottom->child_a->panel_ids.push_back(k_panel_asset_browser);
     center_bottom->child_b = create_unique<LayoutNode>();
     center_bottom->child_b->panel_ids.push_back(k_panel_viewport);
     center_bottom->child_b->hide_tab_bar = true;

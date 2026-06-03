@@ -1,4 +1,5 @@
-#include "EditorAssetManager.h"
+#include "edpch.h"
+#include "Asset/EditorAssetManager.h"
 #include "Ignis/Asset/AssetManager.h"
 
 namespace Ignis
@@ -34,6 +35,7 @@ void EditorAssetManager::on_project_closed()
     AssetManager::get().shutdown();
     m_project_root       = Path{};
     m_project_asset_root = Path{};
+    m_observers.clear();
 }
 
 // --- Setup ---
@@ -73,7 +75,9 @@ AssetID EditorAssetManager::resolve_reference(const String& qualified_ref, Asset
 
 AssetID EditorAssetManager::import_texture(const Path& filename)
 {
-    return import_project_asset(Path("textures") / filename, AssetType::Texture2D);
+    AssetID id = import_project_asset(Path("textures") / filename, AssetType::Texture2D);
+    notify_imported(m_project_asset_root / "textures" / filename);
+    return id;
 }
 
 Pair<AssetID, AssetID> EditorAssetManager::import_shader(const Path& filename)
@@ -92,12 +96,16 @@ Pair<AssetID, AssetID> EditorAssetManager::import_shader(const Path& filename)
 
 AssetID EditorAssetManager::import_mesh(const Path& filename)
 {
-    return import_project_asset(Path("meshes") / filename, AssetType::Mesh);
+    AssetID id = import_project_asset(Path("meshes") / filename, AssetType::Mesh);
+    notify_imported(m_project_asset_root / "meshes" / filename);
+    return id;
 }
 
 AssetID EditorAssetManager::import_material(const Path& filename)
 {
-    return import_project_asset(Path("materials") / filename, AssetType::Material);
+    AssetID id = import_project_asset(Path("materials") / filename, AssetType::Material);
+    notify_imported(m_project_asset_root / "materials" / filename);
+    return id;
 }
 
 SharedPtr<AssetTexture2D> EditorAssetManager::load_texture(AssetID id)
@@ -120,6 +128,28 @@ SharedPtr<AssetMaterial> EditorAssetManager::load_material(AssetID id)
     return AssetManager::get().load_sync<AssetMaterial>(id);
 }
 
+SharedPtr<AssetTexture2D> EditorAssetManager::try_get_texture(AssetID id) const
+{
+    return AssetManager::get().get_asset_as<AssetTexture2D>(id);
+}
+
+SharedPtr<AssetMesh> EditorAssetManager::try_get_mesh(AssetID id) const
+{
+    return AssetManager::get().get_asset_as<AssetMesh>(id);
+}
+
+SharedPtr<AssetMaterial> EditorAssetManager::try_get_material(AssetID id) const
+{
+    return AssetManager::get().get_asset_as<AssetMaterial>(id);
+}
+
+AssetID EditorAssetManager::import_asset_at(const Path& absolute_path, AssetType type)
+{
+    AssetID id = import(absolute_path, type);
+    notify_imported(absolute_path);
+    return id;
+}
+
 void EditorAssetManager::load_deferred(AssetID id)
 {
     AssetManager::get().load_deferred(id);
@@ -135,6 +165,11 @@ void EditorAssetManager::update(float max_budget_ms)
 void EditorAssetManager::reload_all()
 {
     AssetManager::get().reload_all();
+}
+
+size_t EditorAssetManager::get_active_count() const
+{
+    return AssetManager::get().get_active_count();
 }
 
 uint32_t EditorAssetManager::add_reload_callback(void (*callback)(AssetID))
@@ -162,6 +197,55 @@ AssetID EditorAssetManager::import(const Path& absolute_source, AssetType type)
         return AssetID(UUID::s_invalid);
     }
     return AssetManager::get().import(absolute_source, type, /*cache_compiled=*/true);
+}
+
+// --- Observer ---
+
+void EditorAssetManager::add_observer(IAssetEventObserver* obs)
+{
+    IG_ASSERT(obs, "null observer");
+    m_observers.push_back(obs);
+}
+
+void EditorAssetManager::remove_observer(IAssetEventObserver* obs)
+{
+    auto it = std::find(m_observers.begin(), m_observers.end(), obs);
+    if (it != m_observers.end())
+    {
+        m_observers.erase(it);
+    }
+}
+
+void EditorAssetManager::notify_imported(const Path& abs_path)
+{
+    for (auto* obs : m_observers)
+    {
+        obs->on_asset_imported(abs_path);
+    }
+}
+
+void EditorAssetManager::notify_renamed(const Path& old_path, const Path& new_path)
+{
+    for (auto* obs : m_observers)
+    {
+        obs->on_asset_renamed(old_path, new_path);
+    }
+}
+
+void EditorAssetManager::notify_deleted(const Path& abs_path)
+{
+    for (auto* obs : m_observers)
+    {
+        obs->on_asset_deleted(abs_path);
+    }
+}
+
+void EditorAssetManager::notify_directory_changed()
+{
+    for (auto* obs : m_observers)
+    {
+        obs->on_directory_changed();
+    }
 }
 
 } // namespace Ignis

@@ -4,6 +4,7 @@
 namespace Ignis
 {
 
+// TODO: use path for asset_source_dir, compiled_cache_dir, and startup_scene instead of strings.
 struct ProjectDescriptor
 {
     String name;

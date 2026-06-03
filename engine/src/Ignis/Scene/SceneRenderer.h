@@ -98,10 +98,8 @@ private:
         uint64_t          depth_key;
         uint64_t          fwd_key;
     };
-
-    static GRITexture2D* resolve_texture(AssetID id);
-    void                 build_cull_proxies(Scene& scene, const Math::Mat4f& cam_view);
-    void                 build_commands();
+    void build_cull_proxies(Scene& scene, const Math::Mat4f& cam_view);
+    void build_commands();
 
     static constexpr uint32_t k_max_instances        = 4096;
     static constexpr float    k_depth_range          = 1000.0f;

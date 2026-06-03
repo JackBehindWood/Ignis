@@ -7,6 +7,8 @@
 #include <Ignis/Scene/Components/Components.h>
 #include <Ignis/Scene/SceneSerializer.h>
 #include <Ignis/Math/Transform.h>
+#include <Ignis/Asset/AssetManager.h>
+#include <Ignis/Asset/Asset.h>
 #include "Project/ProjectManager.h"
 
 namespace Ignis
@@ -321,6 +323,143 @@ struct SaveProjectCmd : IEditorCommand
     void execute(WorkspaceManager&) override
     {
         ProjectManager::get().save();
+    }
+};
+
+inline String make_unique_entity_name(Scene* scene, const String& stem)
+{
+    auto view   = scene->registry().view<NameComponent>();
+    auto exists = [&](const String& candidate)
+    {
+        for (auto [h, nc] : view.each())
+        {
+            if (nc.name == candidate)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+    if (!exists(stem))
+    {
+        return stem;
+    }
+    for (uint32_t i = 0;; ++i)
+    {
+        String candidate = stem + "_" + std::to_string(i);
+        if (!exists(candidate))
+        {
+            return candidate;
+        }
+    }
+}
+
+struct SpawnMeshFromAssetCmd : IReversibleCommand
+{
+    Scene*  scene;
+    Path    abs_path;
+    String  name;
+    Entity* selected_entity;
+    Entity  entity;
+
+    SpawnMeshFromAssetCmd(Scene* s, Path p, String n, Entity* sel)
+        : scene(s),
+          abs_path(std::move(p)),
+          name(std::move(n)),
+          selected_entity(sel)
+    {
+    }
+
+    void execute() override
+    {
+        AssetID mesh_id = AssetManager::get().import(abs_path, AssetType::Mesh);
+        String  unique  = make_unique_entity_name(scene, name);
+        entity          = scene->create_entity(unique);
+        entity.add_component<TransformComponent>();
+        entity.add_component<MeshRendererComponent>().mesh_id = mesh_id;
+        if (selected_entity)
+        {
+            *selected_entity = entity;
+        }
+    }
+
+    void undo() override
+    {
+        if (selected_entity && *selected_entity == entity)
+        {
+            *selected_entity = {};
+        }
+        scene->destroy_entity(entity);
+        entity = {};
+    }
+};
+
+struct AssignMeshToEntityCmd : IReversibleCommand
+{
+    Entity  entity;
+    AssetID before_id;
+    AssetID after_id;
+
+    AssignMeshToEntityCmd(Entity e, AssetID b, AssetID a)
+        : entity(e),
+          before_id(b),
+          after_id(a)
+    {
+    }
+
+    void execute() override
+    {
+        entity.get_component<MeshRendererComponent>().mesh_id = after_id;
+    }
+    void undo() override
+    {
+        entity.get_component<MeshRendererComponent>().mesh_id = before_id;
+    }
+};
+
+struct AssignMaterialToEntityCmd : IReversibleCommand
+{
+    Entity  entity;
+    AssetID before_id;
+    AssetID after_id;
+
+    AssignMaterialToEntityCmd(Entity e, AssetID b, AssetID a)
+        : entity(e),
+          before_id(b),
+          after_id(a)
+    {
+    }
+
+    void execute() override
+    {
+        entity.get_component<MaterialComponent>().material_id = after_id;
+    }
+    void undo() override
+    {
+        entity.get_component<MaterialComponent>().material_id = before_id;
+    }
+};
+
+struct AssignTextureToEntityCmd : IReversibleCommand
+{
+    Entity  entity;
+    AssetID before_id;
+    AssetID after_id;
+
+    AssignTextureToEntityCmd(Entity e, AssetID b, AssetID a)
+        : entity(e),
+          before_id(b),
+          after_id(a)
+    {
+    }
+
+    void execute() override
+    {
+        entity.get_component<TextureComponent>().texture_id = after_id;
+    }
+    void undo() override
+    {
+        entity.get_component<TextureComponent>().texture_id = before_id;
     }
 };
 

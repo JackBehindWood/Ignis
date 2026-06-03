@@ -1,5 +1,6 @@
 #include "edpch.h"
 #include "UI/ComponentInspector.h"
+#include "UI/ImExt/ImExt.h"
 
 #include <Ignis/Scene/Components/Components.h>
 #include <Ignis/Scene/Components/CameraComponent.h>
@@ -179,7 +180,42 @@ static void draw_mesh_renderer(Entity& e)
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.5f);
 
     ImGui::Checkbox("Visible", &m.is_visible);
-    ImGui::LabelText("Mesh ID", "%llu", static_cast<uint64_t>(m.mesh_id));
+
+    char mesh_buf[32];
+    std::snprintf(mesh_buf, sizeof(mesh_buf), "%llu", static_cast<uint64_t>(m.mesh_id));
+    ImGui::InputText("Mesh##id", mesh_buf, sizeof(mesh_buf), ImGuiInputTextFlags_ReadOnly);
+    if (ImExt::DragDrop::begin_target())
+    {
+        if (const auto* hover = ImExt::DragDrop::peek<AssetDragPayload>())
+        {
+            bool compat = hover->count > 0 && std::strcmp(hover->items[0].type_label, "MSH") == 0;
+            ImGui::GetWindowDrawList()->AddRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
+                                                compat ? IM_COL32(100, 200, 100, 220) : IM_COL32(200, 80, 80, 220),
+                                                2.0f, 0, 1.5f);
+            ImGui::SetTooltip(compat ? "Drop to assign mesh" : "Wrong type - needs MSH");
+        }
+        if (const auto* p = ImExt::DragDrop::accept<AssetDragPayload>())
+        {
+            if (p->count > 0 && std::strcmp(p->items[0].type_label, "MSH") == 0)
+            {
+                auto& pm = ProjectManager::get();
+                if (pm.is_open())
+                {
+                    Path    abs    = pm.descriptor().root / pm.descriptor().asset_source_dir / p->items[0].rel_path;
+                    AssetID new_id = AssetManager::get().import(abs, AssetType::Mesh);
+                    if (auto* d = CommandDispatcher::active())
+                    {
+                        d->commit(create_unique<AssignMeshToEntityCmd>(e, m.mesh_id, new_id));
+                    }
+                    else
+                    {
+                        m.mesh_id = new_id;
+                    }
+                }
+            }
+        }
+        ImExt::DragDrop::end_target();
+    }
 
     ImGui::PopStyleVar();
     ImGui::PopItemWidth();
@@ -210,7 +246,106 @@ static void draw_material(Entity& e)
     ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 72.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.5f);
 
-    ImGui::LabelText("Material ID", "%llu", static_cast<uint64_t>(m.material_id));
+    char mat_buf[32];
+    std::snprintf(mat_buf, sizeof(mat_buf), "%llu", static_cast<uint64_t>(m.material_id));
+    ImGui::InputText("Material##id", mat_buf, sizeof(mat_buf), ImGuiInputTextFlags_ReadOnly);
+    if (ImExt::DragDrop::begin_target())
+    {
+        if (const auto* hover = ImExt::DragDrop::peek<AssetDragPayload>())
+        {
+            bool compat = hover->count > 0 && std::strcmp(hover->items[0].type_label, "MAT") == 0;
+            ImGui::GetWindowDrawList()->AddRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
+                                                compat ? IM_COL32(100, 200, 100, 220) : IM_COL32(200, 80, 80, 220),
+                                                2.0f, 0, 1.5f);
+            ImGui::SetTooltip(compat ? "Drop to assign material" : "Wrong type - needs MAT");
+        }
+        if (const auto* p = ImExt::DragDrop::accept<AssetDragPayload>())
+        {
+            if (p->count > 0 && std::strcmp(p->items[0].type_label, "MAT") == 0)
+            {
+                auto& pm = ProjectManager::get();
+                if (pm.is_open())
+                {
+                    Path    abs    = pm.descriptor().root / pm.descriptor().asset_source_dir / p->items[0].rel_path;
+                    AssetID new_id = AssetManager::get().import(abs, AssetType::Material);
+                    if (auto* d = CommandDispatcher::active())
+                    {
+                        d->commit(create_unique<AssignMaterialToEntityCmd>(e, m.material_id, new_id));
+                    }
+                    else
+                    {
+                        m.material_id = new_id;
+                    }
+                }
+            }
+        }
+        ImExt::DragDrop::end_target();
+    }
+
+    ImGui::PopStyleVar();
+    ImGui::PopItemWidth();
+}
+
+// ---------- Texture ----------
+
+static bool has_texture(Entity& e)
+{
+    return e.has_component<TextureComponent>();
+}
+static void add_texture(Entity& e)
+{
+    e.add_component<TextureComponent>();
+}
+static void remove_texture(Entity& e)
+{
+    e.remove_component<TextureComponent>();
+}
+static void draw_texture(Entity& e)
+{
+    if (!ImGui::CollapsingHeader("Texture", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        return;
+    }
+    auto& t = e.get_component<TextureComponent>();
+
+    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 72.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.5f);
+
+    char tex_buf[32];
+    std::snprintf(tex_buf, sizeof(tex_buf), "%llu", static_cast<uint64_t>(t.texture_id));
+    ImGui::InputText("Texture##id", tex_buf, sizeof(tex_buf), ImGuiInputTextFlags_ReadOnly);
+    if (ImExt::DragDrop::begin_target())
+    {
+        if (const auto* hover = ImExt::DragDrop::peek<AssetDragPayload>())
+        {
+            bool compat = hover->count > 0 && std::strcmp(hover->items[0].type_label, "TEX") == 0;
+            ImGui::GetWindowDrawList()->AddRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
+                                                compat ? IM_COL32(100, 200, 100, 220) : IM_COL32(200, 80, 80, 220),
+                                                2.0f, 0, 1.5f);
+            ImGui::SetTooltip(compat ? "Drop to assign texture" : "Wrong type - needs TEX");
+        }
+        if (const auto* p = ImExt::DragDrop::accept<AssetDragPayload>())
+        {
+            if (p->count > 0 && std::strcmp(p->items[0].type_label, "TEX") == 0)
+            {
+                auto& pm = ProjectManager::get();
+                if (pm.is_open())
+                {
+                    Path    abs    = pm.descriptor().root / pm.descriptor().asset_source_dir / p->items[0].rel_path;
+                    AssetID new_id = AssetManager::get().import(abs, AssetType::Texture2D);
+                    if (auto* d = CommandDispatcher::active())
+                    {
+                        d->commit(create_unique<AssignTextureToEntityCmd>(e, t.texture_id, new_id));
+                    }
+                    else
+                    {
+                        t.texture_id = new_id;
+                    }
+                }
+            }
+        }
+        ImExt::DragDrop::end_target();
+    }
 
     ImGui::PopStyleVar();
     ImGui::PopItemWidth();
@@ -323,6 +458,7 @@ void ComponentInspector::register_defaults()
     register_component(
         {"Mesh Renderer", "Rendering", has_mesh_renderer, add_mesh_renderer, remove_mesh_renderer, draw_mesh_renderer});
     register_component({"Material", "Rendering", has_material, add_material, remove_material, draw_material});
+    register_component({"Texture", "Rendering", has_texture, add_texture, remove_texture, draw_texture});
     register_component({"Camera", "Scene", has_camera, add_camera, remove_camera, draw_camera});
 }
 
