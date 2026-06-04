@@ -119,72 +119,115 @@ static Entity pick_entity(Scene& scene, const ImExt::WorldRay& ray)
 
 static void draw_toolbar_overlay(SceneEditorData* data)
 {
-    using namespace Ignis;
+    auto& cache = EditorResourceCache::get();
 
-    constexpr float k_padding = 10.0f;
-    constexpr float k_btn_h   = 24.0f;
-    constexpr float k_sep_w   = 10.0f;
+    constexpr float k_padding   = 10.0f;
+    constexpr float k_img_size  = 24.0f;
+    constexpr float k_frame_pad = 2.0f;
+    constexpr float k_btn_size  = k_img_size + 2.0f * k_frame_pad; // total button footprint: 28px
+    constexpr float k_spacing   = 4.0f;
+
+    const ImVec4 k_accent = {0.38f, 0.52f, 0.67f, 1.00f};
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {4.0f, 0.0f});
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {k_spacing, 0.0f});
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {k_frame_pad, k_frame_pad});
 
     ImGui::PushStyleColor(ImGuiCol_Button, {0.08f, 0.08f, 0.08f, 0.72f});
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.22f, 0.22f, 0.22f, 0.88f});
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, {0.30f, 0.30f, 0.30f, 1.00f});
 
-    const ImVec4 k_accent = {0.38f, 0.52f, 0.67f, 1.00f};
+    const float window_width    = ImGui::GetWindowWidth();
+    const float total_toolbar_w = 2.0f * k_btn_size + k_spacing;
+    const float start_x         = (window_width - total_toolbar_w) * 0.5f;
+    ImGui::SetCursorPos({start_x, k_padding});
 
-    ImGui::SetCursorPos({k_padding, k_padding});
-
-    auto sim_btn = [&](const char* label, SimulationState state)
+    auto image_btn = [&](const char* id, GRITexture2D* icon, bool accent) -> bool
     {
-        bool active = (*data->sim_state == state);
-        if (active)
+        if (accent)
         {
             ImGui::PushStyleColor(ImGuiCol_Button, k_accent);
         }
-        if (ImGui::Button(label, {0.0f, k_btn_h}))
+        bool clicked = false;
+        if (icon)
         {
-            *data->sim_state = state;
+            ImTextureID tex_id = reinterpret_cast<ImTextureID>(icon->get_native_handle());
+            clicked            = ImGui::ImageButton(id, tex_id, {k_img_size, k_img_size});
         }
-        if (active)
+        else
+        {
+            clicked = ImGui::Button(id, {k_btn_size, k_btn_size});
+        }
+        if (accent)
         {
             ImGui::PopStyleColor();
         }
-        ImGui::SameLine();
+        return clicked;
     };
 
-    sim_btn("Play", SimulationState::Playing);
-    sim_btn("Pause", SimulationState::Paused);
-    sim_btn("Stop", SimulationState::Stopped);
+    SimulationState sim   = *data->sim_state;
+    GizmoMode&      gizmo = *data->gizmo;
 
-    ImGui::Dummy({k_sep_w, k_btn_h});
-    ImGui::SameLine();
-
-    auto gizmo_btn = [&](const char* label, GizmoMode mode)
+    auto draw_gizmo_btn = [&]()
     {
-        bool active = (*data->gizmo == mode);
-        if (active)
+        if (image_btn("##gizmo", cache.get_gizmo_icon(), false))
         {
-            ImGui::PushStyleColor(ImGuiCol_Button, k_accent);
+            gizmo = static_cast<GizmoMode>((static_cast<uint8_t>(gizmo) + 1) % 3);
         }
-        if (ImGui::Button(label, {k_btn_h, k_btn_h}))
+
+        // Badge: single char at bottom-right corner of the button
         {
-            *data->gizmo = mode;
+            const char* badge   = (gizmo == GizmoMode::Translate) ? "T" : (gizmo == GizmoMode::Rotate) ? "R" : "S";
+            ImVec2      bmax    = ImGui::GetItemRectMax();
+            ImVec2      txt_pos = {bmax.x - 9.0f, bmax.y - 12.0f};
+            ImGui::GetWindowDrawList()->AddText(txt_pos, IM_COL32(255, 255, 255, 220), badge);
         }
-        if (active)
+
+        if (ImGui::IsItemHovered())
         {
-            ImGui::PopStyleColor();
+            const char* tip = (gizmo == GizmoMode::Translate) ? "Gizmo Mode: Translate (T)"
+                              : (gizmo == GizmoMode::Rotate)  ? "Gizmo Mode: Rotate (R)"
+                                                              : "Gizmo Mode: Scale (S)";
+            ImGui::SetTooltip("%s", tip);
         }
-        ImGui::SameLine();
     };
 
-    gizmo_btn("T", GizmoMode::Translate);
-    gizmo_btn("R", GizmoMode::Rotate);
-    gizmo_btn("S", GizmoMode::Scale);
+    if (sim == SimulationState::Stopped)
+    {
+        if (image_btn("##play", cache.get_play_icon(), false))
+        {
+            *data->sim_state = SimulationState::Playing;
+        }
+        ImGui::SameLine();
+        draw_gizmo_btn();
+    }
+    else if (sim == SimulationState::Playing)
+    {
+        if (image_btn("##pause", cache.get_pause_icon(), false))
+        {
+            *data->sim_state = SimulationState::Paused;
+        }
+        ImGui::SameLine();
+        if (image_btn("##stop", cache.get_stop_icon(), false))
+        {
+            *data->sim_state = SimulationState::Stopped;
+        }
+    }
+    else // Paused
+    {
+        if (image_btn("##play", cache.get_play_icon(), false))
+        {
+            *data->sim_state = SimulationState::Playing;
+        }
+        ImGui::SameLine();
+        if (image_btn("##stop", cache.get_stop_icon(), false))
+        {
+            *data->sim_state = SimulationState::Stopped;
+        }
+    }
 
     ImGui::PopStyleColor(3);
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar(3);
 }
 
 } // namespace Utils
@@ -493,9 +536,11 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
 
     if (m_hovered && ImGui::IsMouseClicked(0) && !gizmo_intercepted && !over_orient_widget)
     {
-        ImVec2 win_pos      = ImGui::GetWindowPos();
-        bool   over_toolbar = (mouse_pos.x >= win_pos.x && mouse_pos.x <= win_pos.x + 240.0f &&
-                               mouse_pos.y >= win_pos.y && mouse_pos.y <= win_pos.y + 44.0f);
+        ImVec2      win_pos      = ImGui::GetWindowPos();
+        const float tb_half_w    = (2.0f * 28.0f + 4.0f) * 0.5f + 8.0f; // half total width + slop
+        const float tb_cx        = win_pos.x + ImGui::GetWindowWidth() * 0.5f;
+        bool        over_toolbar = (mouse_pos.x >= tb_cx - tb_half_w && mouse_pos.x <= tb_cx + tb_half_w &&
+                                    mouse_pos.y >= win_pos.y && mouse_pos.y <= win_pos.y + 44.0f);
 
         if (!over_toolbar)
         {

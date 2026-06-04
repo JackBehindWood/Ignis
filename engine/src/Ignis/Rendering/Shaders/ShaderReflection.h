@@ -32,6 +32,7 @@ struct ShaderReflection
     Vector<ShaderResourceBinding> separate_images;
     Vector<ShaderResourceBinding> separate_samplers;
     Vector<ShaderStageInput>      stage_inputs;
+    Vector<ShaderStageInput>      stage_outputs;
     Vector<ShaderPushConstant>    push_constants;
 };
 

@@ -307,6 +307,10 @@ void EditorResourceCache::shutdown()
     m_shader_icon.reset();
     m_scene_icon.reset();
     m_white_texture.reset();
+    m_play_icon.reset();
+    m_pause_icon.reset();
+    m_stop_icon.reset();
+    m_gizmo_icon.reset();
     for (auto& t : m_prim_thumbnails)
     {
         t.reset();
@@ -530,30 +534,62 @@ void EditorResourceCache::compile_all()
 
 void EditorResourceCache::load_icons()
 {
-    Path     icon_path = m_engine_root / "icons" / "folder.png";
-    int      w = 0, h = 0, channels = 0;
-    stbi_uc* data = stbi_load(icon_path.string().c_str(), &w, &h, &channels, STBI_rgb_alpha);
-    if (!data)
+    auto load_png = [&](const Path& path) -> GRITexture2DPtr
     {
-        IG_CORE_WARN("EditorResourceCache: failed to load {}", icon_path.string());
-    }
-    else
-    {
+        int      w = 0, h = 0, channels = 0;
+        stbi_uc* data = stbi_load(path.string().c_str(), &w, &h, &channels, STBI_rgb_alpha);
+        if (!data)
+        {
+            IG_CORE_WARN("EditorResourceCache: failed to load {}", path.string());
+            return nullptr;
+        }
         GRITexture2DDesc desc;
         desc.width             = static_cast<uint32_t>(w);
         desc.height            = static_cast<uint32_t>(h);
         desc.format            = GRIPixelFormat::RGBA8Unorm;
         desc.initial_data      = data;
         desc.initial_data_size = static_cast<size_t>(w * h * 4);
-        m_folder_icon          = RenderSystem::get_gri()->create_texture2d(desc);
+        GRITexture2DPtr tex    = RenderSystem::get_gri()->create_texture2d(desc);
         stbi_image_free(data);
-    }
+        return tex;
+    };
+
+    const Path icons = m_engine_root / "icons";
+    m_folder_icon    = load_png(icons / "folder.png");
+    m_play_icon      = load_png(icons / "play_icon.png");
+    m_pause_icon     = load_png(icons / "pause_icon.png");
+    m_stop_icon      = load_png(icons / "stop_icon.png");
+    m_gizmo_icon     = load_png(icons / "gizmo_icon.png");
 
     m_tex_placeholder_icon = make_solid_icon(128, 128, 128, 255);
     m_mesh_icon            = make_solid_icon(0, 140, 140, 255);
     m_shader_icon          = make_solid_icon(220, 100, 0, 255);
     m_scene_icon           = make_solid_icon(100, 50, 200, 255);
     m_white_texture        = make_solid_icon(255, 255, 255, 255);
+}
+
+GRITexture2D* EditorResourceCache::get_play_icon() const
+{
+    SharedLock lock(m_mutex);
+    return m_play_icon.get();
+}
+
+GRITexture2D* EditorResourceCache::get_pause_icon() const
+{
+    SharedLock lock(m_mutex);
+    return m_pause_icon.get();
+}
+
+GRITexture2D* EditorResourceCache::get_stop_icon() const
+{
+    SharedLock lock(m_mutex);
+    return m_stop_icon.get();
+}
+
+GRITexture2D* EditorResourceCache::get_gizmo_icon() const
+{
+    SharedLock lock(m_mutex);
+    return m_gizmo_icon.get();
 }
 
 GRITexture2D* EditorResourceCache::get_white_texture() const

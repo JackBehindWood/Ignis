@@ -7,6 +7,8 @@
 namespace Ignis
 {
 class SpirvCompiler;
+class HlslSpirvCompiler;
+
 struct ShaderStageOutput
 {
     GRIShaderStage   stage;
@@ -35,6 +37,14 @@ public:
     ~ShaderCompiler();
 
     Vector<ShaderStageOutput> compile(const String& hlsl_source, const ShaderCompilerOptions& opts = {});
+
+    // Register a virtual include file served from memory.
+    // virtual_path must match the path written in the #include directive verbatim
+    // (e.g. "Ignis/Core.hlsl" for #include <Ignis/Core.hlsl>).
+    void register_virtual_include(const String& virtual_path, const String& source);
+
+    // Set the directory used to resolve relative #include directives for the next compile call.
+    void set_source_directory(const Path& dir);
 
     ShaderTarget get_target() const
     {

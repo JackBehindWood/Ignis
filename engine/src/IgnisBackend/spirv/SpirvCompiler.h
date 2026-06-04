@@ -16,7 +16,7 @@ struct SpirvBindingInfo
 
 struct SpirvStageInput
 {
-    String   name;
+    String   name; // HLSL semantic (e.g. "NORMAL", "TEXCOORD0"), not the DXC-mangled variable name
     uint32_t location;
 };
 
@@ -33,6 +33,7 @@ struct SpirvReflection
     Vector<SpirvBindingInfo>  separate_images;
     Vector<SpirvBindingInfo>  separate_samplers;
     Vector<SpirvStageInput>   stage_inputs;
+    Vector<SpirvStageInput>   stage_outputs;
     Vector<SpirvPushConstant> push_constants;
 };
 
@@ -58,26 +59,30 @@ private:
 public:
     virtual ~SpirvCompiler() = default;
 
-    // HLSL source → SPIR-V words
     inline Vector<uint32_t> compile_to_binary(const String& source, const char* entry_point, GRIShaderStage stage,
                                               const Vector<Pair<String, String>>& defines = {})
     {
         return compile_to_target(source, entry_point, to_execution_model(stage), defines);
     }
-    // SPIR-V words → native source text (e.g. MSL)
     inline String compile_from_binary(const uint32_t* spirv, uint32_t word_count, GRIShaderStage stage)
     {
         return compile_from_target(spirv, word_count, to_execution_model(stage));
     }
-    // SPIR-V words → compiled backend binary (e.g. .metallib bytes, raw SPIR-V bytes for Vulkan)
     inline Vector<uint8_t> spirv_to_backend_binary(const uint32_t* spirv, uint32_t word_count, GRIShaderStage stage)
     {
         return compile_to_backend(spirv, word_count, to_execution_model(stage));
     }
-    // Compiled backend binary → SPIR-V words (identity for Vulkan; {} for irreversible targets like Metal)
     inline Vector<uint32_t> backend_binary_to_spirv(const uint8_t* data, uint32_t size)
     {
         return compile_from_backend(data, size);
+    }
+
+    // Link-aware PS compilation: remaps PS input Location decorations to match VS outputs before
+    // backend code generation. Default falls back to an unlinked compile of the PS stage.
+    virtual Vector<uint8_t> spirv_to_backend_binary_linked(const uint32_t* vs_spirv, uint32_t vs_word_count,
+                                                           const uint32_t* ps_spirv, uint32_t ps_word_count)
+    {
+        return compile_to_backend(ps_spirv, ps_word_count, spv::ExecutionModelFragment);
     }
 
     SpirvReflection reflect(const uint32_t* spirv, uint32_t word_count);

@@ -45,6 +45,10 @@ public:
     GRIBuffer*          get_outline_params() const;
     GRITexture2D*       get_folder_icon() const;
     GRITexture2D*       get_type_icon(const String& type_label) const;
+    GRITexture2D*       get_play_icon() const;
+    GRITexture2D*       get_pause_icon() const;
+    GRITexture2D*       get_stop_icon() const;
+    GRITexture2D*       get_gizmo_icon() const;
 
     ThumbnailResult request_thumbnail(const Path& path, const String& type_label);
     void            tick_thumbnails();
@@ -115,6 +119,10 @@ private:
     GRITexture2DPtr                         m_shader_icon;
     GRITexture2DPtr                         m_scene_icon;
     GRITexture2DPtr                         m_white_texture;
+    GRITexture2DPtr                         m_play_icon;
+    GRITexture2DPtr                         m_pause_icon;
+    GRITexture2DPtr                         m_stop_icon;
+    GRITexture2DPtr                         m_gizmo_icon;
     SharedPtr<RenderMesh>                   m_fallback_mesh;
     Array<GRITexture2DPtr, static_cast<size_t>(EditorPrimitives::prim_count())> m_prim_thumbnails{};
     Path                                                                        m_engine_root;
