@@ -1,7 +1,11 @@
 # Project State
 
 ## Current Focus
+<<<<<<< Updated upstream
 **GRI API Extension complete.** `GRIPipelineStateDesc` now uses `GRIDepthStencilDesc`/`GRIRasterDesc`/`GRIBlendDesc` sub-descriptors; `MaterialFactory` cache key covers all fields; Metal translation functions wired; `SceneRenderer::prepare()` derives descriptors from `AssetMaterial` surface flags; PSO IDs disjoint via `^ 0x8000u`. Build clean. Pending: Metal dynamic raster encoder (`setCullMode`), engine default material, SceneSerializer + IHT regen for `MeshRendererComponent`/`MaterialComponent`.
+=======
+**Editor GUI V1 complete.** Full scene editor shipped: docked workspace (viewport, scene tree, properties, console, asset browser), `CommandDispatcher` undo/redo, drag-drop pipeline with `ImExt` RAII guards, GPU thumbnail renderer, icon toolbar, `EditorResourceCache` + `GlobalEngineCache`. Transitioning to PBR/lighting architecture — documentation scaffold in progress.
+>>>>>>> Stashed changes
 
 ## Standing Systems
 
@@ -41,9 +45,9 @@ Observer-pattern project dispatch (`IProjectObserver`/`ProjectContext`), mode-aw
 - Initial scene system and scene renderer
 
 ## Upcoming
-- Round-trip validation test: save scene → reload → verify field equality (post-Phase 4 smoke test)
-- IHT scan of game-project `src/Scripts/` and generated `register_all_scripts()` (when a game project exists)
-- ~~docs/scene.md update to reflect final architecture~~ (complete — full architectural design doc written 2026-05-29)
+- **PBR material system + lighting pipeline** — typed `PBRMaterialParams`, GGX/Smith BRDF, IBL (BRDF LUT, irradiance, prefilter), directional/point/spot lights, tonemapping
+- SPIR-V audit: verify HLSL→SPIR-V→MSL round-trip for PBR shader permutations
+- Round-trip validation test: save scene → reload → verify field equality
 
 ## Key Invariants
 - Engine TUs: no Metal headers, no `EditorSettings`, no heavy YAML dependency in hot paths
