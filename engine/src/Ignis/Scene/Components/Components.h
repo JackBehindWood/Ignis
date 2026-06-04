@@ -56,4 +56,11 @@ struct MaterialComponent
     AssetID material_id;
 };
 
+IG_CLASS(Component)
+struct TextureComponent
+{
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    AssetID texture_id;
+};
+
 } // namespace Ignis

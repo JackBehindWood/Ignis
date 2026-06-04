@@ -5,27 +5,6 @@
 namespace Ignis
 {
 
-namespace
-{
-// Left-handed orthographic projection, depth range [0,1]
-Math::Mat4f ortho(float left, float right, float bottom, float top, float near_z, float far_z)
-{
-    const float rl = right - left;
-    const float tb = top - bottom;
-    const float fn = far_z - near_z;
-
-    Math::Mat4f r{};
-    r.m[0]  = 2.0f / rl;
-    r.m[5]  = 2.0f / tb;
-    r.m[10] = 1.0f / fn;
-    r.m[12] = -(right + left) / rl;
-    r.m[13] = -(top + bottom) / tb;
-    r.m[14] = -near_z / fn;
-    r.m[15] = 1.0f;
-    return r;
-}
-} // namespace
-
 void SceneCamera::set_perspective(float fov_deg, float near_clip, float far_clip)
 {
     m_type  = ProjectionType::Perspective;
@@ -64,10 +43,20 @@ Math::Mat4f SceneCamera::get_projection() const
     else
     {
         const float half = m_ortho_size * 0.5f;
-        m_cached_proj    = ortho(-half * m_aspect, half * m_aspect, -half, half, m_near, m_far);
+        m_cached_proj    = Math::ortho(-half * m_aspect, half * m_aspect, -half, half, m_near, m_far);
     }
     m_dirty = false;
     return m_cached_proj;
+}
+
+Math::Mat4f SceneCamera::get_inverse_projection() const
+{
+    if (m_type == ProjectionType::Perspective)
+    {
+        return Math::inverse_perspective(Math::radians(m_fov), m_aspect, m_near, m_far);
+    }
+    const float half = m_ortho_size * 0.5f;
+    return Math::inverse_ortho(-half * m_aspect, half * m_aspect, -half, half, m_near, m_far);
 }
 
 YAML::Node serialize_scene_camera(const SceneCamera& cam)

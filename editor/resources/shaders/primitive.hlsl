@@ -26,13 +26,15 @@ struct VertexOut
     float2 uv           : TEXCOORD;
 };
 
-ConstantBuffer<FrameUniforms>    g_frame     : register(b0);
+ConstantBuffer<FrameUniforms>     g_frame     : register(b0);
 StructuredBuffer<GPUInstanceData> g_instances : register(t0, space28);
+Texture2D<float4>                 g_albedo    : register(t0);
+SamplerState                      g_sampler   : register(s0);
 
 VertexOut VSMain(VertexIn input, uint instanceID : SV_InstanceID)
 {
     float4x4  world     = g_instances[instanceID].world_matrix;
-    float3x3  world_rot = (float3x3)world;
+    float3x3  world_rot = float3x3(world[0].xyz, world[1].xyz, world[2].xyz);
     VertexOut output;
     output.position     = mul(g_frame.view_projection, mul(world, float4(input.position, 1.0)));
     output.world_normal = normalize(mul(world_rot, input.normal));
@@ -40,15 +42,21 @@ VertexOut VSMain(VertexIn input, uint instanceID : SV_InstanceID)
     return output;
 }
 
-float4 PSMain(VertexOut input) : SV_TARGET
+struct PixelIn
 {
-    static const float3 k_sun_dir    = float3(0.4767, 0.7946, -0.3773); // normalize(0.6, 1.0, -0.4) precomputed
-    static const float3 k_sun_color  = float3(1.00, 0.95, 0.85);
-    static const float3 k_ambient    = float3(0.15, 0.18, 0.25);
-    static const float3 k_base_color = float3(0.72, 0.72, 0.72);
+    float3 world_normal : NORMAL;
+    float2 uv           : TEXCOORD;
+};
 
+float4 PSMain(PixelIn input) : SV_TARGET
+{
+    static const float3 k_sun_dir   = float3(0.4767, 0.7946, -0.3773); // normalize(0.6, 1.0, -0.4) precomputed
+    static const float3 k_sun_color = float3(1.00, 0.95, 0.85);
+    static const float3 k_ambient   = float3(0.15, 0.18, 0.25);
+
+    float3 albedo  = g_albedo.Sample(g_sampler, input.uv).rgb;
     float3 n       = normalize(input.world_normal);
     float  n_dot_l = saturate(dot(n, k_sun_dir));
-    float3 color   = k_base_color * (k_ambient + k_sun_color * n_dot_l);
+    float3 color   = albedo * (k_ambient + k_sun_color * n_dot_l);
     return float4(color, 1.0);
 }

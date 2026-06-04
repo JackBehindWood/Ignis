@@ -56,13 +56,14 @@ void MetalCommandContext::begin_render_pass(const GRIRenderPassInfo& info)
     IG_CORE_ASSERT(!m_render_encoder, "begin_render_pass called with a render pass already open");
     IG_CORE_ASSERT(m_command_buffer, "begin_render_pass called before begin_frame");
 
-    // Pending provides textures (from begin_drawing_viewport); caller provides clear/load/store semantics.
-    // Caller may also override individual texture pointers when rendering to off-screen targets.
-    GRIRenderPassInfo merged = m_state_cache.get_pending_pass_info();
+    GRIRenderPassInfo merged         = m_state_cache.get_pending_pass_info();
+    const int32_t     pending_count  = merged.get_num_colour_targets();
+    const int32_t     explicit_count = static_cast<int32_t>(info.num_explicit_colour_targets);
+    const int32_t     num_slots      = pending_count > explicit_count ? pending_count : explicit_count;
 
-    for (int32_t i = 0; i < merged.get_num_colour_targets(); i++)
+    for (int32_t i = 0; i < num_slots; i++)
     {
-        if (i < static_cast<int32_t>(info.num_explicit_colour_targets))
+        if (i < explicit_count)
         {
             if (info.colour_targets[i].render_target)
             {

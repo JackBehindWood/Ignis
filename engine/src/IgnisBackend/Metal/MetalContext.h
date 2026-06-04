@@ -4,13 +4,12 @@
 #include "MetalDevice.h"
 #include "MetalStateCache.h"
 #include "MetalCommandEncoder.h"
+#include "MetalCommandBuffer.h"
 
 #include <Metal/Metal.hpp>
 
 namespace Ignis
 {
-class MetalCommandBuffer;
-
 class MetalCommandContext : public GRICommandContext
 {
 private:
@@ -49,5 +48,14 @@ public:
     virtual void draw_indexed_primitives_instanced(uint32_t index_count, uint32_t instance_count,
                                                    uint32_t base_instance, uint32_t first_index,
                                                    int32_t vertex_offset) override;
+
+    inline MTL::CommandBuffer* get_current_command_buffer() const
+    {
+        return m_command_buffer ? m_command_buffer->get_buffer() : nullptr;
+    }
+    inline MetalViewport* get_active_viewport() const
+    {
+        return m_active_viewport;
+    }
 };
 } // namespace Ignis

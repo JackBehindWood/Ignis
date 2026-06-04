@@ -24,8 +24,12 @@ public:
     virtual void update(Timestep ts)
     {
     }
-
-    virtual void event(Event& event) {};
+    virtual void render()
+    {
+    }
+    virtual void event(Event& event)
+    {
+    }
 
     const String& get_name() const
     {

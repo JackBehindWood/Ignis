@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MathConstants.h"
 #include "MathUtils.h"
 #include "Vec3.h"
 #include "Mat4.h"
@@ -93,6 +94,35 @@ struct Quat
         };
     }
 
+    Vec3<T> to_euler() const
+    {
+        Vec3<T> euler;
+
+        // Pitch (y-axis)
+        T sinp = -T(2) * (w * y + z * x);
+        if (Math::abs(sinp) >= T(1))
+        {
+            // Gimbal lock case: use 90 degrees (copysign ensures correct polarity)
+            euler.y = Math::copysign(T(0.5 * Math::pi), sinp);
+        }
+        else
+        {
+            euler.y = Math::asin(sinp);
+        }
+
+        // Roll (x-axis)
+        T sinr_cosp = T(2) * (y * z - w * x);
+        T cosr_cosp = T(1) - T(2) * (x * x + y * y);
+        euler.x     = Math::atan2(sinr_cosp, cosr_cosp);
+
+        // Yaw (z-axis)
+        T siny_cosp = T(2) * (x * y - w * z);
+        T cosy_cosp = T(1) - T(2) * (y * y + z * z);
+        euler.z     = Math::atan2(siny_cosp, cosy_cosp);
+
+        return euler;
+    }
+
     // Euler angles (radians): applied ZYX intrinsic (yaw-pitch-roll)
     static Quat from_euler(const Vec3<T>& euler)
     {
@@ -103,17 +133,17 @@ struct Quat
         T cz = Math::cos(euler.z * T(0.5));
         T sz = Math::sin(euler.z * T(0.5));
         return {
-            sx * cy * cz - cx * sy * sz,
-            cx * sy * cz + sx * cy * sz,
-            cx * cy * sz - sx * sy * cz,
-            cx * cy * cz + sx * sy * sz,
+            -(sx * cy * cz + cx * sy * sz),
+            -(cx * sy * cz - sx * cy * sz),
+            -(sx * sy * cz + cx * cy * sz),
+            cx * cy * cz - sx * sy * sz,
         };
     }
 
     static Quat from_axis_angle(const Vec3<T>& axis, T angle_radians)
     {
         T       half = angle_radians * T(0.5);
-        T       s    = Math::sin(half);
+        T       s    = -Math::sin(half);
         Vec3<T> a    = axis.normalized();
         return {a.x * s, a.y * s, a.z * s, Math::cos(half)};
     }
@@ -153,6 +183,18 @@ template <typename T>
 Quat<T> slerp(const Quat<T>& a, Quat<T> b, T t)
 {
     return Quat<T>::slerp(a, b, t);
+}
+
+template <typename T>
+Vec3<T> to_euler(const Quat<T>& q)
+{
+    return q.to_euler();
+}
+
+template <typename T>
+Quat<T> from_euler(const Vec3<T>& euler)
+{
+    return Quat<T>::from_euler(euler);
 }
 
 using Quatf = Quat<float>;

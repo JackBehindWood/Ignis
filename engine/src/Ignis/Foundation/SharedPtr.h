@@ -73,15 +73,7 @@ public:
     {
         if (this != &other)
         {
-            if (m_ptr)
-            {
-                m_ptr->release();
-            }
-            m_ptr = other.m_ptr;
-            if (m_ptr)
-            {
-                m_ptr->add_ref();
-            }
+            reset(other.m_ptr);
         }
         return *this;
     }
@@ -89,15 +81,7 @@ public:
     template <typename U>
     constexpr SharedPtr& operator=(const SharedPtr<U>& other)
     {
-        if (m_ptr)
-        {
-            m_ptr->release();
-        }
-        m_ptr = other.get();
-        if (m_ptr)
-        {
-            m_ptr->add_ref();
-        }
+        reset(other.get());
         return *this;
     }
 
@@ -105,10 +89,7 @@ public:
     {
         if (this != &other)
         {
-            if (m_ptr)
-            {
-                m_ptr->release();
-            }
+            reset();
             m_ptr       = other.m_ptr;
             other.m_ptr = nullptr;
         }
@@ -118,21 +99,14 @@ public:
     template <typename U>
     constexpr SharedPtr& operator=(SharedPtr<U>&& other) noexcept
     {
-        if (m_ptr)
-        {
-            m_ptr->release();
-        }
+        reset();
         m_ptr = other.release();
         return *this;
     }
 
     constexpr SharedPtr& operator=(std::nullptr_t) noexcept
     {
-        if (m_ptr)
-        {
-            m_ptr->release();
-        }
-        m_ptr = nullptr;
+        reset();
         return *this;
     }
 
@@ -162,6 +136,35 @@ public:
         return m_ptr != other.m_ptr;
     }
 
+    constexpr void reset() noexcept
+    {
+        if (m_ptr)
+        {
+            T* old_ptr = m_ptr;
+            m_ptr      = nullptr;
+            old_ptr->release();
+        }
+    }
+
+    constexpr void reset(T* ptr)
+    {
+        if (m_ptr != ptr)
+        {
+            T* old_ptr = m_ptr;
+            m_ptr      = ptr;
+
+            if (m_ptr)
+            {
+                m_ptr->add_ref();
+            }
+
+            if (old_ptr)
+            {
+                old_ptr->release();
+            }
+        }
+    }
+
 private:
     constexpr T* release() noexcept
     {
@@ -179,8 +182,6 @@ constexpr SharedPtr<T> create_shared(Args&&... args)
     return SharedPtr<T>(new T(static_cast<Args&&>(args)...));
 }
 
-// Checked downcast: SharedPtr<Base> → SharedPtr<Derived>.
-// Mirrors std::static_pointer_cast — use only when the stored type is known to be T.
 template <typename T, typename U>
 constexpr SharedPtr<T> static_pointer_cast(const SharedPtr<U>& other)
 {

@@ -80,13 +80,13 @@ T atan2(T y, T x)
 template <typename T>
 T degrees(T radians)
 {
-    return radians * 180 / pi;
+    return radians * T(180) / pi;
 }
 
 template <typename T>
 T radians(T degrees)
 {
-    return degrees * pi / 180;
+    return degrees * pi / T(180);
 }
 
 template <typename T>
@@ -134,7 +134,7 @@ T fract(T value)
 template <typename T>
 T mod(T value, T divisor)
 {
-    return value % divisor;
+    return std::fmod(value, divisor);
 }
 
 template <typename T>
@@ -148,4 +148,11 @@ T fmod(T value, T divisor)
 {
     return std::fmod(value, divisor);
 }
+
+template <typename T>
+T copysign(T x, T y)
+{
+    return std::copysign(x, y);
+}
+
 } // namespace Ignis::Math

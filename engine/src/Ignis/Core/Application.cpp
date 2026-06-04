@@ -67,7 +67,7 @@ void Application::push_overlay(Layer* layer)
 
 void Application::run()
 {
-    m_last_frame_time = Platform::get_time();
+    reset_frame_time();
     while (m_running)
     {
         float    time     = Platform::get_time();
@@ -79,6 +79,11 @@ void Application::run()
             for (Layer* layer : m_layer_stack)
             {
                 layer->update(timestep);
+            }
+
+            for (Layer* layer : m_layer_stack)
+            {
+                layer->render();
             }
         }
         m_window.update();

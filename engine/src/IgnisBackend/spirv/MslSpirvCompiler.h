@@ -25,6 +25,11 @@ public:
     {
     }
 
+    // Link-aware PS backend compilation. Reflects VS outputs and remaps PS input Location
+    // decorations to match before MSL generation, preventing DCE-induced interface mismatches.
+    Vector<uint8_t> spirv_to_backend_binary_linked(const uint32_t* vs_spirv, uint32_t vs_word_count,
+                                                   const uint32_t* ps_spirv, uint32_t ps_word_count) override;
+
 protected:
     Vector<uint32_t> compile_to_target(const String&, const char*, spv::ExecutionModel,
                                        const Vector<Pair<String, String>>&) override
@@ -34,9 +39,10 @@ protected:
     String compile_from_target(const uint32_t* spirv, uint32_t word_count, spv::ExecutionModel exec_model) override;
     Vector<uint8_t> compile_to_backend(const uint32_t* spirv, uint32_t word_count,
                                        spv::ExecutionModel exec_model) override;
-    // compile_from_backend: metallib → SPIR-V not reversible; inherits default {}
 
 private:
+    Vector<uint8_t> msl_to_metallib(const String& msl) const;
+
     MslCompileOptions m_options;
 };
 

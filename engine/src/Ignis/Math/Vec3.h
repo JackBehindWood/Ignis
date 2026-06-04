@@ -107,6 +107,12 @@ struct Vec3
         return len > T(0) ? (*this / len) : Vec3{};
     }
 
+    constexpr void normalize()
+    {
+        T len = length();
+        *this = len > T(0) ? (*this / len) : Vec3{};
+    }
+
     constexpr T& operator[](int32_t i)
     {
         return (&x)[i];
@@ -168,6 +174,12 @@ template <typename T>
 Vec3<T> normalized(const Vec3<T>& v)
 {
     return v.normalized();
+}
+
+template <typename T>
+void normalize(Vec3<T>& v)
+{
+    v.normalize();
 }
 
 using Vec3f = Vec3<float>;

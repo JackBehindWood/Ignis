@@ -8,24 +8,19 @@
 namespace Ignis
 {
 
-class EditorShaderCache : public IProjectObserver
+class EditorShaderCache
 {
 public:
-    static EditorShaderCache& get()
-    {
-        static EditorShaderCache instance;
-        return instance;
-    }
-
-    void set_engine_root(const Path& engine_root);
+    void init(const Path& shaders_root, const Path& engine_cache_root);
+    void on_project_opened(const ProjectContext& ctx);
+    void on_project_closed();
 
     SharedPtr<RenderShader> get_or_compile(const String& filename, GRIShaderStage stage);
-
-    void on_project_opened(const ProjectContext& ctx) override;
-    void on_project_closed() override;
+    SharedPtr<RenderShader> get_or_compile_path(const Path& full_path, GRIShaderStage stage);
+    SharedPtr<RenderShader> get_or_compile_from_source(const String& virtual_name, const String& hlsl_source,
+                                                       GRIShaderStage stage);
 
 private:
-    EditorShaderCache() = default;
     Path m_shaders_root;
     Path m_engine_cache_root;
 };

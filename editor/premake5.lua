@@ -35,6 +35,11 @@ project "IgnisEditor"
         "YAML_CPP_STATIC_DEFINE",
     }
 
+    filter "options:imgui"
+        defines    { "ENGINE_IMGUI" }
+        includedirs { "%{include_dirs.imgui}", "%{include_dirs.imgui}/imgui", "%{include_dirs.imgui}/imgui/backends" }
+        links      { "ImGui" }
+
     filter "system:macosx"
         --systemversion "latest"
 

@@ -1,3 +1,19 @@
 #pragma once
 
+#include <cstdarg>
+#include <imgui.h>
+#include <imgui_internal.h>
 #include <Ignis.h>
+#include "UIUtils.h"
+#include "UI/EditorPayloads.h"
+#include "Logging/ConsoleSink.h"
+#include "UI/ComponentInspector.h"
+#include "UI/Commands/SceneCommands.h"
+#include "ThumbnailRenderer.h"
+#include "EditorResourceCache.h"
+#include "Input/ActionIDs.h"
+#include "Input/EditorInputManager.h"
+#include "Asset/EditorAssetManager.h"
+#include "Asset/AssetDirectoryModel.h"
+#include "Asset/AssetClipboard.h"
+#include "Asset/AssetBrowserCommands.h"

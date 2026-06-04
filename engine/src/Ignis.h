@@ -50,3 +50,8 @@
 #include "Ignis/Events/KeyEvent.h"
 #include "Ignis/Events/MouseEvent.h"
 #include "Ignis/Events/ApplicationEvent.h"
+
+// Input
+#include "Ignis/Input/InputTypes.h"
+#include "Ignis/Input/InputContext.h"
+#include "Ignis/Input/InputSystem.h"

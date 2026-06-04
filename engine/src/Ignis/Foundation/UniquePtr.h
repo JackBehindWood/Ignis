@@ -31,7 +31,7 @@ public:
 
     template <typename U>
     constexpr UniquePtr(UniquePtr<U>&& other) noexcept
-        : m_ptr(other.release())
+        : m_ptr(static_cast<T*>(other.release()))
     {
     }
 

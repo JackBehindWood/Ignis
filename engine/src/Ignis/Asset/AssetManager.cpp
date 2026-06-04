@@ -124,6 +124,11 @@ void AssetManager::reload_all()
     }
 }
 
+size_t AssetManager::get_active_count() const
+{
+    return m_work_queue.ready_queue.size() + m_work_queue.pending_map.size();
+}
+
 void AssetManager::prune_cache()
 {
     if (!Filesystem::exists(m_config.compiled_root))
@@ -348,7 +353,7 @@ void AssetManager::process_metadata_scan(AssetDependencyNode& node)
         uint8_t magic[4];
         raw.read_bytes(magic, 4);
         const uint8_t version = raw.read_u8();
-        if (version != 2)
+        if (version < 2)
         {
             return false;
         }

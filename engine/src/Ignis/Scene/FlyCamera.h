@@ -12,6 +12,28 @@ public:
     void set_perspective(float fov_deg, float near_clip, float far_clip);
     void set_aspect(float aspect);
 
+    void set_move_speed(float s)
+    {
+        m_move_speed = s;
+    }
+    void set_orbit_speed(float s)
+    {
+        m_orbit_speed = s;
+    }
+    void set_zoom_speed(float s)
+    {
+        m_zoom_speed = s;
+    }
+
+    float get_yaw() const
+    {
+        return m_yaw;
+    }
+    float get_pitch() const
+    {
+        return m_pitch;
+    }
+
     void update(float ts);
     void on_mouse_scroll(float delta);
     void on_mouse_button(MouseCode button, bool pressed);
@@ -25,7 +47,8 @@ public:
     void move(const Math::Vec3f& delta);
     void rotate(float delta_yaw_deg, float delta_pitch_deg);
 
-    CameraData get_camera_data() const;
+    CameraData  get_camera_data() const;
+    Math::Mat4f get_inverse_projection() const;
 
 private:
     Math::Vec3f m_position     = {0.0f, 0.0f, 3.0f};

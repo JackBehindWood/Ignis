@@ -26,6 +26,38 @@ static void read_bindings(const spirv_cross::Compiler&                          
         });
     }
 }
+
+// Extract the HLSL semantic string from a stage I/O resource.
+// Priority order:
+//   1. DecorationHlslSemanticGOOGLE (5635) — present on all DXC-compiled SPIR-V.
+//   2. Strip the "in_var_" / "out_var_" prefix from the variable name — DXC fallback.
+//   3. Raw variable name — handles hand-assembled SPIR-V with no DXC conventions.
+static String extract_semantic(const spirv_cross::Compiler& compiler, const spirv_cross::Resource& r)
+{
+    constexpr auto k_hlsl_semantic = static_cast<spv::Decoration>(5635);
+    if (compiler.has_decoration(r.id, k_hlsl_semantic))
+    {
+        String s = compiler.get_decoration_string(r.id, k_hlsl_semantic);
+        if (!s.empty())
+        {
+            return s;
+        }
+    }
+
+    // DXC emits dotted names on non-Windows ("in.var.SEMANTIC") and underscored names
+    // on Windows ("in_var_SEMANTIC"). Handle both forms.
+    const String& name = r.name;
+    for (const char* prefix : {"in.var.", "out.var.", "in_var_", "out_var_"})
+    {
+        const size_t plen = std::strlen(prefix);
+        if (name.size() > plen && name.compare(0, plen, prefix) == 0)
+        {
+            return name.substr(plen);
+        }
+    }
+
+    return name;
+}
 } // namespace Utils
 
 SpirvReflection SpirvCompiler::reflect(const uint32_t* spirv, uint32_t word_count)
@@ -44,7 +76,16 @@ SpirvReflection SpirvCompiler::reflect(const uint32_t* spirv, uint32_t word_coun
     for (const auto& r : resources.stage_inputs)
     {
         out.stage_inputs.push_back({
-            r.name,
+            Utils::extract_semantic(compiler, r),
+            compiler.get_decoration(r.id, spv::DecorationLocation),
+        });
+    }
+
+    out.stage_outputs.reserve(resources.stage_outputs.size());
+    for (const auto& r : resources.stage_outputs)
+    {
+        out.stage_outputs.push_back({
+            Utils::extract_semantic(compiler, r),
             compiler.get_decoration(r.id, spv::DecorationLocation),
         });
     }
@@ -77,7 +118,7 @@ UniquePtr<SpirvCompiler> SpirvCompiler::create(ShaderTarget target)
             return nullptr;
 #endif
         default:
-            return nullptr; // TODO: make sure this is possible with UniquePtr and SharedPtr;
+            return nullptr;
     }
 }
 

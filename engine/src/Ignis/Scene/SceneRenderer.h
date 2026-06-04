@@ -15,6 +15,12 @@ namespace Ignis
 {
 class RGBuilder;
 
+struct SceneRenderHandles
+{
+    RGTextureHandle color;
+    RGTextureHandle depth;
+};
+
 struct CullProxy
 {
     Math::Vec3f world_center;
@@ -39,6 +45,7 @@ struct DrawBatch
     const RenderMesh*    mesh;
     GRIPipelineState*    pso;
     const Material*      material;
+    GRITexture2D*        texture = nullptr;
     uint16_t             buffer_id;
     uint16_t             pso_id;
     uint16_t             material_id;
@@ -56,15 +63,28 @@ class SceneRenderer
 public:
     void prepare(Scene& scene);
 
-    void render_scene(Scene& scene, const CameraData& camera, RGBuilder& builder, RGTextureHandle backbuffer,
-                      AssetID scene_texture_id);
+    SceneRenderHandles render_scene(Scene&, const CameraData&, RGBuilder&);
+
+    // Returns a valid RGTextureHandle when the selected entity has a visible mesh;
+    // returns an invalid handle otherwise (caller must guard).
+    RGTextureHandle draw_selection_mask(Entity selected, RGTextureHandle depth_rt, RGBuilder& builder);
+
+    void resize(uint32_t w, uint32_t h);
+
+    GRITexture2D* get_color_rt() const
+    {
+        return m_color_rt.get();
+    }
+    GRITexture2D* get_depth_rt() const
+    {
+        return m_depth_rt.get();
+    }
+    GRITexture2D* get_sel_mask_rt() const
+    {
+        return m_sel_mask_rt.get();
+    }
 
 private:
-    struct ScenePassParams
-    {
-        GRITexture2D* scene_texture;
-    };
-
     struct VisibleItem
     {
         Math::Mat4f       world_matrix;
@@ -72,6 +92,7 @@ private:
         GRIPipelineState* pso;
         GRIPipelineState* depth_pso;
         const Material*   material;
+        GRITexture2D*     texture = nullptr;
         uint16_t          buffer_id;
         uint16_t          pso_id;
         uint16_t          depth_pso_id;
@@ -79,10 +100,8 @@ private:
         uint64_t          depth_key;
         uint64_t          fwd_key;
     };
-
-    static GRITexture2D* resolve_texture(AssetID id);
-    void                 build_cull_proxies(Scene& scene, const Math::Mat4f& cam_view);
-    void                 build_commands();
+    void build_cull_proxies(Scene& scene, const Math::Mat4f& cam_view);
+    void build_commands();
 
     static constexpr uint32_t k_max_instances        = 4096;
     static constexpr float    k_depth_range          = 1000.0f;
@@ -96,8 +115,19 @@ private:
     Vector<GPUInstanceData> m_instance_data;
     GRIBufferPtr            m_instance_buffer;
 
+    GRITexture2DPtr m_color_rt;
+    GRITexture2DPtr m_depth_rt;
+    GRITexture2DPtr m_sel_mask_rt;
+    uint32_t        m_rt_width  = 0;
+    uint32_t        m_rt_height = 0;
+
+    SharedPtr<RenderTexture2D> m_white_texture;
+
     SharedPtr<Material> m_fallback_material;
     uint16_t            m_fallback_material_id = 0xFFFFu;
+
+    SharedPtr<Material> m_sel_mask_material;
+    GRIBufferPtr        m_sel_instance_buf;
 };
 
 } // namespace Ignis

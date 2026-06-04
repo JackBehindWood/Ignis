@@ -6,12 +6,22 @@ namespace Ignis
 {
 class Entity
 {
+    friend class Scene;
+
 public:
     Entity() = default;
     Entity(entt::entity handle, Scene* scene)
         : m_handle(handle),
           m_scene(scene)
     {
+    }
+
+    void destroy()
+    {
+        if (is_valid())
+        {
+            m_scene->destroy_entity(*this);
+        }
     }
 
     template <typename T, typename... Args>
@@ -50,7 +60,7 @@ public:
     }
     bool is_valid() const
     {
-        return m_handle != entt::null;
+        return m_scene && m_scene->registry().valid(m_handle);
     }
 
     operator bool() const
@@ -75,5 +85,19 @@ private:
     entt::entity m_handle = entt::null;
     Scene*       m_scene  = nullptr;
 };
+
+template <typename Func>
+inline void Scene::each_entity(Func&& func)
+{
+    for (auto handle : m_registry.storage<entt::entity>())
+    {
+        func(Entity{handle, this});
+    }
+}
+
+inline Entity Scene::EntityIterator::operator*() const
+{
+    return Entity{*it, scene};
+}
 
 } // namespace Ignis

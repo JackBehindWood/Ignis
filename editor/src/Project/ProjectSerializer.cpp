@@ -43,6 +43,7 @@ bool ProjectSerializer::read(const Path& path, ProjectDescriptor& out)
     out.root               = path.parent_path();
     out.asset_source_dir   = asset_source_dir;
     out.compiled_cache_dir = compiled_cache_dir;
+    out.startup_scene      = r.get<String>("startup_scene", {});
     return true;
 }
 
@@ -53,6 +54,10 @@ bool ProjectSerializer::write(const Path& path, const ProjectDescriptor& desc)
         .set("name", desc.name)
         .set("asset_source_dir", desc.asset_source_dir)
         .set("compiled_cache_dir", desc.compiled_cache_dir);
+    if (!desc.startup_scene.empty())
+    {
+        w.set("startup_scene", desc.startup_scene);
+    }
 
     if (!w.write(path))
     {

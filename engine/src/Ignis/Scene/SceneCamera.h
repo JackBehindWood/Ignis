@@ -25,6 +25,7 @@ public:
     void set_aspect(float aspect);
 
     Math::Mat4f    get_projection() const;
+    Math::Mat4f    get_inverse_projection() const;
     ProjectionType projection_type() const
     {
         return m_type;

@@ -1,5 +1,6 @@
 #include "igpch.h"
 #include "SceneRenderer.h"
+#include "Entity.h"
 #include "Components/Components.h"
 #include "Ignis/Asset/AssetManager.h"
 #include "Ignis/Asset/AssetMesh.h"
@@ -21,6 +22,25 @@ namespace
 {
 
 constexpr uint64_t k_fallback_material_key = 0xFFFF'FFFF'FFFF'FFFEull;
+constexpr uint64_t k_sel_mask_material_key = 0xFFFF'FFFF'FFFF'FFFDull;
+constexpr uint64_t k_white_texture_key     = 0xFFFF'FFFF'FFFF'FFFCull;
+
+constexpr const char* k_sel_mask_hlsl = R"(
+#pragma pack_matrix(column_major)
+struct FrameUniforms { float4x4 view_projection; };
+struct GPUInstanceData { float4x4 world_matrix; uint material_index; uint3 padding; };
+struct VertexIn { float3 position : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD; };
+struct VertexOut { float4 position : SV_POSITION; };
+ConstantBuffer<FrameUniforms> g_frame : register(b0);
+StructuredBuffer<GPUInstanceData> g_instances : register(t0, space28);
+VertexOut VSMain(VertexIn input, uint instanceID : SV_InstanceID)
+{
+    VertexOut o;
+    o.position = mul(g_frame.view_projection, mul(g_instances[instanceID].world_matrix, float4(input.position, 1.0)));
+    return o;
+}
+float4 PSMain(VertexOut input) : SV_TARGET { return float4(1.0, 0.0, 0.0, 1.0); }
+)";
 
 constexpr const char* k_fallback_hlsl = R"(
 #pragma pack_matrix(column_major)
@@ -40,40 +60,6 @@ float4 PSMain(VertexOut input) : SV_TARGET { return float4(1.0, 0.0, 1.0, 1.0); 
 )";
 
 } // namespace
-
-GRITexture2D* SceneRenderer::resolve_texture(AssetID id)
-{
-    AssetManager&             am  = AssetManager::get();
-    SharedPtr<AssetTexture2D> tex = am.get_asset_as<AssetTexture2D>(id);
-    if (!tex)
-    {
-        tex = static_pointer_cast<AssetTexture2D>(am.get_fallback(AssetType::Texture2D));
-    }
-    if (!tex)
-    {
-        return nullptr;
-    }
-
-    const uint64_t             key    = static_cast<uint64_t>(tex->get_id());
-    SharedPtr<RenderTexture2D> cached = Renderer::get_resource_cache().find_texture(key);
-    if (!cached)
-    {
-        GRITexture2DDesc desc;
-        desc.width             = tex->get_width();
-        desc.height            = tex->get_height();
-        desc.num_mip_levels    = 1;
-        desc.format            = static_cast<GRIPixelFormat>(tex->get_format());
-        desc.initial_data      = tex->get_pixels().data();
-        desc.initial_data_size = static_cast<uint32_t>(tex->get_pixels().size());
-
-        if (GRITexture2DPtr gri_tex = RenderSystem::get_gri()->create_texture2d(desc))
-        {
-            cached = create_shared<RenderTexture2D>(std::move(gri_tex), desc.width, desc.height, desc.format);
-            Renderer::get_resource_cache().register_texture(key, cached);
-        }
-    }
-    return cached ? cached->get_texture() : nullptr;
-}
 
 // #NOTE: Fallback shader seems to fail with compiling!
 void SceneRenderer::prepare(Scene& scene)
@@ -100,6 +86,32 @@ void SceneRenderer::prepare(Scene& scene)
                 vs, ps, "standard_mesh", cfg.render_target_format, cfg.depth_format, {}, {}, {});
             m_fallback_material_id =
                 Renderer::get_resource_cache().register_material(k_fallback_material_key, m_fallback_material);
+        }
+    }
+
+    if (!Renderer::get_resource_cache().find_material(k_sel_mask_material_key))
+    {
+        m_sel_mask_material = nullptr;
+    }
+    if (!m_sel_mask_material)
+    {
+        ShaderCompilerOptions sel_opts;
+        sel_opts.stages[0] = {GRIShaderStage::Vertex};
+        sel_opts.stages[1] = {GRIShaderStage::Pixel};
+        sel_opts.count     = 2;
+
+        const RendererConfig&   cfg = Renderer::get_config();
+        SharedPtr<RenderShader> sel_vs =
+            ShaderCache::get().get_or_compile(String(k_sel_mask_hlsl), "_sel_mask", GRIShaderStage::Vertex, sel_opts);
+        SharedPtr<RenderShader> sel_ps =
+            ShaderCache::get().get_or_compile(String(k_sel_mask_hlsl), "_sel_mask", GRIShaderStage::Pixel, sel_opts);
+        if (sel_vs && sel_ps)
+        {
+            GRIDepthStencilDesc sel_ds;
+            sel_ds.depth_write  = false;
+            m_sel_mask_material = Renderer::get_material_factory().get_or_create(
+                sel_vs, sel_ps, "standard_mesh", GRIPixelFormat::RGBA8Unorm, cfg.depth_format, sel_ds, {}, {});
+            Renderer::get_resource_cache().register_material(k_sel_mask_material_key, m_sel_mask_material);
         }
     }
 
@@ -215,6 +227,65 @@ void SceneRenderer::prepare(Scene& scene)
             Renderer::get_resource_cache().register_material(key, std::move(material));
         }
     }
+
+    // White fallback texture — 1x1 RGBA8 all-white; bound at slot 0 for entities without a TextureComponent.
+    if (!m_white_texture)
+    {
+        if (SharedPtr<RenderTexture2D> cached = Renderer::get_resource_cache().find_texture(k_white_texture_key))
+        {
+            m_white_texture = cached;
+        }
+        else
+        {
+            constexpr uint8_t k_white[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+            GRITexture2DDesc  desc;
+            desc.width             = 1;
+            desc.height            = 1;
+            desc.format            = GRIPixelFormat::RGBA8Unorm;
+            desc.initial_data      = k_white;
+            desc.initial_data_size = 4;
+            if (GRITexture2DPtr gri = RenderSystem::get_gri()->create_texture2d(desc))
+            {
+                m_white_texture = create_shared<RenderTexture2D>(std::move(gri), 1u, 1u, GRIPixelFormat::RGBA8Unorm);
+                Renderer::get_resource_cache().register_texture(k_white_texture_key, m_white_texture);
+            }
+        }
+    }
+
+    // Texture resolution — upload to GRI if not already cached.
+    {
+        auto view = scene.registry().view<TextureComponent>();
+        for (auto [entity, tex_comp] : view.each())
+        {
+            const uint64_t key = static_cast<uint64_t>(tex_comp.texture_id);
+            if (!key || Renderer::get_resource_cache().find_texture(key))
+            {
+                continue;
+            }
+
+            SharedPtr<AssetTexture2D> asset_tex = am.get_asset_as<AssetTexture2D>(tex_comp.texture_id);
+            if (!asset_tex)
+            {
+                if (am.get_state(tex_comp.texture_id) == AssetState::Unloaded)
+                {
+                    am.load_deferred(tex_comp.texture_id);
+                }
+                continue;
+            }
+
+            GRITexture2DDesc desc;
+            desc.width             = asset_tex->get_width();
+            desc.height            = asset_tex->get_height();
+            desc.format            = static_cast<GRIPixelFormat>(asset_tex->get_format());
+            desc.initial_data      = asset_tex->get_pixels().data();
+            desc.initial_data_size = static_cast<uint32_t>(asset_tex->get_pixels().size());
+            if (GRITexture2DPtr gri = RenderSystem::get_gri()->create_texture2d(desc))
+            {
+                auto rt = create_shared<RenderTexture2D>(std::move(gri), desc.width, desc.height, desc.format);
+                Renderer::get_resource_cache().register_texture(key, std::move(rt));
+            }
+        }
+    }
 }
 
 // Strict cache-hit-only zone. No shader compilation, PSO creation, or MTL::Function lookup may occur here.
@@ -295,12 +366,20 @@ void SceneRenderer::build_cull_proxies(Scene& scene, const Math::Mat4f& cam_view
         proxy.entity_index = static_cast<uint32_t>(m_pool.size());
         m_cull_proxies.push_back(proxy);
 
+        const TextureComponent*    tex_comp = scene.registry().try_get<TextureComponent>(entity);
+        const uint64_t             tex_key  = tex_comp ? static_cast<uint64_t>(tex_comp->texture_id) : 0;
+        SharedPtr<RenderTexture2D> cached_tex =
+            tex_key ? Renderer::get_resource_cache().find_texture(tex_key) : nullptr;
+        GRITexture2D* tex =
+            cached_tex ? cached_tex->get_texture() : (m_white_texture ? m_white_texture->get_texture() : nullptr);
+
         VisibleItem item;
         item.world_matrix = world;
         item.mesh         = render_mesh;
         item.pso          = cached_mat->get_pipeline_state();
         item.depth_pso    = cached_mat->get_depth_pso();
         item.material     = cached_mat.get();
+        item.texture      = tex;
         item.buffer_id    = buffer_id;
         item.pso_id       = pso_id;
         item.depth_pso_id = depth_pso_id;
@@ -385,7 +464,7 @@ void SceneRenderer::build_commands()
         const bool same = !transparent && !m_fwd_batches.empty() && m_fwd_batches.back().buffer_id == item.buffer_id &&
                           m_fwd_batches.back().pso_id == item.pso_id &&
                           m_fwd_batches.back().material_id == item.material_id &&
-                          m_fwd_batches.back().mesh == item.mesh;
+                          m_fwd_batches.back().texture == item.texture && m_fwd_batches.back().mesh == item.mesh;
         if (!same)
         {
             const MeshSlot slot = item.mesh->get_mesh_slot();
@@ -398,6 +477,7 @@ void SceneRenderer::build_commands()
             batch.mesh                = item.mesh;
             batch.pso                 = item.pso;
             batch.material            = item.material;
+            batch.texture             = item.texture;
             batch.buffer_id           = item.buffer_id;
             batch.pso_id              = item.pso_id;
             batch.material_id         = item.material_id;
@@ -428,9 +508,42 @@ void SceneRenderer::build_commands()
     }
 }
 
-void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuilder& builder, RGTextureHandle backbuffer,
-                                 AssetID scene_texture_id)
+void SceneRenderer::resize(uint32_t w, uint32_t h)
 {
+    if (w == 0 || h == 0 || (w == m_rt_width && h == m_rt_height))
+    {
+        return;
+    }
+
+    m_rt_width  = w;
+    m_rt_height = h;
+
+    GRITexture2DDesc color_desc;
+    color_desc.width          = w;
+    color_desc.height         = h;
+    color_desc.num_mip_levels = 1;
+    color_desc.format         = GRIPixelFormat::BGRA8Unorm;
+    m_color_rt                = RenderSystem::get_gri()->create_texture2d(color_desc);
+
+    GRITexture2DDesc depth_desc;
+    depth_desc.width          = w;
+    depth_desc.height         = h;
+    depth_desc.num_mip_levels = 1;
+    depth_desc.format         = GRIPixelFormat::Depth32Float;
+    m_depth_rt                = RenderSystem::get_gri()->create_texture2d(depth_desc);
+
+    GRITexture2DDesc sel_mask_desc;
+    sel_mask_desc.width          = w;
+    sel_mask_desc.height         = h;
+    sel_mask_desc.num_mip_levels = 1;
+    sel_mask_desc.format         = GRIPixelFormat::RGBA8Unorm;
+    m_sel_mask_rt                = RenderSystem::get_gri()->create_texture2d(sel_mask_desc);
+}
+
+SceneRenderHandles SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuilder& builder)
+{
+    IG_ASSERT(m_color_rt && m_depth_rt, "SceneRenderer: RTs not initialized — call resize() before render_scene()");
+
     build_cull_proxies(scene, camera.view);
 
     m_visible.clear();
@@ -445,7 +558,8 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
 
     build_commands();
 
-    RGTextureHandle depth = builder.import_viewport_depth();
+    RGTextureHandle color = builder.import_texture("scene_color", m_color_rt.get());
+    RGTextureHandle depth = builder.import_texture("scene_depth", m_depth_rt.get());
 
     // --- Depth pre-pass ---
     builder.write_depth_stencil(depth, {GRILoadAction::Clear, GRIStoreAction::Store, 1.0f});
@@ -490,25 +604,22 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
     builder.read_texture(depth);
 
     // --- Forward scene pass ---
-    ScenePassParams* params = builder.alloc_params<ScenePassParams>();
-    params->scene_texture   = resolve_texture(scene_texture_id);
-
-    builder.write_render_target(0, backbuffer, RGColorAttachmentDesc::clear({0.1f, 0.1f, 0.1f, 1.0f}));
+    builder.write_render_target(0, color, RGColorAttachmentDesc::clear({0.1f, 0.1f, 0.1f, 1.0f}));
     builder.read_depth_stencil(depth, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
     builder.add_pass(
-        "ForwardScene", params,
-        [this](ScenePassParams* p, GRICommandList& cmd)
+        "ForwardScene",
+        [this](GRICommandList& cmd)
         {
             if (m_fwd_batches.empty() || !m_instance_buffer)
             {
                 return;
             }
             Renderer::bind_frame_data(cmd);
-            cmd.set_texture(p->scene_texture, 0, GRIShaderStage::Pixel);
             cmd.set_vertex_buffer(m_instance_buffer.get(), 0, k_instance_buffer_slot);
 
             GRIPipelineState* current_pso = nullptr;
             const Material*   current_mat = nullptr;
+            GRITexture2D*     current_tex = nullptr;
             GRIBuffer*        current_vb  = nullptr;
             GRIBuffer*        global_vb   = StaticGeometryBatcher::get().get_global_vb();
             GRIBuffer*        global_ib   = StaticGeometryBatcher::get().get_global_ib();
@@ -528,6 +639,11 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
                     }
                     current_mat = batch.material;
                 }
+                if (batch.texture != current_tex)
+                {
+                    cmd.set_texture(batch.texture, 0, GRIShaderStage::Pixel);
+                    current_tex = batch.texture;
+                }
                 GRIBuffer* desired_vb = batch.mesh->get_vertex_buffer() ? batch.mesh->get_vertex_buffer() : global_vb;
                 if (desired_vb && desired_vb != current_vb)
                 {
@@ -542,6 +658,70 @@ void SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuild
                                                       batch.args.base_vertex);
             }
         });
+
+    return {color, depth};
+}
+
+RGTextureHandle SceneRenderer::draw_selection_mask(Entity selected, RGTextureHandle depth_rt, RGBuilder& builder)
+{
+    if (!selected.is_valid() || !m_sel_mask_material || !m_sel_mask_rt)
+    {
+        return {};
+    }
+    if (!selected.has_component<MeshRendererComponent>())
+    {
+        return {};
+    }
+
+    const MeshRendererComponent& mrc      = selected.get_component<MeshRendererComponent>();
+    const uint64_t               mesh_key = static_cast<uint64_t>(mrc.mesh_id);
+    SharedPtr<RenderMesh>        mesh     = Renderer::get_resource_cache().find_mesh(mesh_key);
+    if (!mesh)
+    {
+        return {};
+    }
+
+    const TransformComponent& tc = selected.get_component<TransformComponent>();
+
+    if (!m_sel_instance_buf)
+    {
+        GRIBufferDesc desc;
+        desc.size          = static_cast<uint32_t>(sizeof(GPUInstanceData));
+        desc.usage         = static_cast<GRIBufferUsage>(static_cast<uint32_t>(GRIBufferUsage::VertexBuffer) |
+                                                         static_cast<uint32_t>(GRIBufferUsage::Dynamic));
+        m_sel_instance_buf = RenderSystem::get_gri()->create_buffer(desc);
+    }
+
+    GPUInstanceData gid;
+    gid.world_matrix   = tc.to_mat4();
+    gid.material_index = 0;
+    gid.padding[0] = gid.padding[1] = gid.padding[2] = 0;
+    RenderSystem::get_gri()->update_buffer(m_sel_instance_buf.get(), &gid, sizeof(GPUInstanceData));
+
+    RGTextureHandle mask_rt = builder.import_texture("sel_mask", m_sel_mask_rt.get());
+    builder.write_render_target(0, mask_rt, RGColorAttachmentDesc::clear({0.0f, 0.0f, 0.0f, 0.0f}));
+    builder.read_depth_stencil(depth_rt, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
+
+    const MeshSlot slot = mesh->get_mesh_slot();
+    builder.add_pass("SelectionMask",
+                     [this, slot](GRICommandList& cmd)
+                     {
+                         GRIBuffer* global_vb = StaticGeometryBatcher::get().get_global_vb();
+                         GRIBuffer* global_ib = StaticGeometryBatcher::get().get_global_ib();
+                         if (!global_vb || !global_ib || !m_sel_instance_buf)
+                         {
+                             return;
+                         }
+                         Renderer::bind_frame_data(cmd);
+                         cmd.set_vertex_buffer(m_sel_instance_buf.get(), 0, k_instance_buffer_slot);
+                         cmd.set_graphics_pipeline_state(m_sel_mask_material->get_pipeline_state());
+                         cmd.set_vertex_buffer(global_vb);
+                         cmd.set_index_buffer(global_ib, GRIIndexFormat::Uint32);
+                         cmd.draw_indexed_primitives_instanced(slot.index_count, 1, 0, slot.first_index,
+                                                               slot.base_vertex);
+                     });
+
+    return mask_rt;
 }
 
 } // namespace Ignis

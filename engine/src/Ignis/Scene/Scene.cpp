@@ -28,6 +28,12 @@ Entity Scene::create_entity_raw()
 void Scene::destroy_entity(Entity entity)
 {
     m_registry.destroy(entity);
+    entity.m_handle = entt::null;
+}
+
+void Scene::clear()
+{
+    m_registry.clear();
 }
 
 void Scene::update(float ts)

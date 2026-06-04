@@ -14,3 +14,8 @@
 	path = engine/vendor/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp.git
 	ignore = dirty
+[submodule "engine/vendor/imgui"]
+	path = engine/vendor/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking
+	ignore = dirty

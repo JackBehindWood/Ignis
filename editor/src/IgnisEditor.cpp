@@ -3,11 +3,14 @@
 
 #include "IgnisEditor.h"
 #include "EditorLayer.h"
-#include "EditorAssetManager.h"
-#include "EditorShaderCache.h"
+#include "Asset/EditorAssetManager.h"
 #include "EditorSettingsManager.h"
 #include "Project/ProjectManager.h"
 #include "Ignis/Rendering/Renderer.h"
+
+#ifdef ENGINE_IMGUI
+#include <Ignis/UI/ImGuiLayer.h>
+#endif
 
 namespace Ignis
 {
@@ -18,10 +21,19 @@ Editor::Editor(const ApplicationSpecification& spec)
     const Path engine_root = Filesystem::current_path() / "resources";
     bootstrap(engine_root);
     push_layer(new EditorLayer());
+
+    ImGuiLayer* imgui_layer = new ImGuiLayer();
+    push_overlay(imgui_layer);
+
+    const Path ini_dir = Filesystem::current_path() / "resources" / ".ignis";
+
+    Filesystem::create_directories(ini_dir);
+    imgui_layer->set_ini_path((ini_dir / "imgui.ini").string());
 }
 
 Editor::~Editor()
 {
+    EditorResourceCache::get().shutdown();
     ProjectManager::get().close();
     EditorSettingsManager::get().save();
     EditorSettingsManager::get().save_engine();
@@ -31,13 +43,13 @@ void Editor::bootstrap(const Path& engine_root)
 {
     // --- Engine-root setup (order matters) ---
     EditorAssetManager::get().set_engine_root(engine_root);
-    EditorShaderCache::get().set_engine_root(engine_root);
+    EditorResourceCache::get().init(engine_root);
 
     // --- Register project observers (deterministic order) ---
-    // EditorAssetManager is the sole gateway to AssetManager; ShaderCache follows.
+    // EditorAssetManager is the sole gateway to AssetManager; EditorResourceCache follows.
     ProjectManager& pm = ProjectManager::get();
     pm.add_observer(&EditorAssetManager::get());
-    pm.add_observer(&EditorShaderCache::get());
+    pm.add_observer(&EditorResourceCache::get());
 
     // --- Load persisted settings ---
     EditorSettingsManager::get().load();
