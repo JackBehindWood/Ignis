@@ -1,10 +1,11 @@
 #include "edpch.h"
 #include "UI/ComponentInspector.h"
 #include "UI/ImExt/ImExt.h"
+#include "EditorResourceCache.h"
+#include "Asset/EditorAssetManager.h"
 
 #include <Ignis/Scene/Components/Components.h>
 #include <Ignis/Scene/Components/CameraComponent.h>
-#include <imgui.h>
 
 namespace Ignis
 {
@@ -19,6 +20,81 @@ void ComponentInspector::register_component(ComponentDescriptor desc)
 const Vector<ComponentDescriptor>& ComponentInspector::all()
 {
     return s_descriptors;
+}
+
+// ---------- Asset thumbnail helpers ----------
+
+static ImTextureID imgui_tex(GRITexture2D* tex)
+{
+    return tex ? reinterpret_cast<ImTextureID>(tex->get_native_handle()) : ImTextureID{};
+}
+
+struct AssetPickResult
+{
+    bool    assigned = false;
+    AssetID new_id{};
+};
+
+static AssetPickResult draw_asset_thumbnail_property(const char* label, AssetID current_id, const char* type_label,
+                                                     AssetType asset_type, GRITexture2D* fallback_tex)
+{
+    AssetPickResult result;
+
+    const ImVec2 thumb_size = {80.0f, 80.0f};
+
+    Path src = current_id ? EditorAssetManager::get().try_get_source_path(current_id) : Path{};
+
+    EditorResourceCache::ThumbnailResult tr{};
+    if (current_id && !src.empty())
+    {
+        tr = EditorResourceCache::get().request_thumbnail(src, type_label);
+    }
+
+    if (tr.ready)
+    {
+        ImGui::Image(reinterpret_cast<ImTextureID>(tr.tex_id), thumb_size, {tr.uv0[0], tr.uv0[1]},
+                     {tr.uv1[0], tr.uv1[1]});
+    }
+    else if (ImTextureID fb = imgui_tex(fallback_tex))
+    {
+        ImGui::Image(fb, thumb_size);
+    }
+    else
+    {
+        ImGui::Dummy(thumb_size);
+        ImDrawList* dl   = ImGui::GetWindowDrawList();
+        ImVec2      rmin = ImGui::GetItemRectMin();
+        ImVec2      rmax = ImGui::GetItemRectMax();
+        dl->AddRectFilled(rmin, rmax, IM_COL32(40, 40, 40, 255));
+    }
+
+    if (auto target = ImExt::DragDrop::Target<AssetDragPayload>())
+    {
+        if (const auto* hover = target.peek())
+        {
+            bool compat = hover->count > 0 && std::strcmp(hover->items[0].type_label, type_label) == 0;
+            target.draw_compat_feedback(compat, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+            ImGui::SetTooltip(compat ? "Drop to assign" : "Wrong type — needs %s", type_label);
+        }
+        if (const auto* p = target.accept())
+        {
+            if (p->count > 0 && std::strcmp(p->items[0].type_label, type_label) == 0)
+            {
+                auto& pm = ProjectManager::get();
+                if (pm.is_open())
+                {
+                    Path abs        = pm.descriptor().root / pm.descriptor().asset_source_dir / p->items[0].rel_path;
+                    result.new_id   = AssetManager::get().import(abs, asset_type);
+                    result.assigned = true;
+                }
+            }
+        }
+    }
+
+    ImGui::SameLine();
+    ImGui::TextUnformatted(label);
+
+    return result;
 }
 
 // ---------- Field widget specialisations ----------
@@ -162,7 +238,8 @@ static bool has_mesh_renderer(Entity& e)
 }
 static void add_mesh_renderer(Entity& e)
 {
-    e.add_component<MeshRendererComponent>();
+    auto& m   = e.add_component<MeshRendererComponent>();
+    m.mesh_id = EditorResourceCache::get().get_fallback_mesh_id();
 }
 static void remove_mesh_renderer(Entity& e)
 {
@@ -176,49 +253,25 @@ static void draw_mesh_renderer(Entity& e)
     }
     auto& m = e.get_component<MeshRendererComponent>();
 
-    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 72.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.5f);
-
     ImGui::Checkbox("Visible", &m.is_visible);
 
-    char mesh_buf[32];
-    std::snprintf(mesh_buf, sizeof(mesh_buf), "%llu", static_cast<uint64_t>(m.mesh_id));
-    ImGui::InputText("Mesh##id", mesh_buf, sizeof(mesh_buf), ImGuiInputTextFlags_ReadOnly);
-    if (ImExt::DragDrop::begin_target())
+    GRITexture2D* mesh_icon = EditorResourceCache::get().get_prim_thumbnail(static_cast<uint64_t>(m.mesh_id));
+    if (!mesh_icon)
     {
-        if (const auto* hover = ImExt::DragDrop::peek<AssetDragPayload>())
-        {
-            bool compat = hover->count > 0 && std::strcmp(hover->items[0].type_label, "MSH") == 0;
-            ImGui::GetWindowDrawList()->AddRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
-                                                compat ? IM_COL32(100, 200, 100, 220) : IM_COL32(200, 80, 80, 220),
-                                                2.0f, 0, 1.5f);
-            ImGui::SetTooltip(compat ? "Drop to assign mesh" : "Wrong type - needs MSH");
-        }
-        if (const auto* p = ImExt::DragDrop::accept<AssetDragPayload>())
-        {
-            if (p->count > 0 && std::strcmp(p->items[0].type_label, "MSH") == 0)
-            {
-                auto& pm = ProjectManager::get();
-                if (pm.is_open())
-                {
-                    Path    abs    = pm.descriptor().root / pm.descriptor().asset_source_dir / p->items[0].rel_path;
-                    AssetID new_id = AssetManager::get().import(abs, AssetType::Mesh);
-                    if (auto* d = CommandDispatcher::active())
-                    {
-                        d->commit(create_unique<AssignMeshToEntityCmd>(e, m.mesh_id, new_id));
-                    }
-                    else
-                    {
-                        m.mesh_id = new_id;
-                    }
-                }
-            }
-        }
-        ImExt::DragDrop::end_target();
+        mesh_icon = EditorResourceCache::get().get_type_icon("MSH");
     }
-
-    ImGui::PopStyleVar();
-    ImGui::PopItemWidth();
+    AssetPickResult r = draw_asset_thumbnail_property("Mesh", m.mesh_id, "MSH", AssetType::Mesh, mesh_icon);
+    if (r.assigned)
+    {
+        if (auto* d = CommandDispatcher::active())
+        {
+            d->commit(create_unique<AssignMeshToEntityCmd>(e, m.mesh_id, r.new_id));
+        }
+        else
+        {
+            m.mesh_id = r.new_id;
+        }
+    }
 }
 
 // ---------- Material ----------
@@ -249,17 +302,15 @@ static void draw_material(Entity& e)
     char mat_buf[32];
     std::snprintf(mat_buf, sizeof(mat_buf), "%llu", static_cast<uint64_t>(m.material_id));
     ImGui::InputText("Material##id", mat_buf, sizeof(mat_buf), ImGuiInputTextFlags_ReadOnly);
-    if (ImExt::DragDrop::begin_target())
+    if (auto target = ImExt::DragDrop::Target<AssetDragPayload>())
     {
-        if (const auto* hover = ImExt::DragDrop::peek<AssetDragPayload>())
+        if (const auto* hover = target.peek())
         {
             bool compat = hover->count > 0 && std::strcmp(hover->items[0].type_label, "MAT") == 0;
-            ImGui::GetWindowDrawList()->AddRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
-                                                compat ? IM_COL32(100, 200, 100, 220) : IM_COL32(200, 80, 80, 220),
-                                                2.0f, 0, 1.5f);
+            target.draw_compat_feedback(compat, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
             ImGui::SetTooltip(compat ? "Drop to assign material" : "Wrong type - needs MAT");
         }
-        if (const auto* p = ImExt::DragDrop::accept<AssetDragPayload>())
+        if (const auto* p = target.accept())
         {
             if (p->count > 0 && std::strcmp(p->items[0].type_label, "MAT") == 0)
             {
@@ -279,7 +330,6 @@ static void draw_material(Entity& e)
                 }
             }
         }
-        ImExt::DragDrop::end_target();
     }
 
     ImGui::PopStyleVar();
@@ -294,7 +344,8 @@ static bool has_texture(Entity& e)
 }
 static void add_texture(Entity& e)
 {
-    e.add_component<TextureComponent>();
+    auto& t      = e.add_component<TextureComponent>();
+    t.texture_id = AssetID(UUID::s_invalid);
 }
 static void remove_texture(Entity& e)
 {
@@ -308,47 +359,20 @@ static void draw_texture(Entity& e)
     }
     auto& t = e.get_component<TextureComponent>();
 
-    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 72.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.5f);
+    auto r = draw_asset_thumbnail_property("Texture", t.texture_id, "TEX", AssetType::Texture2D,
+                                           EditorResourceCache::get().get_white_texture());
 
-    char tex_buf[32];
-    std::snprintf(tex_buf, sizeof(tex_buf), "%llu", static_cast<uint64_t>(t.texture_id));
-    ImGui::InputText("Texture##id", tex_buf, sizeof(tex_buf), ImGuiInputTextFlags_ReadOnly);
-    if (ImExt::DragDrop::begin_target())
+    if (r.assigned)
     {
-        if (const auto* hover = ImExt::DragDrop::peek<AssetDragPayload>())
+        if (auto* d = CommandDispatcher::active())
         {
-            bool compat = hover->count > 0 && std::strcmp(hover->items[0].type_label, "TEX") == 0;
-            ImGui::GetWindowDrawList()->AddRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
-                                                compat ? IM_COL32(100, 200, 100, 220) : IM_COL32(200, 80, 80, 220),
-                                                2.0f, 0, 1.5f);
-            ImGui::SetTooltip(compat ? "Drop to assign texture" : "Wrong type - needs TEX");
+            d->commit(create_unique<AssignTextureToEntityCmd>(e, t.texture_id, r.new_id));
         }
-        if (const auto* p = ImExt::DragDrop::accept<AssetDragPayload>())
+        else
         {
-            if (p->count > 0 && std::strcmp(p->items[0].type_label, "TEX") == 0)
-            {
-                auto& pm = ProjectManager::get();
-                if (pm.is_open())
-                {
-                    Path    abs    = pm.descriptor().root / pm.descriptor().asset_source_dir / p->items[0].rel_path;
-                    AssetID new_id = AssetManager::get().import(abs, AssetType::Texture2D);
-                    if (auto* d = CommandDispatcher::active())
-                    {
-                        d->commit(create_unique<AssignTextureToEntityCmd>(e, t.texture_id, new_id));
-                    }
-                    else
-                    {
-                        t.texture_id = new_id;
-                    }
-                }
-            }
+            t.texture_id = r.new_id;
         }
-        ImExt::DragDrop::end_target();
     }
-
-    ImGui::PopStyleVar();
-    ImGui::PopItemWidth();
 }
 
 // ---------- Camera ----------

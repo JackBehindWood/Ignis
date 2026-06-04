@@ -61,6 +61,10 @@ public:
     uint32_t      add_reload_callback(void (*callback)(AssetID));
     void          remove_reload_callback(uint32_t token);
     AssetMetadata get_metadata(AssetID id) const;
+    Path          try_get_source_path(AssetID id) const
+    {
+        return get_metadata(id).source_path;
+    }
 
     // --- Asset event observers ---
     // All notifications fire synchronously on the main thread at the call site

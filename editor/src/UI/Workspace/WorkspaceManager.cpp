@@ -3,7 +3,6 @@
 #ifdef ENGINE_IMGUI
 #include "WorkspaceManager.h"
 #include "../Commands/EditorCommands.h"
-#include <imgui.h>
 
 namespace Ignis
 {

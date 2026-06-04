@@ -2,7 +2,6 @@
 #include "ConsolePanel.h"
 
 #include <Ignis/UI/ImGuiLayer.h>
-#include <imgui.h>
 
 namespace Ignis
 {

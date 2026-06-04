@@ -7,7 +7,6 @@
 #include <Ignis/Scene/Scene.h>
 #include <Ignis/Scene/Entity.h>
 #include <Ignis/Scene/Components/Components.h>
-#include <imgui.h>
 
 namespace Ignis
 {

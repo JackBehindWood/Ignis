@@ -70,7 +70,12 @@ static SharedPtr<Asset> parse_mesh_payload(AssetID id, R& r)
         IG_CORE_ERROR("MeshHandler: corrupted payload for asset {0}", static_cast<uint64_t>(id));
         return nullptr;
     }
-    return create_shared<AssetMesh>(id, vertices, indices, vertex_stride);
+
+    SharedPtr<AssetMesh> mesh = create_shared<AssetMesh>(id, vertices, indices, vertex_stride);
+    mesh->set_bounds({bd[6], bd[7], bd[8]}, bd[9]);
+    mesh->set_aabb({bd[0], bd[1], bd[2]}, {bd[3], bd[4], bd[5]});
+
+    return mesh;
 }
 
 // ---------------------------------------------------------------------------

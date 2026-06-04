@@ -4,8 +4,6 @@
 #include <Ignis/Math/Quat.h>
 #include "UI/SceneEditor/SceneEditorContext.h"
 
-#include <imgui.h>
-
 using namespace Ignis;
 
 namespace

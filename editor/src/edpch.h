@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdarg>
+#include <imgui.h>
+#include <imgui_internal.h>
 #include <Ignis.h>
 #include "UIUtils.h"
 #include "UI/EditorPayloads.h"

@@ -23,6 +23,7 @@ namespace
 
 constexpr uint64_t k_fallback_material_key = 0xFFFF'FFFF'FFFF'FFFEull;
 constexpr uint64_t k_sel_mask_material_key = 0xFFFF'FFFF'FFFF'FFFDull;
+constexpr uint64_t k_white_texture_key     = 0xFFFF'FFFF'FFFF'FFFCull;
 
 constexpr const char* k_sel_mask_hlsl = R"(
 #pragma pack_matrix(column_major)
@@ -226,6 +227,65 @@ void SceneRenderer::prepare(Scene& scene)
             Renderer::get_resource_cache().register_material(key, std::move(material));
         }
     }
+
+    // White fallback texture — 1x1 RGBA8 all-white; bound at slot 0 for entities without a TextureComponent.
+    if (!m_white_texture)
+    {
+        if (SharedPtr<RenderTexture2D> cached = Renderer::get_resource_cache().find_texture(k_white_texture_key))
+        {
+            m_white_texture = cached;
+        }
+        else
+        {
+            constexpr uint8_t k_white[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+            GRITexture2DDesc  desc;
+            desc.width             = 1;
+            desc.height            = 1;
+            desc.format            = GRIPixelFormat::RGBA8Unorm;
+            desc.initial_data      = k_white;
+            desc.initial_data_size = 4;
+            if (GRITexture2DPtr gri = RenderSystem::get_gri()->create_texture2d(desc))
+            {
+                m_white_texture = create_shared<RenderTexture2D>(std::move(gri), 1u, 1u, GRIPixelFormat::RGBA8Unorm);
+                Renderer::get_resource_cache().register_texture(k_white_texture_key, m_white_texture);
+            }
+        }
+    }
+
+    // Texture resolution — upload to GRI if not already cached.
+    {
+        auto view = scene.registry().view<TextureComponent>();
+        for (auto [entity, tex_comp] : view.each())
+        {
+            const uint64_t key = static_cast<uint64_t>(tex_comp.texture_id);
+            if (!key || Renderer::get_resource_cache().find_texture(key))
+            {
+                continue;
+            }
+
+            SharedPtr<AssetTexture2D> asset_tex = am.get_asset_as<AssetTexture2D>(tex_comp.texture_id);
+            if (!asset_tex)
+            {
+                if (am.get_state(tex_comp.texture_id) == AssetState::Unloaded)
+                {
+                    am.load_deferred(tex_comp.texture_id);
+                }
+                continue;
+            }
+
+            GRITexture2DDesc desc;
+            desc.width             = asset_tex->get_width();
+            desc.height            = asset_tex->get_height();
+            desc.format            = static_cast<GRIPixelFormat>(asset_tex->get_format());
+            desc.initial_data      = asset_tex->get_pixels().data();
+            desc.initial_data_size = static_cast<uint32_t>(asset_tex->get_pixels().size());
+            if (GRITexture2DPtr gri = RenderSystem::get_gri()->create_texture2d(desc))
+            {
+                auto rt = create_shared<RenderTexture2D>(std::move(gri), desc.width, desc.height, desc.format);
+                Renderer::get_resource_cache().register_texture(key, std::move(rt));
+            }
+        }
+    }
 }
 
 // Strict cache-hit-only zone. No shader compilation, PSO creation, or MTL::Function lookup may occur here.
@@ -306,12 +366,20 @@ void SceneRenderer::build_cull_proxies(Scene& scene, const Math::Mat4f& cam_view
         proxy.entity_index = static_cast<uint32_t>(m_pool.size());
         m_cull_proxies.push_back(proxy);
 
+        const TextureComponent*    tex_comp = scene.registry().try_get<TextureComponent>(entity);
+        const uint64_t             tex_key  = tex_comp ? static_cast<uint64_t>(tex_comp->texture_id) : 0;
+        SharedPtr<RenderTexture2D> cached_tex =
+            tex_key ? Renderer::get_resource_cache().find_texture(tex_key) : nullptr;
+        GRITexture2D* tex =
+            cached_tex ? cached_tex->get_texture() : (m_white_texture ? m_white_texture->get_texture() : nullptr);
+
         VisibleItem item;
         item.world_matrix = world;
         item.mesh         = render_mesh;
         item.pso          = cached_mat->get_pipeline_state();
         item.depth_pso    = cached_mat->get_depth_pso();
         item.material     = cached_mat.get();
+        item.texture      = tex;
         item.buffer_id    = buffer_id;
         item.pso_id       = pso_id;
         item.depth_pso_id = depth_pso_id;
@@ -396,7 +464,7 @@ void SceneRenderer::build_commands()
         const bool same = !transparent && !m_fwd_batches.empty() && m_fwd_batches.back().buffer_id == item.buffer_id &&
                           m_fwd_batches.back().pso_id == item.pso_id &&
                           m_fwd_batches.back().material_id == item.material_id &&
-                          m_fwd_batches.back().mesh == item.mesh;
+                          m_fwd_batches.back().texture == item.texture && m_fwd_batches.back().mesh == item.mesh;
         if (!same)
         {
             const MeshSlot slot = item.mesh->get_mesh_slot();
@@ -409,6 +477,7 @@ void SceneRenderer::build_commands()
             batch.mesh                = item.mesh;
             batch.pso                 = item.pso;
             batch.material            = item.material;
+            batch.texture             = item.texture;
             batch.buffer_id           = item.buffer_id;
             batch.pso_id              = item.pso_id;
             batch.material_id         = item.material_id;
@@ -550,6 +619,7 @@ SceneRenderHandles SceneRenderer::render_scene(Scene& scene, const CameraData& c
 
             GRIPipelineState* current_pso = nullptr;
             const Material*   current_mat = nullptr;
+            GRITexture2D*     current_tex = nullptr;
             GRIBuffer*        current_vb  = nullptr;
             GRIBuffer*        global_vb   = StaticGeometryBatcher::get().get_global_vb();
             GRIBuffer*        global_ib   = StaticGeometryBatcher::get().get_global_ib();
@@ -568,6 +638,11 @@ SceneRenderHandles SceneRenderer::render_scene(Scene& scene, const CameraData& c
                                                static_cast<uint32_t>(UniformSlot::MaterialArgs), GRIShaderStage::Pixel);
                     }
                     current_mat = batch.material;
+                }
+                if (batch.texture != current_tex)
+                {
+                    cmd.set_texture(batch.texture, 0, GRIShaderStage::Pixel);
+                    current_tex = batch.texture;
                 }
                 GRIBuffer* desired_vb = batch.mesh->get_vertex_buffer() ? batch.mesh->get_vertex_buffer() : global_vb;
                 if (desired_vb && desired_vb != current_vb)

@@ -3,7 +3,6 @@
 
 #include "../SceneEditor/SceneEditorContext.h"
 #include <Ignis/Scene/Components/Components.h>
-#include <imgui.h>
 
 namespace Ignis
 {

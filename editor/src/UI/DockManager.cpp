@@ -2,7 +2,6 @@
 
 #ifdef ENGINE_IMGUI
 #include "DockManager.h"
-#include <imgui_internal.h>
 
 namespace Ignis
 {

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "IWorkspaceData.h"
-#include <imgui.h>
 
 namespace Ignis
 {

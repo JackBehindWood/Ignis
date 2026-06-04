@@ -45,6 +45,7 @@ struct DrawBatch
     const RenderMesh*    mesh;
     GRIPipelineState*    pso;
     const Material*      material;
+    GRITexture2D*        texture = nullptr;
     uint16_t             buffer_id;
     uint16_t             pso_id;
     uint16_t             material_id;
@@ -91,6 +92,7 @@ private:
         GRIPipelineState* pso;
         GRIPipelineState* depth_pso;
         const Material*   material;
+        GRITexture2D*     texture = nullptr;
         uint16_t          buffer_id;
         uint16_t          pso_id;
         uint16_t          depth_pso_id;
@@ -118,6 +120,8 @@ private:
     GRITexture2DPtr m_sel_mask_rt;
     uint32_t        m_rt_width  = 0;
     uint32_t        m_rt_height = 0;
+
+    SharedPtr<RenderTexture2D> m_white_texture;
 
     SharedPtr<Material> m_fallback_material;
     uint16_t            m_fallback_material_id = 0xFFFFu;

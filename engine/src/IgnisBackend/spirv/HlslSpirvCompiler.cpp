@@ -61,6 +61,10 @@ Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, cons
         L"-spirv", L"-fspv-target-env=vulkan1.1", L"-T", hlsl_target_profile(exec_model), L"-E", wide_entry.c_str(),
         L"-Zpc",
     };
+#ifdef IG_DEBUG
+    args.push_back(L"-Zi");
+    args.push_back(L"-Qembed_debug");
+#endif
     for (const auto& d : define_strs)
     {
         args.push_back(L"-D");
@@ -88,13 +92,30 @@ Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, cons
 
     HRESULT status;
     result->GetStatus(&status);
+
+    CComPtr<IDxcBlob> spv;
+    result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&spv), nullptr);
+
+#ifdef IG_DEBUG
+    if (FAILED(status) && spv && spv->GetBufferSize() > 0)
+    {
+        DxcBuffer           spv_buf{spv->GetBufferPointer(), spv->GetBufferSize(), DXC_CP_ACP};
+        CComPtr<IDxcResult> disasm_result;
+        dxc_compiler->Disassemble(&spv_buf, IID_PPV_ARGS(&disasm_result));
+        CComPtr<IDxcBlobUtf8> disasm;
+        disasm_result->GetOutput(DXC_OUT_DISASSEMBLY, IID_PPV_ARGS(&disasm), nullptr);
+        if (disasm && disasm->GetStringLength() > 0)
+        {
+            IG_CORE_TRACE("HlslSpirvCompiler: SPIR-V disassembly:\n{0}", disasm->GetStringPointer());
+        }
+    }
+#endif
+
     if (FAILED(status))
     {
         return {};
     }
 
-    CComPtr<IDxcBlob> spv;
-    result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&spv), nullptr);
     if (!spv || spv->GetBufferSize() == 0)
     {
         IG_CORE_ERROR("HlslSpirvCompiler: DXC produced an empty SPIR-V blob");

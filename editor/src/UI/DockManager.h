@@ -1,7 +1,6 @@
 #pragma once
 
 #ifdef ENGINE_IMGUI
-#include <imgui.h>
 #include "Workspace/LayoutNode.h"
 #include "Panels/PanelRegistry.h"
 

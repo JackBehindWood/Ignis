@@ -197,6 +197,10 @@ void EditorLayer::update(Timestep ts)
 
 void EditorLayer::render()
 {
+    if (EditorResourceCache::get().has_pending_render())
+    {
+        EditorResourceCache::get().flush_render_thumbnails();
+    }
 }
 
 void EditorLayer::event(Event& event)

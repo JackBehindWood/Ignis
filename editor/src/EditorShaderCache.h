@@ -16,6 +16,9 @@ public:
     void on_project_closed();
 
     SharedPtr<RenderShader> get_or_compile(const String& filename, GRIShaderStage stage);
+    SharedPtr<RenderShader> get_or_compile_path(const Path& full_path, GRIShaderStage stage);
+    SharedPtr<RenderShader> get_or_compile_from_source(const String& virtual_name, const String& hlsl_source,
+                                                       GRIShaderStage stage);
 
 private:
     Path m_shaders_root;

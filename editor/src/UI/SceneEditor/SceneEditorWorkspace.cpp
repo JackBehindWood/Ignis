@@ -14,7 +14,6 @@
 #include "Project/ProjectManager.h"
 
 #ifdef ENGINE_IMGUI
-#include <imgui.h>
 #endif
 
 namespace Ignis

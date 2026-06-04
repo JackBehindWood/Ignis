@@ -1,10 +1,28 @@
 #include "igpch.h"
 #include "MslSpirvCompiler.h"
+#include "Ignis/Core/Shell.h"
 
 #include <spirv_msl.hpp>
 
 namespace Ignis
 {
+
+static bool run_xcrun(const String& cmd)
+{
+    String    output;
+    const int rc = Shell::exec(cmd, &output);
+    if (rc != 0 && !output.empty())
+    {
+        IG_CORE_ERROR("MslSpirvCompiler: xcrun output:\n{}", output);
+    }
+#ifdef IG_DEBUG
+    else if (!output.empty())
+    {
+        IG_CORE_TRACE("MslSpirvCompiler: xcrun output:\n{}", output);
+    }
+#endif
+    return rc == 0;
+}
 
 String MslSpirvCompiler::compile_from_target(const uint32_t* spirv, uint32_t word_count, spv::ExecutionModel exec_model)
 {
@@ -72,8 +90,11 @@ Vector<uint8_t> MslSpirvCompiler::compile_to_backend(const uint32_t* spirv, uint
     const Path   air_path   = Path("/tmp") / ("ig_" + uid + ".air");
     const Path   lib_path   = Path("/tmp") / ("ig_" + uid + ".metallib");
 
+#ifdef IG_DEBUG
+    IG_CORE_TRACE("MslSpirvCompiler: temp .metal source: {}", metal_path.string());
+#endif
+
     {
-        // Refactored to use BinaryWriter instead of std::ofstream
         BinaryWriter writer(metal_path);
         if (!writer.is_open())
         {
@@ -84,7 +105,7 @@ Vector<uint8_t> MslSpirvCompiler::compile_to_backend(const uint32_t* spirv, uint
     }
 
     const String metal_cmd = "xcrun -sdk macosx metal -c -o " + air_path.string() + " " + metal_path.string();
-    if (std::system(metal_cmd.c_str()) != 0)
+    if (!run_xcrun(metal_cmd))
     {
         IG_CORE_ERROR("MslSpirvCompiler: xcrun metal failed");
         Filesystem::remove(metal_path);
@@ -92,7 +113,7 @@ Vector<uint8_t> MslSpirvCompiler::compile_to_backend(const uint32_t* spirv, uint
     }
 
     const String lib_cmd = "xcrun -sdk macosx metallib -o " + lib_path.string() + " " + air_path.string();
-    if (std::system(lib_cmd.c_str()) != 0)
+    if (!run_xcrun(lib_cmd))
     {
         IG_CORE_ERROR("MslSpirvCompiler: xcrun metallib failed");
         Filesystem::remove(metal_path);
@@ -102,7 +123,6 @@ Vector<uint8_t> MslSpirvCompiler::compile_to_backend(const uint32_t* spirv, uint
 
     Vector<uint8_t> bytes;
     {
-        // Refactored to use BinaryReader instead of std::ifstream
         BinaryReader reader(lib_path);
         if (reader.is_open())
         {
@@ -112,7 +132,9 @@ Vector<uint8_t> MslSpirvCompiler::compile_to_backend(const uint32_t* spirv, uint
         }
     }
 
+#ifndef IG_DEBUG
     Filesystem::remove(metal_path);
+#endif
     Filesystem::remove(air_path);
     Filesystem::remove(lib_path);
 

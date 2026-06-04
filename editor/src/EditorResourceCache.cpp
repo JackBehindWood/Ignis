@@ -10,14 +10,22 @@
 #include <Ignis/Rendering/MaterialFactory.h>
 #include <Ignis/Rendering/RenderResourceCache.h>
 #include <Ignis/Rendering/RenderTexture2D.h>
-#include <Ignis/Rendering/StaticGeometryBatcher.h>
-
 #include <stb/stb_image.h>
 
 namespace Ignis
 {
 
-// ---- ThumbnailCache --------------------------------------------------------
+GRITexture2D* EditorResourceCache::get_prim_thumbnail(uint64_t key) const
+{
+    constexpr uint64_t base  = EditorPrimitives::prim_mesh_key(0);
+    constexpr uint64_t count = static_cast<uint64_t>(EditorPrimitives::prim_count());
+    if (key < base || key >= base + count)
+    {
+        return nullptr;
+    }
+    SharedLock lock(m_mutex);
+    return m_prim_thumbnails[static_cast<size_t>(key - base)].get();
+}
 
 EditorResourceCache::ThumbnailResult EditorResourceCache::ThumbnailCache::request(const Path&   path,
                                                                                   const String& type_label)
@@ -70,7 +78,8 @@ EditorResourceCache::ThumbnailResult EditorResourceCache::ThumbnailCache::reques
     return {};
 }
 
-void EditorResourceCache::ThumbnailCache::tick(ThumbnailRenderer& renderer)
+// TODO: get it rid of if else nesting!
+void EditorResourceCache::ThumbnailCache::tick(ThumbnailRenderer& renderer, EditorShaderCache& shaders)
 {
     constexpr uint32_t k_thumbnail_dim = 80;
 
@@ -111,6 +120,7 @@ void EditorResourceCache::ThumbnailCache::tick(ThumbnailRenderer& renderer)
                 continue;
             }
             e.tex_ref         = tex;
+            e.render_tex_ref  = cached;
             GRITexture2D* ptr = cached->get_texture();
             e.gri_tex         = ptr;
             const uint32_t w  = ptr->get_width();
@@ -135,16 +145,25 @@ void EditorResourceCache::ThumbnailCache::tick(ThumbnailRenderer& renderer)
         }
         else if (e.type_label == "MSH")
         {
-            SharedPtr<AssetMesh> asset_mesh = EditorAssetManager::get().try_get_mesh(e.asset_id);
-            if (!asset_mesh)
-            {
-                continue;
-            }
-            const uint64_t        key         = static_cast<uint64_t>(e.asset_id);
-            SharedPtr<RenderMesh> render_mesh = Renderer::get_resource_cache().find_mesh(key);
+            const uint64_t        key           = static_cast<uint64_t>(e.asset_id);
+            SharedPtr<RenderMesh> render_mesh   = Renderer::get_resource_cache().find_mesh(key);
+            Math::Vec3f           bounds_center = {};
+            float                 bounds_radius = 1.0f;
+
             if (!render_mesh)
             {
-                continue;
+                SharedPtr<AssetMesh> asset_mesh = EditorAssetManager::get().try_get_mesh(e.asset_id);
+                if (!asset_mesh)
+                {
+                    continue;
+                }
+                bounds_center = asset_mesh->get_bounds_center();
+                bounds_radius = asset_mesh->get_bounds_radius();
+                render_mesh   = RenderMesh::create(
+                    asset_mesh->get_vertices().data(), static_cast<uint32_t>(asset_mesh->get_vertices().size()),
+                    asset_mesh->get_indices().data(), static_cast<uint32_t>(asset_mesh->get_indices().size()),
+                    GRIIndexFormat::Uint32, bounds_center, bounds_radius);
+                Renderer::get_resource_cache().register_mesh(key, render_mesh);
             }
 
             GRITexture2DDesc rt_desc;
@@ -166,8 +185,8 @@ void EditorResourceCache::ThumbnailCache::tick(ThumbnailRenderer& renderer)
             req.mesh          = render_mesh.get();
             req.material      = thumb_mat.get();
             req.output_rt     = e.owned_rt.get();
-            req.bounds_center = asset_mesh->get_bounds_center();
-            req.bounds_radius = asset_mesh->get_bounds_radius();
+            req.bounds_center = bounds_center;
+            req.bounds_radius = bounds_radius;
             renderer.enqueue(req);
             e.state = State::PendingRender;
         }
@@ -175,12 +194,6 @@ void EditorResourceCache::ThumbnailCache::tick(ThumbnailRenderer& renderer)
         {
             SharedPtr<AssetMaterial> asset_mat = EditorAssetManager::get().try_get_material(e.asset_id);
             if (!asset_mat)
-            {
-                continue;
-            }
-            const uint64_t      key        = static_cast<uint64_t>(e.asset_id);
-            SharedPtr<Material> render_mat = Renderer::get_resource_cache().find_material(key);
-            if (!render_mat)
             {
                 continue;
             }
@@ -197,9 +210,38 @@ void EditorResourceCache::ThumbnailCache::tick(ThumbnailRenderer& renderer)
             }
             e.gri_tex = e.owned_rt.get();
 
+            SharedPtr<RenderShader> mat_vs =
+                shaders.get_or_compile_path(asset_mat->get_shader_source(), GRIShaderStage::Vertex);
+            SharedPtr<RenderShader> mat_ps =
+                shaders.get_or_compile_path(asset_mat->get_shader_source(), GRIShaderStage::Pixel);
+
+            SharedPtr<Material> compiled_mat;
+            if (mat_vs && mat_ps)
+            {
+                GRIDepthStencilDesc ds;
+                ds.depth_test  = false;
+                ds.depth_write = false;
+                GRIRasterDesc raster;
+                raster.cull_mode = asset_mat->is_two_sided() ? GRICullMode::None : GRICullMode::Back;
+                GRIBlendDesc blend;
+                if (asset_mat->is_transparent())
+                {
+                    blend.enable     = true;
+                    blend.src_factor = GRIBlendFactor::SrcAlpha;
+                    blend.dst_factor = GRIBlendFactor::InvSrcAlpha;
+                    blend.blend_op   = GRIBlendOp::Add;
+                    blend.src_alpha  = GRIBlendFactor::One;
+                    blend.dst_alpha  = GRIBlendFactor::InvSrcAlpha;
+                    blend.alpha_op   = GRIBlendOp::Add;
+                }
+                compiled_mat = Renderer::get_material_factory().get_or_create(
+                    mat_vs, mat_ps, asset_mat->get_vertex_layout(), GRIPixelFormat::RGBA8Unorm, GRIPixelFormat::Unknown,
+                    ds, raster, blend);
+            }
+
             ThumbnailRenderRequest req;
             req.mesh          = renderer.get_sphere_mesh();
-            req.material      = render_mat.get();
+            req.material      = compiled_mat.get();
             req.output_rt     = e.owned_rt.get();
             req.bounds_center = {};
             req.bounds_radius = 1.0f;
@@ -217,8 +259,9 @@ void EditorResourceCache::ThumbnailCache::promote_pending_render()
 {
     for (auto& [path, e] : m_entries)
     {
-        if (e.state == State::PendingRender && e.gri_tex)
+        if (e.state == State::PendingRender)
         {
+            IG_ASSERT(e.owned_rt, "Only owned render targets should be in pending render state");
             e.state = State::Ready;
         }
     }
@@ -263,6 +306,16 @@ void EditorResourceCache::shutdown()
     m_mesh_icon.reset();
     m_shader_icon.reset();
     m_scene_icon.reset();
+    m_white_texture.reset();
+    for (auto& t : m_prim_thumbnails)
+    {
+        t.reset();
+    }
+    if (m_fallback_mesh)
+    {
+        Renderer::get_resource_cache().evict(k_fallback_mesh_key);
+        m_fallback_mesh.reset();
+    }
     m_outline_params.reset();
     for (auto& mat : m_materials)
     {
@@ -331,7 +384,7 @@ EditorResourceCache::ThumbnailResult EditorResourceCache::request_thumbnail(cons
 
 void EditorResourceCache::tick_thumbnails()
 {
-    m_thumbnail_cache.tick(m_thumb_renderer);
+    m_thumbnail_cache.tick(m_thumb_renderer, m_shader_cache);
 }
 
 bool EditorResourceCache::has_pending_render() const
@@ -409,19 +462,25 @@ void EditorResourceCache::compile_all()
         outline_vs, outline_ps, "", cfg.render_target_format, GRIPixelFormat::Unknown, outline_ds, outline_raster,
         outline_blend);
 
-    SharedPtr<RenderShader> thumb_vs = m_shader_cache.get_or_compile("primitive.hlsl", GRIShaderStage::Vertex);
-    SharedPtr<RenderShader> thumb_ps = m_shader_cache.get_or_compile("primitive.hlsl", GRIShaderStage::Pixel);
+    SharedPtr<RenderShader> thumb_vs = m_shader_cache.get_or_compile("thumbnail.hlsl", GRIShaderStage::Vertex);
+    SharedPtr<RenderShader> thumb_ps = m_shader_cache.get_or_compile("thumbnail.hlsl", GRIShaderStage::Pixel);
     if (thumb_vs && thumb_ps)
     {
         GRIDepthStencilDesc thumb_ds;
-        thumb_ds.depth_test  = true;
-        thumb_ds.depth_write = true;
+        thumb_ds.depth_test  = false;
+        thumb_ds.depth_write = false;
         GRIRasterDesc thumb_raster;
         thumb_raster.cull_mode = GRICullMode::Back;
         m_materials[static_cast<size_t>(EditorMaterial::ThumbnailPreview)] =
             Renderer::get_material_factory().get_or_create(thumb_vs, thumb_ps, "standard_mesh",
-                                                           GRIPixelFormat::RGBA8Unorm, GRIPixelFormat::Depth32Float,
+                                                           GRIPixelFormat::RGBA8Unorm, GRIPixelFormat::Unknown,
                                                            thumb_ds, thumb_raster, {});
+    }
+
+    if (!m_fallback_mesh)
+    {
+        m_fallback_mesh = ThumbnailRenderer::make_sphere_mesh();
+        Renderer::get_resource_cache().register_mesh(k_fallback_mesh_key, m_fallback_mesh);
     }
 
     if (!m_outline_params)
@@ -438,6 +497,35 @@ void EditorResourceCache::compile_all()
     }
 
     EditorPrimitives::init(m_shader_cache);
+
+    const SharedPtr<Material>& thumb_mat = m_materials[static_cast<size_t>(EditorMaterial::ThumbnailPreview)];
+    if (thumb_mat)
+    {
+        constexpr uint32_t k_dim = 80;
+        for (int i = 0; i < EditorPrimitives::prim_count(); ++i)
+        {
+            if (!m_prim_thumbnails[i])
+            {
+                GRITexture2DDesc rt_desc;
+                rt_desc.width        = k_dim;
+                rt_desc.height       = k_dim;
+                rt_desc.format       = GRIPixelFormat::RGBA8Unorm;
+                m_prim_thumbnails[i] = RenderSystem::get_gri()->create_texture2d(rt_desc);
+            }
+            const uint64_t        key  = EditorPrimitives::prim_mesh_key(i);
+            SharedPtr<RenderMesh> mesh = Renderer::get_resource_cache().find_mesh(key);
+            if (m_prim_thumbnails[i] && mesh)
+            {
+                ThumbnailRenderRequest req;
+                req.mesh          = mesh.get();
+                req.material      = thumb_mat.get();
+                req.output_rt     = m_prim_thumbnails[i].get();
+                req.bounds_center = {};
+                req.bounds_radius = 0.5f;
+                m_thumb_renderer.enqueue(req);
+            }
+        }
+    }
 }
 
 void EditorResourceCache::load_icons()
@@ -465,6 +553,13 @@ void EditorResourceCache::load_icons()
     m_mesh_icon            = make_solid_icon(0, 140, 140, 255);
     m_shader_icon          = make_solid_icon(220, 100, 0, 255);
     m_scene_icon           = make_solid_icon(100, 50, 200, 255);
+    m_white_texture        = make_solid_icon(255, 255, 255, 255);
+}
+
+GRITexture2D* EditorResourceCache::get_white_texture() const
+{
+    SharedLock lock(m_mutex);
+    return m_white_texture.get();
 }
 
 } // namespace Ignis

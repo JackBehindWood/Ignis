@@ -13,7 +13,6 @@
 #include <Ignis/Rendering/RenderMesh.h>
 #include <Ignis/Rendering/RenderGraph/RGBuilder.h>
 #include <Ignis/Core/Application.h>
-#include <imgui.h>
 
 namespace Ignis
 {
@@ -321,15 +320,11 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
     }
 
     GRIViewport* viewport = Application::get().get_window().get_viewport();
+
     Renderer::begin_frame(viewport);
     Renderer::upload_frame_data({data->camera_data.view_projection, data->camera_data.position});
 
     GRICommandList& cmd = RenderSystem::get_command_list();
-
-    if (EditorResourceCache::get().has_pending_render())
-    {
-        EditorResourceCache::get().flush_render_thumbnails();
-    }
 
     auto [color_handle, depth_handle] = sr.render_scene(*data->scene, data->camera_data, builder);
     draw_grid(color_handle, depth_handle, builder);
@@ -354,9 +349,9 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
                      {static_cast<float>(m_last_w ? m_last_w : aw), static_cast<float>(m_last_h ? m_last_h : ah)});
     }
 
-    if (ImExt::DragDrop::begin_target())
+    if (auto target = ImExt::DragDrop::Target<AssetDragPayload>())
     {
-        if (const auto* hover = ImExt::DragDrop::peek<AssetDragPayload>())
+        if (const auto* hover = target.peek())
         {
             bool has_mesh = false;
             bool has_tex  = false;
@@ -382,8 +377,7 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
             ImVec2     rmax   = ImGui::GetItemRectMax();
             ImU32      tint   = compat ? IM_COL32(100, 200, 100, 30) : IM_COL32(200, 80, 80, 30);
             ImGui::GetWindowDrawList()->AddRectFilled(rmin, rmax, tint);
-            ImGui::GetWindowDrawList()->AddRect(
-                rmin, rmax, compat ? IM_COL32(100, 200, 100, 200) : IM_COL32(200, 80, 80, 200), 0.0f, 0, 1.5f);
+            target.draw_compat_feedback(compat, rmin, rmax, 0.f);
             if (has_mesh)
             {
                 ImGui::SetTooltip("Drop to spawn mesh");
@@ -393,7 +387,7 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
                 ImGui::SetTooltip("Drop to assign to selected entity");
             }
         }
-        if (const AssetDragPayload* p = ImExt::DragDrop::accept<AssetDragPayload>())
+        if (const AssetDragPayload* p = target.accept())
         {
             auto& pm = ProjectManager::get();
             if (pm.is_open() && data->dispatcher)
@@ -436,7 +430,6 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
                 }
             }
         }
-        ImExt::DragDrop::end_target();
     }
 
     m_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup);

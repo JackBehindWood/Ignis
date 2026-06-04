@@ -7,7 +7,6 @@
 #include <Ignis/Input/InputSystem.h>
 
 #ifdef ENGINE_IMGUI
-#include <imgui.h>
 #include "UI/ImExt/ImExt.h"
 #endif
 
@@ -848,26 +847,26 @@ void AssetBrowserPanel::draw_entry(int32_t fi, const Vector<int32_t>& filtered, 
                 }
             }
 
-            if (ImExt::DragDrop::begin_source())
+            if (auto src = ImExt::DragDrop::Source<AssetDragPayload>())
             {
                 AssetDragPayload    payload{};
                 std::error_code     ec;
                 const Vector<Path>& drag_set = is_selected(e.path) ? m_selected_paths : Vector<Path>{e.path};
 
-                for (const auto& src : drag_set)
+                for (const auto& src_path : drag_set)
                 {
                     if (payload.count >= AssetDragPayload::k_max_items)
                     {
                         break;
                     }
-                    Path rel = Filesystem::relative(src, m_model.assets_root(), ec);
+                    Path rel = Filesystem::relative(src_path, m_model.assets_root(), ec);
                     if (ec)
                     {
-                        rel = src;
+                        rel = src_path;
                     }
                     String rel_str = rel.string();
-                    String ext     = src.extension().string();
-                    String tlabel  = derive_type_label_for(src);
+                    String ext     = src_path.extension().string();
+                    String tlabel  = derive_type_label_for(src_path);
 
                     auto& item = payload.items[payload.count++];
                     IG_ASSERT(rel_str.size() < sizeof(item.rel_path), "Asset path exceeds payload buffer");
@@ -876,7 +875,7 @@ void AssetBrowserPanel::draw_entry(int32_t fi, const Vector<int32_t>& filtered, 
                     std::strncpy(item.type_label, tlabel.c_str(), sizeof(item.type_label) - 1);
                 }
 
-                ImExt::DragDrop::set_payload(payload);
+                src.set_payload(payload);
                 if (payload.count > 1)
                 {
                     int32_t mesh_c = 0, tex_c = 0, mat_c = 0, other_c = 0;
@@ -921,20 +920,22 @@ void AssetBrowserPanel::draw_entry(int32_t fi, const Vector<int32_t>& filtered, 
                 {
                     ImGui::Text("%s  [%s]", e.display_name.c_str(), e.type_label.c_str());
                 }
-                ImExt::DragDrop::end_source();
             }
 
-            if (e.is_dir && ImExt::DragDrop::begin_target())
+            if (e.is_dir)
             {
-                bool  is_copy = ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper;
-                ImU32 col     = is_copy ? IM_COL32(100, 200, 100, 200) : IM_COL32(100, 150, 255, 200);
-                ImGui::GetWindowDrawList()->AddRect(btn_rmin, btn_rmax, col, 4.0f, 0, 2.0f);
-                ImGui::SetTooltip("%s into \"%s\"", is_copy ? "Copy" : "Move", e.display_name.c_str());
-                if (const auto* p = ImExt::DragDrop::accept<AssetDragPayload>())
+                if (auto target = ImExt::DragDrop::Target<AssetDragPayload>())
                 {
-                    drop_into_dir(p, e.path, is_copy);
+                    if (target.peek())
+                    {
+                        target.draw_operation_feedback(btn_rmin, btn_rmax);
+                        ImGui::SetTooltip("%s into \"%s\"", target.is_copy() ? "Copy" : "Move", e.display_name.c_str());
+                    }
+                    if (const auto* p = target.accept())
+                    {
+                        drop_into_dir(p, e.path, target.is_copy());
+                    }
                 }
-                ImExt::DragDrop::end_target();
             }
 
             ImGui::OpenPopupOnItemClick("##entry_ctx", ImGuiPopupFlags_MouseButtonRight);
@@ -1021,95 +1022,98 @@ void AssetBrowserPanel::draw_entry(int32_t fi, const Vector<int32_t>& filtered, 
             }
         }
 
-        if (!renaming && ImExt::DragDrop::begin_source())
+        if (!renaming)
         {
-            AssetDragPayload    payload{};
-            std::error_code     ec;
-            const Vector<Path>& drag_set = is_selected(e.path) ? m_selected_paths : Vector<Path>{e.path};
-
-            for (const auto& src : drag_set)
+            if (auto src = ImExt::DragDrop::Source<AssetDragPayload>())
             {
-                if (payload.count >= AssetDragPayload::k_max_items)
-                {
-                    break;
-                }
-                Path rel = Filesystem::relative(src, m_model.assets_root(), ec);
-                if (ec)
-                {
-                    rel = src;
-                }
-                String rel_str = rel.string();
-                String ext     = src.extension().string();
-                String tlabel  = derive_type_label_for(src);
+                AssetDragPayload    payload{};
+                std::error_code     ec;
+                const Vector<Path>& drag_set = is_selected(e.path) ? m_selected_paths : Vector<Path>{e.path};
 
-                auto& item = payload.items[payload.count++];
-                IG_ASSERT(rel_str.size() < sizeof(item.rel_path), "Asset path exceeds payload buffer");
-                std::strncpy(item.rel_path, rel_str.c_str(), sizeof(item.rel_path) - 1);
-                std::strncpy(item.extension, ext.c_str(), sizeof(item.extension) - 1);
-                std::strncpy(item.type_label, tlabel.c_str(), sizeof(item.type_label) - 1);
-            }
+                for (const auto& src_path : drag_set)
+                {
+                    if (payload.count >= AssetDragPayload::k_max_items)
+                    {
+                        break;
+                    }
+                    Path rel = Filesystem::relative(src_path, m_model.assets_root(), ec);
+                    if (ec)
+                    {
+                        rel = src_path;
+                    }
+                    String rel_str = rel.string();
+                    String ext     = src_path.extension().string();
+                    String tlabel  = derive_type_label_for(src_path);
 
-            ImExt::DragDrop::set_payload(payload);
-            if (payload.count > 1)
-            {
-                int32_t mesh_c = 0, tex_c = 0, mat_c = 0, other_c = 0;
-                for (uint32_t i = 0; i < payload.count; ++i)
+                    auto& item = payload.items[payload.count++];
+                    IG_ASSERT(rel_str.size() < sizeof(item.rel_path), "Asset path exceeds payload buffer");
+                    std::strncpy(item.rel_path, rel_str.c_str(), sizeof(item.rel_path) - 1);
+                    std::strncpy(item.extension, ext.c_str(), sizeof(item.extension) - 1);
+                    std::strncpy(item.type_label, tlabel.c_str(), sizeof(item.type_label) - 1);
+                }
+
+                src.set_payload(payload);
+                if (payload.count > 1)
                 {
-                    const char* tl = payload.items[i].type_label;
-                    if (std::strcmp(tl, "MSH") == 0)
+                    int32_t mesh_c = 0, tex_c = 0, mat_c = 0, other_c = 0;
+                    for (uint32_t i = 0; i < payload.count; ++i)
                     {
-                        ++mesh_c;
+                        const char* tl = payload.items[i].type_label;
+                        if (std::strcmp(tl, "MSH") == 0)
+                        {
+                            ++mesh_c;
+                        }
+                        else if (std::strcmp(tl, "TEX") == 0)
+                        {
+                            ++tex_c;
+                        }
+                        else if (std::strcmp(tl, "MAT") == 0)
+                        {
+                            ++mat_c;
+                        }
+                        else
+                        {
+                            ++other_c;
+                        }
                     }
-                    else if (std::strcmp(tl, "TEX") == 0)
+                    if (mesh_c)
                     {
-                        ++tex_c;
+                        ImGui::Text("%d Mesh", mesh_c);
                     }
-                    else if (std::strcmp(tl, "MAT") == 0)
+                    if (tex_c)
                     {
-                        ++mat_c;
+                        ImGui::Text("%d Texture", tex_c);
                     }
-                    else
+                    if (mat_c)
                     {
-                        ++other_c;
+                        ImGui::Text("%d Material", mat_c);
+                    }
+                    if (other_c)
+                    {
+                        ImGui::Text("%d Other", other_c);
                     }
                 }
-                if (mesh_c)
+                else
                 {
-                    ImGui::Text("%d Mesh", mesh_c);
-                }
-                if (tex_c)
-                {
-                    ImGui::Text("%d Texture", tex_c);
-                }
-                if (mat_c)
-                {
-                    ImGui::Text("%d Material", mat_c);
-                }
-                if (other_c)
-                {
-                    ImGui::Text("%d Other", other_c);
+                    ImGui::Text("%s  [%s]", e.display_name.c_str(), e.type_label.c_str());
                 }
             }
-            else
-            {
-                ImGui::Text("%s  [%s]", e.display_name.c_str(), e.type_label.c_str());
-            }
-            ImExt::DragDrop::end_source();
         }
 
-        if (!renaming && e.is_dir && ImExt::DragDrop::begin_target())
+        if (!renaming && e.is_dir)
         {
-            bool   is_copy = ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper;
-            ImVec2 rmin    = ImGui::GetItemRectMin();
-            ImVec2 rmax    = ImGui::GetItemRectMax();
-            ImU32  col     = is_copy ? IM_COL32(100, 200, 100, 200) : IM_COL32(100, 150, 255, 200);
-            ImGui::GetWindowDrawList()->AddRect(rmin, rmax, col, 2.0f, 0, 2.0f);
-            ImGui::SetTooltip("%s into \"%s\"", is_copy ? "Copy" : "Move", e.display_name.c_str());
-            if (const auto* p = ImExt::DragDrop::accept<AssetDragPayload>())
+            if (auto target = ImExt::DragDrop::Target<AssetDragPayload>())
             {
-                drop_into_dir(p, e.path, is_copy);
+                if (target.peek())
+                {
+                    target.draw_operation_feedback(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), 2.f);
+                    ImGui::SetTooltip("%s into \"%s\"", target.is_copy() ? "Copy" : "Move", e.display_name.c_str());
+                }
+                if (const auto* p = target.accept())
+                {
+                    drop_into_dir(p, e.path, target.is_copy());
+                }
             }
-            ImExt::DragDrop::end_target();
         }
 
         if (e.path != m_renaming_path)
@@ -1694,17 +1698,17 @@ void AssetBrowserPanel::draw_directory_tree_node(const Path& dir)
             {
                 ImVec2 rmin = ImGui::GetItemRectMin();
                 ImVec2 rmax = ImGui::GetItemRectMax();
-                if (ImExt::DragDrop::begin_target())
+                if (auto target = ImExt::DragDrop::Target<AssetDragPayload>())
                 {
-                    bool  is_copy = ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper;
-                    ImU32 col     = is_copy ? IM_COL32(100, 200, 100, 200) : IM_COL32(100, 150, 255, 200);
-                    ImGui::GetWindowDrawList()->AddRect(rmin, rmax, col, 2.0f, 0, 2.0f);
-                    ImGui::SetTooltip("%s into \"%s\"", is_copy ? "Copy" : "Move", name.c_str());
-                    if (const auto* p = ImExt::DragDrop::accept<AssetDragPayload>())
+                    if (target.peek())
                     {
-                        drop_into_dir(p, item.path, is_copy);
+                        target.draw_operation_feedback(rmin, rmax, 2.f);
+                        ImGui::SetTooltip("%s into \"%s\"", target.is_copy() ? "Copy" : "Move", name.c_str());
                     }
-                    ImExt::DragDrop::end_target();
+                    if (const auto* p = target.accept())
+                    {
+                        drop_into_dir(p, item.path, target.is_copy());
+                    }
                 }
             }
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !ImGui::IsItemToggledOpen())
@@ -1812,18 +1816,12 @@ void AssetBrowserPanel::draw_background_drop_target()
         return;
     }
 
-    if (ImExt::DragDrop::begin_window_target())
+    if (auto target = ImExt::DragDrop::WindowTarget<AssetDragPayload>("current folder"))
     {
-        bool         is_copy = ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper;
-        ImU32        tint    = is_copy ? IM_COL32(100, 200, 100, 30) : IM_COL32(100, 150, 255, 30);
-        ImGuiWindow* w       = ImGui::GetCurrentWindow();
-        w->DrawList->AddRectFilled(w->Rect().Min, w->Rect().Max, tint);
-        ImGui::SetTooltip("%s into current folder", is_copy ? "Copy" : "Move");
-        if (const auto* p = ImExt::DragDrop::accept<AssetDragPayload>())
+        if (const auto* p = target.accept())
         {
-            drop_into_dir(p, m_model.current_dir(), is_copy);
+            drop_into_dir(p, m_model.current_dir(), target.is_copy());
         }
-        ImGui::EndDragDropTarget();
     }
 #endif
 }

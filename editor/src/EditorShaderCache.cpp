@@ -18,6 +18,21 @@ SharedPtr<RenderShader> EditorShaderCache::get_or_compile(const String& filename
     return ShaderCache::get().get_or_compile(m_shaders_root / filename, stage);
 }
 
+SharedPtr<RenderShader> EditorShaderCache::get_or_compile_path(const Path& full_path, GRIShaderStage stage)
+{
+    return ShaderCache::get().get_or_compile(full_path, stage);
+}
+
+SharedPtr<RenderShader> EditorShaderCache::get_or_compile_from_source(const String& virtual_name,
+                                                                      const String& hlsl_source, GRIShaderStage stage)
+{
+    ShaderCompilerOptions opts;
+    opts.count           = 2;
+    opts.stages[0].stage = GRIShaderStage::Vertex;
+    opts.stages[1].stage = GRIShaderStage::Pixel;
+    return ShaderCache::get().get_or_compile(hlsl_source, virtual_name, stage, opts);
+}
+
 void EditorShaderCache::on_project_opened(const ProjectContext& ctx)
 {
     const Path project_shader_cache = ctx.in_memory ? m_engine_cache_root : (ctx.compiled_cache_abs / "shaders");

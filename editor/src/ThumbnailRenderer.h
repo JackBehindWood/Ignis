@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Ignis.h>
-#include <Ignis/Rendering/RenderGraph/RGBuilder.h>
 #include <Ignis/Rendering/RenderMesh.h>
 #include <Ignis/Rendering/FrameUniformAllocator.h>
 #include <Ignis/Rendering/Material.h>
@@ -35,13 +34,11 @@ public:
         return m_sphere_mesh.get();
     }
 
-private:
     static SharedPtr<RenderMesh> make_sphere_mesh();
 
-    RGBuilder                      m_builder;
+private:
     FrameUniformAllocator          m_uniform_alloc;
     SharedPtr<RenderMesh>          m_sphere_mesh;
-    GRITexture2DPtr                m_shared_depth_rt;
     Vector<ThumbnailRenderRequest> m_queue;
 };
 

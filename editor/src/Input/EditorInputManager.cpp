@@ -2,7 +2,6 @@
 #include "EditorInputManager.h"
 
 #include <Ignis/Input/InputSystem.h>
-#include <imgui.h>
 
 namespace Ignis
 {
