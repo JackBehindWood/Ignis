@@ -1,11 +1,7 @@
 # Project State
 
 ## Current Focus
-<<<<<<< Updated upstream
 **GRI API Extension complete.** `GRIPipelineStateDesc` now uses `GRIDepthStencilDesc`/`GRIRasterDesc`/`GRIBlendDesc` sub-descriptors; `MaterialFactory` cache key covers all fields; Metal translation functions wired; `SceneRenderer::prepare()` derives descriptors from `AssetMaterial` surface flags; PSO IDs disjoint via `^ 0x8000u`. Build clean. Pending: Metal dynamic raster encoder (`setCullMode`), engine default material, SceneSerializer + IHT regen for `MeshRendererComponent`/`MaterialComponent`.
-=======
-**Editor GUI V1 complete.** Full scene editor shipped: docked workspace (viewport, scene tree, properties, console, asset browser), `CommandDispatcher` undo/redo, drag-drop pipeline with `ImExt` RAII guards, GPU thumbnail renderer, icon toolbar, `EditorResourceCache` + `GlobalEngineCache`. Transitioning to PBR/lighting architecture — documentation scaffold in progress.
->>>>>>> Stashed changes
 
 ## Standing Systems
 
