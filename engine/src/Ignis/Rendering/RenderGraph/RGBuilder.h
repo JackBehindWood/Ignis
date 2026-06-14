@@ -29,7 +29,8 @@ public:
     RGTextureHandle import_texture(const char* name, GRITexture2D* physical);
 
     RGBufferHandle create_buffer(const char* name, const RGBufferDesc& desc);
-    RGBufferHandle import_buffer(const char* name, GRIBuffer* physical);
+    RGBufferHandle import_buffer(const char* name, GRIBuffer* physical,
+                                 GRIBufferUsage usage = GRIBufferUsage::UniformBuffer);
 
     // --- Stateful Dependency Bindings ---
     void read_texture(RGTextureHandle h);
@@ -40,6 +41,11 @@ public:
 
     void read_buffer(RGBufferHandle h);
     void write_buffer(RGBufferHandle h);
+
+    // --- Storage Dependency Bindings (explicit compute/UAV path) ---
+    void read_storage_buffer(RGBufferHandle h);
+    void write_storage_buffer(RGBufferHandle h);
+    void read_storage_texture(RGTextureHandle h);
 
     // --- Arena Parameter Allocation ---
     // T must be trivially destructible; arena is soft-reset without calling destructors.
@@ -52,22 +58,46 @@ public:
         return new (mem) T{};
     }
 
-    // --- Single Execute Lambda Registration ---
+    // --- Pass Registration ---
+    // Graphics pass: render encoder; uses write_render_target / write_depth_stencil / read_texture.
     template <typename ExecuteFn>
-    void add_pass(const char* name, ExecuteFn&& execute)
+    void add_graphics_pass(const char* name, ExecuteFn&& execute)
     {
-        using PassType = TypedRGPass<Decay<ExecuteFn>>;
-        void* mem      = arena_alloc(sizeof(PassType), alignof(PassType));
-        auto* pass     = new (mem) PassType(std::forward<ExecuteFn>(execute));
-        commit_pass(name, pass);
+        add_pass_typed(name, RGPassType::Graphics, std::forward<ExecuteFn>(execute));
     }
 
-    // --- Params-Style Pass Registration ---
+    template <typename T, typename ExecuteFn>
+    void add_graphics_pass(const char* name, T* params, ExecuteFn&& execute)
+    {
+        add_pass(name, RGPassType::Graphics, params, std::forward<ExecuteFn>(execute));
+    }
+
+    // Compute pass: compute encoder; seals storage dependency accumulators atomically.
+    template <typename ExecuteFn>
+    void add_compute_pass(const char* name, ExecuteFn&& execute)
+    {
+        add_pass_typed(name, RGPassType::Compute, std::forward<ExecuteFn>(execute));
+    }
+
+    template <typename T, typename ExecuteFn>
+    void add_compute_pass(const char* name, T* params, ExecuteFn&& execute)
+    {
+        add_pass(name, RGPassType::Compute, params, std::forward<ExecuteFn>(execute));
+    }
+
+    // Generic — explicit type.
+    template <typename ExecuteFn>
+    void add_pass(const char* name, RGPassType type, ExecuteFn&& execute)
+    {
+        add_pass_typed(name, type, std::forward<ExecuteFn>(execute));
+    }
+
+    // Params-style pass (graphics).
     // execute signature: void(T*, GRICommandList&)
     template <typename T, typename ExecuteFn>
-    void add_pass(const char* name, T* params, ExecuteFn&& execute)
+    void add_pass(const char* name, RGPassType type, T* params, ExecuteFn&& execute)
     {
-        add_pass(name, [params, fn = std::forward<ExecuteFn>(execute)](GRICommandList& cmd) { fn(params, cmd); });
+        add_pass(name, type, [params, fn = std::forward<ExecuteFn>(execute)](GRICommandList& cmd) { fn(params, cmd); });
     }
 
     // --- Physical Resource Access (valid during execute) ---
@@ -79,7 +109,16 @@ public:
 
 private:
     void* arena_alloc(size_t size, size_t alignment);
-    void  commit_pass(const char* name, RGPassBase* pass);
+    void  commit_pass(const char* name, RGPassBase* pass, RGPassType type);
+
+    template <typename ExecuteFn>
+    void add_pass_typed(const char* name, RGPassType type, ExecuteFn&& execute)
+    {
+        using PassType = TypedRGPass<Decay<ExecuteFn>>;
+        void* mem      = arena_alloc(sizeof(PassType), alignof(PassType));
+        auto* pass     = new (mem) PassType(std::forward<ExecuteFn>(execute));
+        commit_pass(name, pass, type);
+    }
 
     RenderGraph m_graph;
 
@@ -89,6 +128,10 @@ private:
         Vector<uint16_t>           buffer_reads;
         Vector<uint16_t>           texture_writes;
         Vector<uint16_t>           buffer_writes;
+        Vector<uint16_t>           storage_buffer_reads;
+        Vector<uint16_t>           storage_buffer_writes;
+        Vector<uint16_t>           storage_texture_reads;
+        Vector<uint16_t>           storage_texture_writes;
         RGInternal::AttachmentSlot color_slots[max_simultaneous_render_targets];
         RGInternal::AttachmentSlot depth_slot      = {};
         uint32_t                   num_color_slots = 0;

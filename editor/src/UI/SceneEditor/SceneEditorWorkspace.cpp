@@ -1,5 +1,6 @@
 #include "edpch.h"
 #include "SceneEditorWorkspace.h"
+#include "EditorSceneOverlay.h"
 
 #include "../Commands/SceneCommands.h"
 #include "../Panels/SceneTreePanel.h"
@@ -44,12 +45,15 @@ inline constexpr ImGuiShortcutString get_shortcut_name(ActionID id)
 }
 } // namespace Utils
 
-SceneEditorWorkspace::SceneEditorWorkspace(Scene& scene, SceneRenderer& sr, PanelRegistry& registry,
+SceneEditorWorkspace::SceneEditorWorkspace(Scene& scene, SceneExtractor& extractor, SceneRenderer& sr,
+                                           EditorSceneOverlay& overlay, PanelRegistry& registry,
                                            CommandDispatcher& dispatcher)
     : m_viewport_ctx("EditorViewport", k_viewport_mappings, std::size(k_viewport_mappings), 200)
 {
     m_data.scene           = &scene;
+    m_data.extractor       = &extractor;
     m_data.scene_renderer  = &sr;
+    m_data.overlay         = &overlay;
     m_data.selected_entity = &m_selected_entity;
     m_data.sim_state       = &m_sim_state;
     m_data.gizmo           = &m_gizmo;

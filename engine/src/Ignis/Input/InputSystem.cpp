@@ -119,6 +119,7 @@ Vector<InputContext*>                            InputSystem::s_contexts;
 UnorderedMap<ActionID, InputSystem::ActionState> InputSystem::s_frame_states;
 UnorderedMap<ActionID, InputSystem::ActionState> InputSystem::s_pending_states;
 bool                                             InputSystem::s_block_game_input = false;
+float                                            InputSystem::s_scroll_delta     = 0.0f;
 
 void InputSystem::register_context(InputContext* ctx)
 {
@@ -141,6 +142,7 @@ void InputSystem::unregister_context(InputContext* ctx)
 
 void InputSystem::begin_frame()
 {
+    s_scroll_delta = 0.0f;
     s_frame_states = s_pending_states;
 
     for (auto& [id, state] : s_pending_states)
@@ -222,9 +224,20 @@ void InputSystem::process_released(uint32_t hw_code)
     }
 }
 
+float InputSystem::get_scroll_delta()
+{
+    return s_scroll_delta;
+}
+
 void InputSystem::on_event(Event& e)
 {
     EventDispatcher d(e);
+    d.dispatch<MouseScrolledEvent>(
+        [](MouseScrolledEvent& ev) -> bool
+        {
+            s_scroll_delta += ev.get_y_offset();
+            return false;
+        });
     d.dispatch<KeyPressedEvent>(
         [](KeyPressedEvent& ev) -> bool
         {

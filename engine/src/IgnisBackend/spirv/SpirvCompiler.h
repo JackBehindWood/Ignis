@@ -12,6 +12,7 @@ struct SpirvBindingInfo
     String   name;
     uint32_t set;
     uint32_t binding;
+    bool     is_unbounded = false;
 };
 
 struct SpirvStageInput
@@ -30,11 +31,15 @@ struct SpirvReflection
 {
     Vector<SpirvBindingInfo>  uniform_buffers;
     Vector<SpirvBindingInfo>  storage_buffers;
+    Vector<SpirvBindingInfo>  storage_textures;
     Vector<SpirvBindingInfo>  separate_images;
     Vector<SpirvBindingInfo>  separate_samplers;
     Vector<SpirvStageInput>   stage_inputs;
     Vector<SpirvStageInput>   stage_outputs;
     Vector<SpirvPushConstant> push_constants;
+    uint32_t                  threadgroup_size_x = 0;
+    uint32_t                  threadgroup_size_y = 0;
+    uint32_t                  threadgroup_size_z = 0;
 };
 
 class SpirvCompiler
@@ -75,14 +80,6 @@ public:
     inline Vector<uint32_t> backend_binary_to_spirv(const uint8_t* data, uint32_t size)
     {
         return compile_from_backend(data, size);
-    }
-
-    // Link-aware PS compilation: remaps PS input Location decorations to match VS outputs before
-    // backend code generation. Default falls back to an unlinked compile of the PS stage.
-    virtual Vector<uint8_t> spirv_to_backend_binary_linked(const uint32_t* vs_spirv, uint32_t vs_word_count,
-                                                           const uint32_t* ps_spirv, uint32_t ps_word_count)
-    {
-        return compile_to_backend(ps_spirv, ps_word_count, spv::ExecutionModelFragment);
     }
 
     SpirvReflection reflect(const uint32_t* spirv, uint32_t word_count);

@@ -11,15 +11,17 @@
 namespace Ignis
 {
 
-static constexpr AssetBlobHeader k_texture_header = {{'I', 'G', 'T', 'X'}, 2};
+static constexpr AssetBlobHeader k_texture_header = {{'I', 'G', 'T', 'X'}, 3};
 
 template <typename R>
 static SharedPtr<Asset> parse_texture_payload(const AssetMetadata& metadata, R& r)
 {
-    const AssetPixelFormat format = static_cast<AssetPixelFormat>(r.read_u8());
-    const uint32_t         width  = r.read_u32();
-    const uint32_t         height = r.read_u32();
-    /* mip_levels = */ r.read_u8();
+    const AssetPixelFormat format     = static_cast<AssetPixelFormat>(r.read_u8());
+    const uint32_t         width      = r.read_u32();
+    const uint32_t         height     = r.read_u32();
+    const bool             is_cubemap = r.read_u8() != 0;
+    const uint32_t         num_faces  = r.read_u32();
+    /* num_mips = */ r.read_u32();
     const uint32_t pixel_bytes = r.read_u32();
 
     Vector<uint8_t> pixels(pixel_bytes);
@@ -31,7 +33,7 @@ static SharedPtr<Asset> parse_texture_payload(const AssetMetadata& metadata, R& 
         return nullptr;
     }
 
-    return create_shared<AssetTexture2D>(metadata.ID, format, width, height, std::move(pixels));
+    return create_shared<AssetTexture2D>(metadata.ID, format, width, height, std::move(pixels), is_cubemap, num_faces);
 }
 
 // ---------------------------------------------------------------------------
@@ -59,7 +61,9 @@ bool TextureHandler::compile(const AssetMetadata& metadata)
     w.write_u8(static_cast<uint8_t>(AssetPixelFormat::RGBA8Unorm));
     w.write_u32(static_cast<uint32_t>(width));
     w.write_u32(static_cast<uint32_t>(height));
-    w.write_u8(1); // mip_levels
+    w.write_u8(0);  // is_cubemap
+    w.write_u32(1); // num_faces
+    w.write_u32(1); // num_mips
     w.write_u32(pixel_bytes);
     w.write_bytes(pixels, pixel_bytes);
 

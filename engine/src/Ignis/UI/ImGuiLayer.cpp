@@ -112,7 +112,7 @@ void ImGuiLayer::event(Event& e)
 
     if (e.get_category_flags() & EventCategoryMouse)
     {
-        if (io.WantCaptureMouse)
+        if (io.WantCaptureMouse && e.get_event_type() != EventType::MouseScrolled)
         {
             e.handled = true;
         }

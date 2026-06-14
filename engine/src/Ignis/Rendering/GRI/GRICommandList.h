@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Ignis/Foundation/MemStack.h>
+#include <Ignis/Foundation/Vector.h>
 #include "GRIDefinitions.h"
 #include "GRIResource.h"
 
@@ -167,9 +168,13 @@ GRICOMMAND_MACRO(GRICommandEndFrame)
 
 GRICOMMAND_MACRO(GRICommandBeginRenderPass)
 {
-    GRIRenderPassInfo info;
-    GRICommandBeginRenderPass(const GRIRenderPassInfo& info)
-        : info(info)
+    GRIRenderPassInfo     info;
+    Vector<GRIBuffer*>    storage_buffers;
+    Vector<GRITexture2D*> storage_textures;
+    GRICommandBeginRenderPass(const GRIRenderPassInfo& info, Vector<GRIBuffer*> bufs, Vector<GRITexture2D*> texs)
+        : info(info),
+          storage_buffers(std::move(bufs)),
+          storage_textures(std::move(texs))
     {
     }
     void execute(GRICommandListBase & cmd_list);
@@ -178,6 +183,26 @@ GRICOMMAND_MACRO(GRICommandBeginRenderPass)
 GRICOMMAND_MACRO(GRICommandEndRenderPass)
 {
     GRICommandEndRenderPass()
+    {
+    }
+    void execute(GRICommandListBase & cmd_list);
+};
+
+GRICOMMAND_MACRO(GRICommandBeginComputePass)
+{
+    Vector<GRIBuffer*>    storage_buffers;
+    Vector<GRITexture2D*> storage_textures;
+    GRICommandBeginComputePass(Vector<GRIBuffer*> bufs, Vector<GRITexture2D*> texs)
+        : storage_buffers(std::move(bufs)),
+          storage_textures(std::move(texs))
+    {
+    }
+    void execute(GRICommandListBase & cmd_list);
+};
+
+GRICOMMAND_MACRO(GRICommandEndComputePass)
+{
+    GRICommandEndComputePass()
     {
     }
     void execute(GRICommandListBase & cmd_list);
@@ -303,6 +328,96 @@ GRICOMMAND_MACRO(GRICommandDrawIndexedPrimitiveInstanced)
     void execute(GRICommandListBase & cmd_list);
 };
 
+GRICOMMAND_MACRO(GRICommandSetComputePipelineState)
+{
+    GRIComputePipelineState* pso;
+    GRICommandSetComputePipelineState(GRIComputePipelineState * pso)
+        : pso(pso)
+    {
+    }
+    void execute(GRICommandListBase & cmd_list);
+};
+
+GRICOMMAND_MACRO(GRICommandSetStorageBuffer)
+{
+    GRIBuffer* buffer;
+    uint32_t   slot;
+    GRICommandSetStorageBuffer(GRIBuffer * buffer, uint32_t slot)
+        : buffer(buffer),
+          slot(slot)
+    {
+    }
+    void execute(GRICommandListBase & cmd_list);
+};
+
+GRICOMMAND_MACRO(GRICommandSetStorageTexture)
+{
+    GRITexture2D* texture;
+    uint32_t      slot;
+    uint32_t      mip_level;
+    uint32_t      array_slice;
+    GRICommandSetStorageTexture(GRITexture2D * texture, uint32_t slot, uint32_t mip_level, uint32_t array_slice)
+        : texture(texture),
+          slot(slot),
+          mip_level(mip_level),
+          array_slice(array_slice)
+    {
+    }
+    void execute(GRICommandListBase & cmd_list);
+};
+
+GRICOMMAND_MACRO(GRICommandSetComputeSampler)
+{
+    GRISamplerState* sampler;
+    uint32_t         slot;
+    GRICommandSetComputeSampler(GRISamplerState * sampler, uint32_t slot)
+        : sampler(sampler),
+          slot(slot)
+    {
+    }
+    void execute(GRICommandListBase & cmd_list);
+};
+
+GRICOMMAND_MACRO(GRICommandDispatch)
+{
+    uint32_t x;
+    uint32_t y;
+    uint32_t z;
+    GRICommandDispatch(uint32_t x, uint32_t y, uint32_t z)
+        : x(x),
+          y(y),
+          z(z)
+    {
+    }
+    void execute(GRICommandListBase & cmd_list);
+};
+
+GRICOMMAND_MACRO(GRICommandDrawIndexedPrimitivesIndirect)
+{
+    GRIBuffer* args_buf;
+    uint32_t   byte_offset;
+    GRICommandDrawIndexedPrimitivesIndirect(GRIBuffer * args_buf, uint32_t byte_offset)
+        : args_buf(args_buf),
+          byte_offset(byte_offset)
+    {
+    }
+    void execute(GRICommandListBase & cmd_list);
+};
+
+GRICOMMAND_MACRO(GRICommandMemoryBarrier)
+{
+    GRIResource*   resource;
+    GRIAccessFlags old_access;
+    GRIAccessFlags new_access;
+    GRICommandMemoryBarrier(GRIResource * resource, GRIAccessFlags old_access, GRIAccessFlags new_access)
+        : resource(resource),
+          old_access(old_access),
+          new_access(new_access)
+    {
+    }
+    void execute(GRICommandListBase & cmd_list);
+};
+
 class GRICommandList : public GRICommandListBase
 {
 private:
@@ -343,14 +458,25 @@ public:
         ALLOC_COMMAND(GRICommandBeginDrawingViewport)(viewport, render_target);
     }
 
-    inline void begin_render_pass(const GRIRenderPassInfo& info = GRIRenderPassInfo{})
+    inline void begin_render_pass(const GRIRenderPassInfo& info   = GRIRenderPassInfo{},
+                                  Vector<GRIBuffer*> storage_bufs = {}, Vector<GRITexture2D*> storage_texs = {})
     {
-        ALLOC_COMMAND(GRICommandBeginRenderPass)(info);
+        ALLOC_COMMAND(GRICommandBeginRenderPass)(info, std::move(storage_bufs), std::move(storage_texs));
     }
 
     inline void end_render_pass()
     {
         ALLOC_COMMAND(GRICommandEndRenderPass)();
+    }
+
+    inline void begin_compute_pass(Vector<GRIBuffer*> storage_bufs, Vector<GRITexture2D*> storage_texs)
+    {
+        ALLOC_COMMAND(GRICommandBeginComputePass)(std::move(storage_bufs), std::move(storage_texs));
+    }
+
+    inline void end_compute_pass()
+    {
+        ALLOC_COMMAND(GRICommandEndComputePass)();
     }
 
     inline void set_vertex_buffer(GRIBuffer* buffer, uint32_t offset = 0, uint32_t buffer_index = 29)
@@ -394,6 +520,42 @@ public:
     {
         ALLOC_COMMAND(GRICommandDrawIndexedPrimitiveInstanced)(index_count, instance_count, base_instance, first_index,
                                                                vertex_offset);
+    }
+
+    inline void set_compute_pipeline_state(GRIComputePipelineState* pso)
+    {
+        ALLOC_COMMAND(GRICommandSetComputePipelineState)(pso);
+    }
+
+    inline void set_storage_buffer(GRIBuffer* buffer, uint32_t slot)
+    {
+        ALLOC_COMMAND(GRICommandSetStorageBuffer)(buffer, slot);
+    }
+
+    inline void set_storage_texture(GRITexture2D* texture, uint32_t slot, uint32_t mip_level = 0,
+                                    uint32_t array_slice = 0)
+    {
+        ALLOC_COMMAND(GRICommandSetStorageTexture)(texture, slot, mip_level, array_slice);
+    }
+
+    inline void set_compute_sampler(GRISamplerState* sampler, uint32_t slot)
+    {
+        ALLOC_COMMAND(GRICommandSetComputeSampler)(sampler, slot);
+    }
+
+    inline void dispatch(uint32_t x, uint32_t y, uint32_t z)
+    {
+        ALLOC_COMMAND(GRICommandDispatch)(x, y, z);
+    }
+
+    inline void draw_indexed_primitives_indirect(GRIBuffer* args_buf, uint32_t byte_offset)
+    {
+        ALLOC_COMMAND(GRICommandDrawIndexedPrimitivesIndirect)(args_buf, byte_offset);
+    }
+
+    inline void memory_barrier(GRIResource* resource, GRIAccessFlags old_access, GRIAccessFlags new_access)
+    {
+        ALLOC_COMMAND(GRICommandMemoryBarrier)(resource, old_access, new_access);
     }
 };
 

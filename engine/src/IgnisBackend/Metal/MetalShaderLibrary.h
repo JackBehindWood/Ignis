@@ -24,8 +24,12 @@ public:
 
     // Loads a MTL::Function from in-memory .metallib bytecode.
     // Caller receives an owned +1 retain; MetalVertexShader/MetalPixelShader destructors release it.
-    // Cache key: (bytecode pointer address + entry_point) — stable for the lifetime of the owning AssetShader.
+    // Cache key: fnv1a(bytecode) + entry_point — content-addressed, safe across hot-reload buffer reallocations.
     MTL::Function* load_hardware_function(const uint8_t* data, size_t size, const String& entry_point);
+
+    // Evict all cached functions whose bytecode hash matches bytecode_hash.
+    // Called from ShaderCache::remove() via GRI::invalidate_compiled_shader() on hot-reload.
+    void invalidate(uint64_t bytecode_hash);
 
     MetalShaderLibrary(const MetalShaderLibrary&)            = delete;
     MetalShaderLibrary& operator=(const MetalShaderLibrary&) = delete;

@@ -56,10 +56,10 @@ static String wchar_to_utf8(const wchar_t* wstr)
 class IgnisIncludeHandler : public IDxcIncludeHandler
 {
 public:
-    IgnisIncludeHandler(CComPtr<IDxcUtils> utils, const Path& source_dir,
+    IgnisIncludeHandler(CComPtr<IDxcUtils> utils, const Vector<Path>& include_dirs,
                         const UnorderedMap<String, String>& virtual_fs)
         : m_utils(std::move(utils)),
-          m_source_dir(source_dir),
+          m_include_dirs(include_dirs),
           m_virtual_fs(virtual_fs)
     {
     }
@@ -68,10 +68,16 @@ public:
     {
         *include_source = nullptr;
 
-        const String path = wchar_to_utf8(filename);
+        String path = wchar_to_utf8(filename);
         if (path.empty())
         {
             return E_INVALIDARG;
+        }
+
+        // DXC prepends "./" to relative includes when the source has no filename context.
+        if (path.size() >= 2 && path[0] == '.' && (path[1] == '/' || path[1] == '\\'))
+        {
+            path = path.substr(2);
         }
 
         // Virtual includes take priority over disk resolution.
@@ -88,10 +94,10 @@ public:
             return hr;
         }
 
-        // Relative disk resolution against the source directory.
-        if (!m_source_dir.empty())
+        // Relative disk resolution — first matching directory wins.
+        for (const Path& dir : m_include_dirs)
         {
-            const Path full_path = m_source_dir / path;
+            const Path full_path = dir / path;
             if (Filesystem::exists(full_path))
             {
                 BinaryReader reader(full_path);
@@ -137,7 +143,7 @@ public:
 
 private:
     CComPtr<IDxcUtils>                  m_utils;
-    Path                                m_source_dir;
+    const Vector<Path>&                 m_include_dirs;
     const UnorderedMap<String, String>& m_virtual_fs;
 };
 
@@ -150,9 +156,9 @@ void HlslSpirvCompiler::register_virtual_include(const String& virtual_path, con
     m_virtual_includes[virtual_path] = source;
 }
 
-void HlslSpirvCompiler::set_source_directory(const Path& dir)
+void HlslSpirvCompiler::set_include_dirs(const Vector<Path>& dirs)
 {
-    m_source_dir = dir;
+    m_include_dirs = dirs;
 }
 
 // -------------------------------------------------------------------------
@@ -205,6 +211,13 @@ Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, cons
         define_strs.push_back(std::move(w));
     }
 
+    Vector<std::wstring> include_dir_strs;
+    include_dir_strs.reserve(m_include_dirs.size());
+    for (const Path& dir : m_include_dirs)
+    {
+        include_dir_strs.push_back(std::wstring(dir.wstring()));
+    }
+
     Vector<LPCWSTR> args = {
         L"-spirv", L"-fspv-target-env=vulkan1.1", L"-T", hlsl_target_profile(exec_model), L"-E", wide_entry.c_str(),
         L"-Zpc",   L"-fspv-preserve-interface",
@@ -218,10 +231,15 @@ Vector<uint32_t> HlslSpirvCompiler::compile_to_target(const String& source, cons
         args.push_back(L"-D");
         args.push_back(d.c_str());
     }
+    for (const auto& dir : include_dir_strs)
+    {
+        args.push_back(L"-I");
+        args.push_back(dir.c_str());
+    }
 
     DxcBuffer source_buf = {source_blob->GetBufferPointer(), source_blob->GetBufferSize(), DXC_CP_ACP};
 
-    IgnisIncludeHandler include_handler(dxc_utils, m_source_dir, m_virtual_includes);
+    IgnisIncludeHandler include_handler(dxc_utils, m_include_dirs, m_virtual_includes);
 
     CComPtr<IDxcResult> result;
     HRESULT hr = dxc_compiler->Compile(&source_buf, args.data(), static_cast<UINT32>(args.size()), &include_handler,

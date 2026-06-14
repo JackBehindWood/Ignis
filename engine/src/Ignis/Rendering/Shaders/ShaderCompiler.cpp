@@ -5,6 +5,7 @@
 #include "Ignis/Rendering/GRI/GRIDefinitions.h"
 #include "IgnisBackend/spirv/SpirvCompiler.h"
 #include "IgnisBackend/spirv/HlslSpirvCompiler.h"
+#include "IgnisBackend/spirv/SpirvLinker.h"
 
 namespace Ignis
 {
@@ -28,19 +29,23 @@ static ShaderReflection translate_reflection(const SpirvReflection& src)
     ShaderReflection r;
     for (const auto& b : src.uniform_buffers)
     {
-        r.uniform_buffers.push_back({b.name, b.set, b.binding});
+        r.uniform_buffers.push_back({b.name, b.set, b.binding, b.is_unbounded});
     }
     for (const auto& b : src.storage_buffers)
     {
-        r.storage_buffers.push_back({b.name, b.set, b.binding});
+        r.storage_buffers.push_back({b.name, b.set, b.binding, b.is_unbounded});
+    }
+    for (const auto& b : src.storage_textures)
+    {
+        r.storage_textures.push_back({b.name, b.set, b.binding, b.is_unbounded});
     }
     for (const auto& b : src.separate_images)
     {
-        r.separate_images.push_back({b.name, b.set, b.binding});
+        r.separate_images.push_back({b.name, b.set, b.binding, b.is_unbounded});
     }
     for (const auto& b : src.separate_samplers)
     {
-        r.separate_samplers.push_back({b.name, b.set, b.binding});
+        r.separate_samplers.push_back({b.name, b.set, b.binding, b.is_unbounded});
     }
     for (const auto& i : src.stage_inputs)
     {
@@ -54,6 +59,9 @@ static ShaderReflection translate_reflection(const SpirvReflection& src)
     {
         r.push_constants.push_back({p.name, p.size});
     }
+    r.threadgroup_size_x = src.threadgroup_size_x;
+    r.threadgroup_size_y = src.threadgroup_size_y;
+    r.threadgroup_size_z = src.threadgroup_size_z;
     return r;
 }
 } // namespace Utils
@@ -74,15 +82,20 @@ void ShaderCompiler::register_virtual_include(const String& virtual_path, const 
     static_cast<HlslSpirvCompiler*>(m_hlsl.get())->register_virtual_include(virtual_path, source);
 }
 
-void ShaderCompiler::set_source_directory(const Path& dir)
+void ShaderCompiler::set_include_dirs(const Vector<Path>& dirs)
 {
-    static_cast<HlslSpirvCompiler*>(m_hlsl.get())->set_source_directory(dir);
+    static_cast<HlslSpirvCompiler*>(m_hlsl.get())->set_include_dirs(dirs);
 }
 
 // -------------------------------------------------------------------------
 
 Vector<ShaderStageOutput> ShaderCompiler::compile(const String& source, const ShaderCompilerOptions& opts)
 {
+    if (!opts.include_dirs.empty())
+    {
+        static_cast<HlslSpirvCompiler*>(m_hlsl.get())->set_include_dirs(opts.include_dirs);
+    }
+
     // Phase 1: HLSL → SPIR-V + reflection for every requested stage.
     struct StageContext
     {
@@ -113,28 +126,30 @@ Vector<ShaderStageOutput> ShaderCompiler::compile(const String& source, const Sh
     }
 
     // Phase 1b: VS↔PS interface validation using semantic names.
-    // This catches mismatches at compile time with full entry-point context rather than
-    // deferring them to pipeline-state creation or GPU validation.
-    const StageContext* vs_ctx = nullptr;
-    const StageContext* ps_ctx = nullptr;
-    for (const auto& s : stage_ctx)
+    // Catches mismatches at compile time rather than deferring to pipeline-state creation.
+    int vs_idx = -1;
+    int ps_idx = -1;
+    for (int i = 0; i < static_cast<int>(stage_ctx.size()); ++i)
     {
-        if (s.stage == GRIShaderStage::Vertex)
+        if (stage_ctx[i].stage == GRIShaderStage::Vertex)
         {
-            vs_ctx = &s;
+            vs_idx = i;
         }
-        if (s.stage == GRIShaderStage::Pixel)
+        if (stage_ctx[i].stage == GRIShaderStage::Pixel)
         {
-            ps_ctx = &s;
+            ps_idx = i;
         }
     }
 
-    if (vs_ctx && ps_ctx)
+    if (vs_idx >= 0 && ps_idx >= 0)
     {
-        for (const auto& ps_in : ps_ctx->reflection.stage_inputs)
+        const StageContext& vs = stage_ctx[vs_idx];
+        const StageContext& ps = stage_ctx[ps_idx];
+
+        for (const auto& ps_in : ps.reflection.stage_inputs)
         {
             bool covered = false;
-            for (const auto& vs_out : vs_ctx->reflection.stage_outputs)
+            for (const auto& vs_out : vs.reflection.stage_outputs)
             {
                 if (vs_out.name == ps_in.name)
                 {
@@ -146,33 +161,31 @@ Vector<ShaderStageOutput> ShaderCompiler::compile(const String& source, const Sh
             {
                 IG_CORE_ERROR("ShaderCompiler: stage interface mismatch — "
                               "PS entry '{}' expects input '{}' but VS entry '{}' does not export it.",
-                              ps_ctx->entry_point, ps_in.name, vs_ctx->entry_point);
+                              ps.entry_point, ps_in.name, vs.entry_point);
                 return {};
             }
         }
+
+        // Phase 1c: Build canonical InterfaceMap from VS SPIR-V and patch PS input Location
+        // decorations so all backends receive pre-linked, consistently-numbered SPIR-V.
+        const StageContext& vs_ctx = stage_ctx[vs_idx];
+        InterfaceMap        imap =
+            SpirvLinker::build_interface_map(vs_ctx.spirv.data(), static_cast<uint32_t>(vs_ctx.spirv.size()));
+
+        StageContext& ps_ctx = stage_ctx[ps_idx];
+        ps_ctx.spirv =
+            SpirvLinker::patch_ps_locations(imap, ps_ctx.spirv.data(), static_cast<uint32_t>(ps_ctx.spirv.size()));
     }
 
-    // Phase 2: SPIR-V → backend binary.
-    // PS stages are compiled with link-aware path when a VS is present so that
-    // DCE-induced Location renumbering is corrected before MSL generation.
+    // Phase 2: Pre-linked SPIR-V → backend binary.
+    // All stages go through spirv_to_backend_binary; location patching already done in Phase 1c.
     Vector<ShaderStageOutput> result;
     result.reserve(stage_ctx.size());
 
     for (const auto& s : stage_ctx)
     {
-        Vector<uint8_t> bin;
-
-        if (s.stage == GRIShaderStage::Pixel && vs_ctx)
-        {
-            bin = m_backend->spirv_to_backend_binary_linked(vs_ctx->spirv.data(),
-                                                            static_cast<uint32_t>(vs_ctx->spirv.size()), s.spirv.data(),
-                                                            static_cast<uint32_t>(s.spirv.size()));
-        }
-        else
-        {
-            bin = m_backend->spirv_to_backend_binary(s.spirv.data(), static_cast<uint32_t>(s.spirv.size()), s.stage);
-        }
-
+        Vector<uint8_t> bin =
+            m_backend->spirv_to_backend_binary(s.spirv.data(), static_cast<uint32_t>(s.spirv.size()), s.stage);
         if (bin.empty())
         {
             IG_CORE_ERROR("ShaderCompiler: SPIR-V→backend failed (stage={}, entry='{}')", k_stage_name[(size_t)s.stage],

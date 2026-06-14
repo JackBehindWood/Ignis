@@ -13,7 +13,7 @@ struct MslCompileOptions
     };
 
     Platform platform    = Platform::macOS;
-    uint32_t msl_version = 20100; // MSL 2.1
+    uint32_t msl_version = 30000; // MSL 3.0 (Metal 3, macOS 13+)
 };
 
 class MslSpirvCompiler : public SpirvCompiler
@@ -24,11 +24,6 @@ public:
         : m_options(options)
     {
     }
-
-    // Link-aware PS backend compilation. Reflects VS outputs and remaps PS input Location
-    // decorations to match before MSL generation, preventing DCE-induced interface mismatches.
-    Vector<uint8_t> spirv_to_backend_binary_linked(const uint32_t* vs_spirv, uint32_t vs_word_count,
-                                                   const uint32_t* ps_spirv, uint32_t ps_word_count) override;
 
 protected:
     Vector<uint32_t> compile_to_target(const String&, const char*, spv::ExecutionModel,

@@ -5,6 +5,8 @@
 #include "../SceneEditor/SceneEditorContext.h"
 #include "../ImExt/ImExt.h"
 #include "EditorResourceCache.h"
+#include "../SceneEditor/EditorSceneOverlay.h"
+#include <Ignis/Scene/SceneExtractor.h>
 #include <Ignis/Scene/SceneRenderer.h>
 #include <Ignis/Scene/Entity.h>
 #include <Ignis/Scene/Components/Components.h>
@@ -21,47 +23,6 @@ static constexpr PanelId k_id = 2;
 
 namespace
 {
-
-static void draw_grid(RGTextureHandle color, RGTextureHandle depth, RGBuilder& builder)
-{
-    Material* grid_mat = EditorResourceCache::get().get_material(EditorMaterial::Grid).get();
-    if (!grid_mat)
-    {
-        return;
-    }
-    builder.write_render_target(0, color, RGColorAttachmentDesc::load());
-    builder.read_depth_stencil(depth, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
-    builder.add_pass("EditorGrid",
-                     [grid_mat](GRICommandList& cmd)
-                     {
-                         Renderer::bind_frame_data(cmd);
-                         cmd.set_graphics_pipeline_state(grid_mat->get_pipeline_state());
-                         cmd.draw_primitives(6);
-                     });
-}
-
-static void draw_outline_composite(RGTextureHandle color_rt, RGTextureHandle mask_rt, SceneRenderer& sr,
-                                   RGBuilder& builder)
-{
-    GRITexture2D* mask_tex    = sr.get_sel_mask_rt();
-    Material*     outline_mat = EditorResourceCache::get().get_material(EditorMaterial::SelectionOutline).get();
-    GRIBuffer*    params_buf  = EditorResourceCache::get().get_outline_params();
-    if (!mask_tex || !outline_mat || !params_buf)
-    {
-        return;
-    }
-    builder.write_render_target(0, color_rt, RGColorAttachmentDesc::load());
-    builder.read_texture(mask_rt);
-    builder.add_pass("OutlineComposite",
-                     [outline_mat, params_buf, mask_tex](GRICommandList& cmd)
-                     {
-                         cmd.set_graphics_pipeline_state(outline_mat->get_pipeline_state());
-                         cmd.set_texture(mask_tex, 0, GRIShaderStage::Pixel);
-                         cmd.set_uniform_buffer(params_buf, static_cast<uint32_t>(UniformSlot::MaterialArgs),
-                                                GRIShaderStage::Pixel);
-                         cmd.draw_primitives(3);
-                     });
-}
 
 } // namespace
 
@@ -303,9 +264,10 @@ void ViewportPanel::update(float ts, IWorkspaceData* ctx)
     {
         m_fly_camera.on_mouse_button(Mouse::ButtonRight, false);
     }
-    if (m_hovered && io.MouseWheel != 0.0f)
+    const float scroll = InputSystem::get_scroll_delta();
+    if (m_hovered && scroll != 0.0f)
     {
-        m_fly_camera.on_mouse_scroll(io.MouseWheel);
+        m_fly_camera.on_mouse_scroll(scroll);
     }
 
     m_fly_camera.on_mouse_move(io.MousePos.x, io.MousePos.y);
@@ -341,15 +303,26 @@ void ViewportPanel::update(float ts, IWorkspaceData* ctx)
 
     if (data)
     {
+        if (data->focus_request)
+        {
+            const CameraData& cd   = m_fly_camera.get_camera_data();
+            const Math::Vec3f diff = *data->focus_request - cd.position;
+            float             dist = Math::max(diff.length(), 3.0f);
+            m_fly_camera.focus_on(*data->focus_request, dist);
+            data->focus_request.reset();
+        }
+
         data->camera_data = m_fly_camera.get_camera_data();
     }
 }
 
 void ViewportPanel::draw(IWorkspaceData* ctx)
 {
-    SceneEditorData* data    = static_cast<SceneEditorData*>(ctx);
-    SceneRenderer&   sr      = *data->scene_renderer;
-    RGBuilder&       builder = *data->builder;
+    SceneEditorData*    data      = static_cast<SceneEditorData*>(ctx);
+    SceneExtractor&     extractor = *data->extractor;
+    SceneRenderer&      sr        = *data->scene_renderer;
+    EditorSceneOverlay& overlay   = *data->overlay;
+    RGBuilder&          builder   = *data->builder;
 
     ImVec2   avail = ImGui::GetContentRegionAvail();
     uint32_t aw    = static_cast<uint32_t>(avail.x);
@@ -365,25 +338,30 @@ void ViewportPanel::draw(IWorkspaceData* ctx)
     GRIViewport* viewport = Application::get().get_window().get_viewport();
 
     Renderer::begin_frame(viewport);
-    Renderer::upload_frame_data({data->camera_data.view_projection, data->camera_data.position});
 
     GRICommandList& cmd = RenderSystem::get_command_list();
 
-    auto [color_handle, depth_handle] = sr.render_scene(*data->scene, data->camera_data, builder);
-    draw_grid(color_handle, depth_handle, builder);
+    Entity selected = (data->selected_entity && data->selected_entity->is_valid()) ? *data->selected_entity : Entity{};
+    const RenderScene& rs = extractor.extract(*data->scene, data->camera_data);
 
-    if (data->selected_entity && data->selected_entity->is_valid())
+    auto [color_handle, depth_handle] = sr.render_scene(rs, builder);
+    overlay.draw_grid(color_handle, depth_handle, builder);
+
+    if (selected.is_valid())
     {
-        RGTextureHandle mask_rt = sr.draw_selection_mask(*data->selected_entity, depth_handle, builder);
+        RGTextureHandle mask_rt = overlay.draw_selection_mask(selected, depth_handle, builder);
         if (mask_rt.is_valid())
         {
-            draw_outline_composite(color_handle, mask_rt, sr, builder);
+            overlay.draw_outline_composite(color_handle, mask_rt, builder);
         }
     }
+
+    sr.render_tonemap(color_handle, builder);
 
     builder.execute(cmd);
     Renderer::end_frame();
 
+    // GRITexture2D color_rt = sr.get_ldr_rt();
     GRITexture2D* color_rt = sr.get_color_rt();
     if (color_rt)
     {
@@ -561,6 +539,7 @@ void ViewportPanel::flush_resize(IWorkspaceData* ctx)
 
     SceneEditorData* data = static_cast<SceneEditorData*>(ctx);
     data->scene_renderer->resize(m_pending_w, m_pending_h);
+    data->overlay->resize(m_pending_w, m_pending_h);
     m_fly_camera.set_aspect(static_cast<float>(m_pending_w) / static_cast<float>(m_pending_h));
     m_last_w         = m_pending_w;
     m_last_h         = m_pending_h;

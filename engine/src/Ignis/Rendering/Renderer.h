@@ -12,18 +12,37 @@ namespace Ignis
 {
 class GRIViewport;
 
-enum class UniformSlot : uint32_t
+static constexpr uint32_t k_max_directional_lights = 4;
+static constexpr uint32_t k_max_point_lights       = 64;
+
+struct GPUDirectionalLight
 {
-    FrameData    = 0,
-    Transform    = 1,
-    MaterialArgs = 2,
+    Math::Vec3f direction;
+    float       intensity = 1.0f;
+    Math::Vec3f color     = {1.0f, 1.0f, 1.0f};
+    float       _pad      = 0.0f;
 };
+static_assert(sizeof(GPUDirectionalLight) == 32);
+
+struct GPUPointLight
+{
+    Math::Vec3f position;
+    float       radius    = 10.0f;
+    Math::Vec3f color     = {1.0f, 1.0f, 1.0f};
+    float       intensity = 1.0f;
+};
+static_assert(sizeof(GPUPointLight) == 32);
 
 struct GPUFrameData
 {
-    Math::Mat4f view_projection;
-    Math::Vec3f camera_world_pos;
-    float       _pad = 0.0f;
+    Math::Mat4f         view_projection;
+    Math::Vec3f         camera_world_pos;
+    float               _pad0 = 0.0f;
+    GPUDirectionalLight directional_lights[k_max_directional_lights];
+    GPUPointLight       point_lights[k_max_point_lights];
+    uint32_t            num_directional_lights = 0;
+    uint32_t            num_point_lights       = 0;
+    uint32_t            _pad1[2]               = {};
 };
 
 struct RendererConfig
@@ -32,8 +51,8 @@ struct RendererConfig
     GRIPixelFormat depth_format         = GRIPixelFormat::Depth32Float;
     uint32_t       max_frames_in_flight = 1;
     uint32_t       uniform_buffer_size  = 4 * 1024 * 1024;
+    Path           engine_shaders;
 };
-
 class Renderer
 {
 public:
@@ -45,7 +64,6 @@ public:
 
     static void upload_frame_data(const GPUFrameData& data);
     static void bind_frame_data(GRICommandListBase& cmd_list);
-    static void bind_transform(GRICommandListBase& cmd_list, const void* data, uint32_t size);
 
     // Evict a cached GPU resource by opaque cache key (derived from AssetID by the caller).
     static void evict(uint64_t key);
@@ -75,6 +93,8 @@ public:
     }
 
 private:
+    static void warmup_system_shaders(const Path& engine_shaders_root);
+
     inline static RendererConfig                    s_config;
     inline static GRITexture2D*                     s_depth_texture = nullptr;
     inline static FrameUniformAllocator::Allocation s_frame_data_alloc{};

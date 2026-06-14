@@ -1,19 +1,10 @@
-#pragma pack_matrix(column_major)
-
-struct FrameUniforms
-{
-    float4x4 view_projection;
-    float3   camera_world_pos;
-    float    _pad;
-};
+#include <Ignis.hlsl>
 
 struct VertexOut
 {
     float4 position : SV_POSITION;
     float2 world_xz : TEXCOORD0;
 };
-
-ConstantBuffer<FrameUniforms> g_frame : register(b0);
 
 static const float k_extent = 1000.0f;
 
@@ -32,7 +23,7 @@ VertexOut VSMain(uint vertex_id : SV_VertexID)
     float3 world_pos = k_verts[vertex_id];
     VertexOut output;
     output.position = mul(g_frame.view_projection, float4(world_pos, 1.0f));
-    output.position.z += 0.0001f * output.position.w; // depth bias: ensure grid loses to coplanar geometry
+    output.position.z += 0.0001f * output.position.w;
     output.world_xz = world_pos.xz;
     return output;
 }

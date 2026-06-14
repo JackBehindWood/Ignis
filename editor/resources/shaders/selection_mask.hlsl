@@ -1,16 +1,4 @@
-#pragma pack_matrix(column_major)
-
-struct FrameUniforms
-{
-    float4x4 view_projection;
-};
-
-struct GPUInstanceData
-{
-    float4x4 world_matrix;
-    uint     material_index;
-    uint3    padding;
-};
+#include <Ignis.hlsl>
 
 struct VertexIn
 {
@@ -24,13 +12,11 @@ struct VertexOut
     float4 position : SV_POSITION;
 };
 
-ConstantBuffer<FrameUniforms>     g_frame     : register(b0);
-StructuredBuffer<GPUInstanceData> g_instances : register(t0, space28);
-
 VertexOut VSMain(VertexIn input, uint instanceID : SV_InstanceID)
 {
+    uint entity_id = g_visible_indices[instanceID];
     VertexOut o;
-    o.position = mul(g_frame.view_projection, mul(g_instances[instanceID].world_matrix, float4(input.position, 1.0)));
+    o.position = mul(g_frame.view_projection, mul(g_instances[entity_id].world_matrix, float4(input.position, 1.0)));
     return o;
 }
 

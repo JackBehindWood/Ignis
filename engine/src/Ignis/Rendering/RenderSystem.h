@@ -19,7 +19,7 @@ public:
         s_cmd_list_executor.submit();
     }
 
-    static void init(GRIRenderAPI api)
+    static void init(GRIRenderAPI api, const RendererConfig& renderer_cfg = {})
     {
         if (s_GRI)
         {
@@ -31,7 +31,7 @@ public:
         s_GRI->init();
         get_command_list().initialise_context(s_GRI->get_context());
 
-        Renderer::init();
+        Renderer::init(renderer_cfg);
     }
 
     static void shutdown()

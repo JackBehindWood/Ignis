@@ -18,6 +18,8 @@ static MTL::PixelFormat metal_pixel_format(GRIPixelFormat format)
             return MTL::PixelFormatBGRA8Unorm;
         case GRIPixelFormat::RGBA8Unorm:
             return MTL::PixelFormatRGBA8Unorm;
+        case GRIPixelFormat::RGBA16Float:
+            return MTL::PixelFormatRGBA16Float;
         case GRIPixelFormat::Depth32Float:
             return MTL::PixelFormatDepth32Float;
         default:
@@ -190,6 +192,44 @@ GRIPixelShaderPtr MetalGRI::create_pixel_shader(const GRIShaderDesc& desc)
     return create_shared<MetalPixelShader>(fn);
 }
 
+GRIComputeShaderPtr MetalGRI::create_compute_shader(const GRIShaderDesc& desc)
+{
+    IG_CORE_ASSERT(desc.bytecode_data && desc.bytecode_size && desc.entry_point,
+                   "GRIShaderDesc requires bytecode and entry point");
+
+    MTL::Function* fn =
+        MetalShaderLibrary::get().load_hardware_function(desc.bytecode_data, desc.bytecode_size, desc.entry_point);
+
+    if (!fn)
+    {
+        return nullptr;
+    }
+
+    return create_shared<MetalComputeShader>(fn);
+}
+
+GRIComputePipelineStatePtr MetalGRI::create_compute_pipeline_state(const GRIComputePipelineStateDesc& desc)
+{
+    IG_CORE_ASSERT(desc.compute_shader, "GRIComputePipelineStateDesc requires a compute shader");
+    IG_CORE_ASSERT(desc.compute_shader->get_stage() == GRIShaderStage::Compute,
+                   "create_compute_pipeline_state: shader stage must be Compute");
+
+    auto* mcs = static_cast<MetalComputeShader*>(desc.compute_shader);
+
+    NS::Error*                 error = nullptr;
+    MTL::ComputePipelineState* pso   = m_device->get_device()->newComputePipelineState(mcs->get_function(), &error);
+
+    if (!pso)
+    {
+        IG_CORE_ERROR("MetalGRI: compute pipeline state error: {}",
+                      error ? error->localizedDescription()->utf8String() : "unknown");
+        return nullptr;
+    }
+
+    const MTL::Size tg{desc.threadgroup_size_x, desc.threadgroup_size_y, desc.threadgroup_size_z};
+    return create_shared<MetalComputePipelineState>(pso, tg);
+}
+
 GRIPipelineStatePtr MetalGRI::create_graphics_pipeline_state(const GRIPipelineStateDesc& desc)
 {
     MTL_AUTORELEASE_POOL;
@@ -318,4 +358,32 @@ MetalPipelineState::~MetalPipelineState()
         m_depth_stencil_state->release();
     }
 }
+
+MetalComputeShader::MetalComputeShader(MTL::Function* function)
+    : m_function(function)
+{
+}
+
+MetalComputeShader::~MetalComputeShader()
+{
+    if (m_function)
+    {
+        m_function->release();
+    }
+}
+
+MetalComputePipelineState::MetalComputePipelineState(MTL::ComputePipelineState* pso, MTL::Size threadgroup_size)
+    : m_pso(pso),
+      m_threadgroup_size(threadgroup_size)
+{
+}
+
+MetalComputePipelineState::~MetalComputePipelineState()
+{
+    if (m_pso)
+    {
+        m_pso->release();
+    }
+}
+
 } // namespace Ignis

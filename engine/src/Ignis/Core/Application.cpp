@@ -25,7 +25,12 @@ Application::Application(const ApplicationSpecification& specification)
     Filesystem::current_path(working_directory);
     ShaderCache::get().set_cache_root(working_directory / "shadercache");
 
-    RenderSystem::init(GRIRenderAPI::Metal);
+    RendererConfig renderer_cfg;
+    if (!specification.engine_shaders_root.empty())
+    {
+        renderer_cfg.engine_shaders = specification.engine_shaders_root;
+    }
+    RenderSystem::init(GRIRenderAPI::Metal, renderer_cfg);
 
     m_window.init(specification.name.c_str(), specification.width, specification.height);
 }

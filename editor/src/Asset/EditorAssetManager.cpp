@@ -1,6 +1,8 @@
 #include "edpch.h"
 #include "Asset/EditorAssetManager.h"
 #include "Ignis/Asset/AssetManager.h"
+#include <Ignis/Rendering/Renderer.h>
+#include <Ignis/Rendering/RenderTexture2D.h>
 
 namespace Ignis
 {
@@ -28,6 +30,8 @@ void EditorAssetManager::on_project_opened(const ProjectContext& ctx)
         cfg.engine_compiled_root = m_engine_root / "cache";
     }
     AssetManager::get().init(cfg);
+
+    ensure_brdf_lut();
 }
 
 void EditorAssetManager::on_project_closed()
@@ -40,10 +44,42 @@ void EditorAssetManager::on_project_closed()
 
 // --- Setup ---
 
-void EditorAssetManager::set_engine_root(const Path& root)
+void EditorAssetManager::set_engine_root(const Path& root, const Path& engine_shaders)
 {
     m_engine_root       = root;
     m_engine_asset_root = root / "assets";
+    m_ibl_baker.init(engine_shaders);
+}
+
+void EditorAssetManager::ensure_brdf_lut()
+{
+    GlobalEngineCache& cache = Renderer::get_global_cache();
+    if (cache.get_brdf_lut())
+    {
+        return;
+    }
+
+    const Path cache_dir = m_engine_root / "cache";
+    const Path lut_path  = cache_dir / "brdf_lut.igasset";
+
+    if (Filesystem::exists(lut_path))
+    {
+        // TODO: load from disk and upload to GlobalEngineCache when TextureHandler v3 is wired
+        // For now fall through to bake so the LUT is always available
+    }
+
+    GRITexture2DPtr lut = m_ibl_baker.bake_brdf_lut(cache_dir);
+    if (lut)
+    {
+        const uint32_t sz = lut->get_width();
+        auto           rt = create_shared<RenderTexture2D>(std::move(lut), sz, sz, GRIPixelFormat::RG16Float);
+        cache.set_brdf_lut(std::move(rt));
+    }
+}
+
+IBLBakeResult EditorAssetManager::cook_ibl_environment(const Path& equirect_abs_path)
+{
+    return m_ibl_baker.bake_environment(equirect_abs_path);
 }
 
 void EditorAssetManager::set_project_root(const Path& root, const String& asset_source_dir)

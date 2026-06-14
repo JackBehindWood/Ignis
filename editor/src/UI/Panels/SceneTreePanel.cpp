@@ -176,6 +176,14 @@ void SceneTreePanel::draw_entity_node(SceneEditorData* data, Entity& e)
         *data->selected_entity = e;
     }
 
+    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+    {
+        if (e.has_component<TransformComponent>())
+        {
+            data->focus_request = e.get_component<TransformComponent>().position;
+        }
+    }
+
     bool destroy = false;
     if (ImGui::BeginPopupContextItem())
     {

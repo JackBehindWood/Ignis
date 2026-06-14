@@ -17,7 +17,7 @@ public:
     ~Editor() override;
 
 private:
-    void        bootstrap(const Path& engine_root);
+    void        bootstrap(const Path& engine_root, const Path& shaders_root);
     static void on_asset_reloaded(AssetID id);
 };
 

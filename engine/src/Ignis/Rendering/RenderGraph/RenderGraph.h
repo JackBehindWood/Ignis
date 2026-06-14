@@ -25,6 +25,13 @@ public:
     void        reset();
     const char* intern_string(const char* src);
 
+    struct RGBarrier
+    {
+        GRIResource*   resource;
+        GRIAccessFlags old_access;
+        GRIAccessFlags new_access;
+    };
+
 private:
     void compile();
     void fold_pass_into_fingerprint(const RGPassBase& pass, const char* name);
@@ -54,6 +61,7 @@ private:
     Vector<GRITexture2D*>              m_resolved_tex;
     Vector<GRIBuffer*>                 m_resolved_buf;
     Vector<uint16_t>                   m_sorted_passes;
+    Vector<Vector<RGBarrier>>          m_sorted_barriers;
 
     RenderGraphResourcePool m_pool;
     TopologyCache           m_topo_cache;

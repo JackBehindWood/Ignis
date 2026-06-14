@@ -52,6 +52,7 @@ GRIBufferPtr MetalGRI::create_buffer(const GRIBufferDesc& desc, const void* init
     return create_shared<MetalBuffer>(buffer, desc.size);
 }
 
+// TODO: use our resource transfer command buffer!
 void MetalGRI::update_buffer(GRIBuffer* buffer, const void* data, uint32_t size, uint32_t offset)
 {
     MetalBuffer* mb = resource_cast<GRIBuffer>(buffer);
@@ -61,5 +62,9 @@ void MetalGRI::update_buffer(GRIBuffer* buffer, const void* data, uint32_t size,
     // On Apple Silicon (StorageModeShared) no flush is needed.
     // Intel / StorageModeManaged would require:
     // mb->get_buffer()->didModifyRange(NS::Range::Make(offset, size));
+}
+void MetalGRI::invalidate_compiled_shader(uint64_t bytecode_hash)
+{
+    MetalShaderLibrary::get().invalidate(bytecode_hash);
 }
 } // namespace Ignis

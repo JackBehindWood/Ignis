@@ -4,10 +4,9 @@
 
 | File | Magic | Role |
 |---|---|---|
-| `<name>_<hash>.igasset` | `IGAS` v1 | Asset recipe — source path + entry points. No bytecode. |
-| `<name>_<hash>.igsh`    | `IGSH` v8 | Compiled cache blob — bytecode + reflection + content hash. |
+| `<name>_<hash>.igasset` | `IGAS` v2 | Asset recipe — source path + entry points. No bytecode. |
+| `<name>_<hash>.igsh`    | `IGSH` v2 | Compiled cache blob — bytecode + reflection + content hash. One file per stage. |
 
----
 
 ## Layer types
 
@@ -25,18 +24,17 @@ ShaderTarget  (Ignis/Rendering/ShaderTarget.h)
   HLSL=4 is a SpirvCompiler::create() factory selector, not a cook-time output.
 
 ShaderReflection  (Ignis/Rendering/ShaderReflection.h)
-  ShaderResourceBinding { name, set, binding }
+  ShaderResourceBinding { name, set, binding, is_unbounded }
   ShaderStageInput      { name, location }
   ShaderPushConstant    { name, size }
   Fields: uniform_buffers, storage_buffers, separate_images, separate_samplers,
-          stage_inputs, push_constants
+          stage_inputs, stage_outputs, push_constants
 ```
 
 `SpirvReflection` is backend-private. `ShaderCompiler` translates it to `ShaderReflection`.
 
 `AssetShaderCompiler` (in `Ignis/Asset/`) is asset-layer — see `asset-system.md`.
 
----
 
 ## .igasset format (IGAS v2)
 
@@ -56,26 +54,28 @@ per dep:
 
 Written by `AssetShaderCompiler::compile()`. `dep_path` includes the source file and all `#include "..."` files. `ShaderLoader` checks each dep's mtime against the recorded value; any newer → recompile.
 
----
 
-## Shader cache blob format (IGSH v8)
+## Shader cache blob format (IGSH v2)
+
+One file per stage; filename: `<stem>_<stage_hash_hex8>.igsh`.
 
 ```
-[magic 'IGSH'][version u8=8]
+[magic 'IGSH'][version u8=2]
 source_hash_lo  u32
-source_hash_hi  u32             // FNV-1a 64-bit hash of source file content, split lo/hi
+source_hash_hi  u32             // FNV-1a 64-bit hash of source content, split lo/hi
 target          u8
-num_stages      u8              // always 2
 
-Per stage:
-  stage_type(u8)  entry_point(str)  bytecode_size(u32)  bytecode
-  reflection: [uniform_buffers, storage_buffers, separate_images, separate_samplers,
-               stage_inputs, push_constants] — each as count(u32) + entries
+stage_type(u8)  entry_point(str)  bytecode_size(u32)  bytecode
+reflection:
+  uniform_buffers, storage_buffers, separate_images, separate_samplers
+    — each as count(u32) + entries: name(str) set(u32) binding(u32) is_unbounded(u8)
+  stage_inputs  — count(u32) + entries: name(str) location(u32)
+  stage_outputs — count(u32) + entries: name(str) location(u32)
+  push_constants — count(u32) + entries: name(str) size(u32)
 ```
 
 Written and read exclusively by `ShaderCache`. Lives in `ShaderCache::m_cache_root`.
 
----
 
 ## ShaderCache  (Ignis/Rendering/ShaderCache.h)
 
@@ -96,7 +96,6 @@ Cache filename: `<stem>_<path_hash_hex8>.igsh` — stable name, invalidated by e
 
 Internal renderer shaders call `get_or_compile()` directly — no `AssetID`, no registry.
 
----
 
 ## Data flows
 
@@ -121,7 +120,6 @@ AssetManager::load_as<AssetShader>(ps_id)  // same flow, stage = Pixel
 ShaderCache::get().get_or_compile("engine/shaders/pbr.hlsl") → SharedPtr<RenderShader>
 ```
 
----
 
 ## Caching layers
 
@@ -131,7 +129,22 @@ ShaderCache::get().get_or_compile("engine/shaders/pbr.hlsl") → SharedPtr<Rende
 | `ShaderCache::m_memory` | path hash | source content hash mismatch |
 | `.igsh` disk blob | filename (path hash) | embedded content hash mismatch → recompile |
 
----
+
+## MSL Metal Buffer Index Convention
+
+`MslSpirvCompiler::apply_bindings_and_compile` maps both UBOs and SBOs using `msl_buffer = desc_set`.
+The HLSL register space IS the Metal buffer index:
+
+| HLSL declaration | set | msl_buffer | C++ binding call slot |
+|---|---|---|---|
+| `register(b0)` (no space) | 0 | 0 | slot 0 — legacy shaders |
+| `register(b0, space1)` | 1 | 1 | slot 1 — `g_frame` (Ignis.hlsl) |
+| `register(b0, space3)` | 3 | 3 | slot 3 — `g_material` (MaterialArgs) |
+| `register(t0, space28)` | 28 | 28 | Metal vertex buffer 28 — instance SBO |
+
+`Renderer::bind_frame_data` binds at both slot 0 and slot 1 for backward + forward compatibility.
+`UniformSlot::MaterialArgs = 3`.
+
 
 ## SPIRV compiler stack (IgnisBackend/spirv/)
 

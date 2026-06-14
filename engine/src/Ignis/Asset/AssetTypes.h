@@ -16,6 +16,8 @@ enum class AssetPixelFormat : uint8_t
     Unknown      = 0,
     RGBA8Unorm   = 1,
     BGRA8Unorm   = 2,
-    Depth32Float = 3,
+    RGBA16Float  = 3,
+    Depth32Float = 4,
+    RG16Float    = 5,
 };
 } // namespace Ignis

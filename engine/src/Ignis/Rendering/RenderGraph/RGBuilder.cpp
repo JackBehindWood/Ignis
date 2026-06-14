@@ -3,6 +3,7 @@
 #include "RenderGraph.h"
 #include <Ignis/Rendering/GRI/GRI.h>
 #include <Ignis/Rendering/GRI/GRICommandList.h>
+#include <Ignis/Rendering/GRI/GRIDefinitions.h>
 #include <Ignis/Rendering/Renderer.h>
 
 namespace Ignis
@@ -61,7 +62,7 @@ RGBufferHandle RGBuilder::create_buffer(const char* name, const RGBufferDesc& de
     return m_graph.register_buffer(std::move(vb));
 }
 
-RGBufferHandle RGBuilder::import_buffer(const char* name, GRIBuffer* physical)
+RGBufferHandle RGBuilder::import_buffer(const char* name, GRIBuffer* physical, GRIBufferUsage usage)
 {
     IG_CORE_ASSERT(physical, "import_buffer requires a valid physical pointer");
     RGInternal::VirtualBuffer vb;
@@ -69,6 +70,7 @@ RGBufferHandle RGBuilder::import_buffer(const char* name, GRIBuffer* physical)
     vb.physical    = physical;
     vb.is_imported = true;
     vb.ref_count   = 1;
+    vb.desc.usage  = usage;
     return m_graph.register_buffer(std::move(vb));
 }
 
@@ -124,7 +126,7 @@ void RGBuilder::read_depth_stencil(RGTextureHandle h, const RGDepthAttachmentDes
 void RGBuilder::write_storage_texture(RGTextureHandle h)
 {
     IG_CORE_ASSERT(h.is_valid(), "write_storage_texture: invalid handle");
-    m_current_deps.texture_writes.push_back(h.id);
+    m_current_deps.storage_texture_writes.push_back(h.id);
 }
 
 void RGBuilder::read_buffer(RGBufferHandle h)
@@ -138,6 +140,26 @@ void RGBuilder::write_buffer(RGBufferHandle h)
 {
     IG_CORE_ASSERT(h.is_valid(), "write_buffer: invalid handle");
     m_current_deps.buffer_writes.push_back(h.id);
+}
+
+void RGBuilder::read_storage_buffer(RGBufferHandle h)
+{
+    IG_CORE_ASSERT(h.is_valid(), "read_storage_buffer: invalid handle");
+    m_graph.get_virtual_buffer(h.id).ref_count++;
+    m_current_deps.storage_buffer_reads.push_back(h.id);
+}
+
+void RGBuilder::write_storage_buffer(RGBufferHandle h)
+{
+    IG_CORE_ASSERT(h.is_valid(), "write_storage_buffer: invalid handle");
+    m_current_deps.storage_buffer_writes.push_back(h.id);
+}
+
+void RGBuilder::read_storage_texture(RGTextureHandle h)
+{
+    IG_CORE_ASSERT(h.is_valid(), "read_storage_texture: invalid handle");
+    m_graph.get_virtual_texture(h.id).ref_count++;
+    m_current_deps.storage_texture_reads.push_back(h.id);
 }
 
 // --- Physical Resource Access ---
@@ -158,23 +180,188 @@ GRIBuffer* RGBuilder::get_physical(RGBufferHandle h) const
 
 // --- Frame Pipeline ---
 
+// Returns true if every barrier in the slot is WAW (ComputeWrite → ComputeWrite).
+// An empty barrier list is trivially WAW — no hazard, encoder may remain open.
+static bool all_barriers_waw(const Vector<RenderGraph::RGBarrier>& barriers)
+{
+    for (const RenderGraph::RGBarrier& b : barriers)
+    {
+        if (!has_flag(b.old_access, GRIAccessFlags::ComputeWrite) ||
+            !has_flag(b.new_access, GRIAccessFlags::ComputeWrite))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 void RGBuilder::execute(GRICommandList& cmd)
 {
     m_graph.compile();
 
-    for (uint16_t idx : m_graph.m_sorted_passes)
+    const size_t pass_count         = m_graph.m_sorted_passes.size();
+    bool         compute_chain_open = false;
+
+    for (size_t si = 0; si < pass_count; ++si)
     {
-        RGPassBase*       pass = m_graph.m_passes[idx];
-        GRIRenderPassInfo info = m_graph.build_pass_info(*pass);
-        cmd.begin_render_pass(info);
-        pass->run_execute(cmd);
-        cmd.end_render_pass();
+        // Emit pre-pass barriers into the deferred command list.
+        // WAW barriers fire while the compute encoder is still open (intra-encoder path).
+        // All other barriers find the encoder already closed (no-op for encoder management;
+        // Metal's endEncoding from end_compute_pass already provided coherence).
+        for (const RenderGraph::RGBarrier& b : m_graph.m_sorted_barriers[si])
+        {
+            cmd.memory_barrier(b.resource, b.old_access, b.new_access);
+        }
+
+        const uint16_t idx  = m_graph.m_sorted_passes[si];
+        RGPassBase&    pass = *m_graph.m_passes[idx];
+
+        if (pass.pass_type == RGPassType::Compute)
+        {
+            if (!compute_chain_open)
+            {
+                // Open one compute encoder for this pass and all subsequent WAW-chained
+                // compute passes, declaring the union of their resources up-front so that
+                // Metal's useResource sweep covers every buffer/texture in the chain.
+                Vector<GRIBuffer*>    chain_bufs;
+                Vector<GRITexture2D*> chain_texs;
+
+                for (size_t csi = si; csi < pass_count; ++csi)
+                {
+                    const RGPassBase& cp = *m_graph.m_passes[m_graph.m_sorted_passes[csi]];
+                    if (cp.pass_type != RGPassType::Compute)
+                    {
+                        break;
+                    }
+
+                    for (uint16_t bid : cp.storage_buffer_reads)
+                    {
+                        if (GRIBuffer* p = m_graph.m_resolved_buf[bid])
+                        {
+                            chain_bufs.push_back(p);
+                        }
+                    }
+                    for (uint16_t bid : cp.storage_buffer_writes)
+                    {
+                        if (GRIBuffer* p = m_graph.m_resolved_buf[bid])
+                        {
+                            chain_bufs.push_back(p);
+                        }
+                    }
+                    for (uint16_t tid : cp.storage_texture_reads)
+                    {
+                        if (GRITexture2D* p = m_graph.m_resolved_tex[tid])
+                        {
+                            chain_texs.push_back(p);
+                        }
+                    }
+                    for (uint16_t tid : cp.storage_texture_writes)
+                    {
+                        if (GRITexture2D* p = m_graph.m_resolved_tex[tid])
+                        {
+                            chain_texs.push_back(p);
+                        }
+                    }
+
+                    // Stop collecting if the next pass breaks the WAW chain.
+                    if (csi + 1 >= pass_count)
+                    {
+                        break;
+                    }
+                    const RGPassBase& np = *m_graph.m_passes[m_graph.m_sorted_passes[csi + 1]];
+                    if (np.pass_type != RGPassType::Compute)
+                    {
+                        break;
+                    }
+                    if (!all_barriers_waw(m_graph.m_sorted_barriers[csi + 1]))
+                    {
+                        break;
+                    }
+                }
+
+                cmd.begin_compute_pass(std::move(chain_bufs), std::move(chain_texs));
+                compute_chain_open = true;
+            }
+
+            pass.run_execute(cmd);
+
+            // Keep the encoder open only if the next pass continues this WAW chain.
+            bool keep_chain = false;
+            if (si + 1 < pass_count)
+            {
+                const RGPassBase& next_pass = *m_graph.m_passes[m_graph.m_sorted_passes[si + 1]];
+                keep_chain =
+                    next_pass.pass_type == RGPassType::Compute && all_barriers_waw(m_graph.m_sorted_barriers[si + 1]);
+            }
+
+            if (!keep_chain)
+            {
+                cmd.end_compute_pass();
+                compute_chain_open = false;
+            }
+        }
+        else
+        {
+            // Graphics pass: close any open compute chain first so begin_render_pass
+            // always opens a fresh render encoder with no competing encoder active.
+            if (compute_chain_open)
+            {
+                cmd.end_compute_pass();
+                compute_chain_open = false;
+            }
+
+            // Assemble MetalPassResourceList: storage buffer/texture deps + IndirectBuffer reads.
+            // begin_render_pass sweeps this list with useResource so Metal schedules all draws.
+            Vector<GRIBuffer*>    res_bufs;
+            Vector<GRITexture2D*> res_texs;
+
+            for (uint16_t bid : pass.storage_buffer_reads)
+            {
+                if (GRIBuffer* p = m_graph.m_resolved_buf[bid])
+                {
+                    res_bufs.push_back(p);
+                }
+            }
+            for (uint16_t bid : pass.storage_buffer_writes)
+            {
+                if (GRIBuffer* p = m_graph.m_resolved_buf[bid])
+                {
+                    res_bufs.push_back(p);
+                }
+            }
+            for (uint16_t bid : pass.buffer_reads)
+            {
+                if (has_flag(m_graph.m_buffers[bid].desc.usage, GRIBufferUsage::IndirectBuffer))
+                {
+                    if (GRIBuffer* p = m_graph.m_resolved_buf[bid])
+                    {
+                        res_bufs.push_back(p);
+                    }
+                }
+            }
+            for (uint16_t tid : pass.storage_texture_reads)
+            {
+                if (GRITexture2D* p = m_graph.m_resolved_tex[tid])
+                {
+                    res_texs.push_back(p);
+                }
+            }
+            for (uint16_t tid : pass.storage_texture_writes)
+            {
+                if (GRITexture2D* p = m_graph.m_resolved_tex[tid])
+                {
+                    res_texs.push_back(p);
+                }
+            }
+
+            GRIRenderPassInfo info = m_graph.build_pass_info(pass);
+            cmd.begin_render_pass(info, std::move(res_bufs), std::move(res_texs));
+            pass.run_execute(cmd);
+            cmd.end_render_pass();
+        }
     }
 
-    for (RGPassBase* pass : m_graph.m_passes)
-    {
-        pass->run_destructor();
-    }
+    IG_CORE_ASSERT(!compute_chain_open, "RenderGraph: compute chain still open at end of frame");
 
     m_graph.reset();
 }
@@ -186,17 +373,22 @@ void* RGBuilder::arena_alloc(size_t size, size_t alignment)
     return m_graph.m_arena.allocate(size, alignment);
 }
 
-void RGBuilder::commit_pass(const char* name, RGPassBase* pass)
+void RGBuilder::commit_pass(const char* name, RGPassBase* pass, RGPassType type)
 {
-    pass->name            = m_graph.intern_string(name);
-    pass->texture_reads   = std::move(m_current_deps.texture_reads);
-    pass->buffer_reads    = std::move(m_current_deps.buffer_reads);
-    pass->texture_writes  = std::move(m_current_deps.texture_writes);
-    pass->buffer_writes   = std::move(m_current_deps.buffer_writes);
-    pass->num_color_slots = m_current_deps.num_color_slots;
-    pass->has_depth       = m_current_deps.has_depth;
-    pass->depth_read_only = m_current_deps.depth_read_only;
-    pass->depth_slot      = m_current_deps.depth_slot;
+    pass->pass_type              = type;
+    pass->name                   = m_graph.intern_string(name);
+    pass->texture_reads          = std::move(m_current_deps.texture_reads);
+    pass->buffer_reads           = std::move(m_current_deps.buffer_reads);
+    pass->texture_writes         = std::move(m_current_deps.texture_writes);
+    pass->buffer_writes          = std::move(m_current_deps.buffer_writes);
+    pass->storage_buffer_reads   = std::move(m_current_deps.storage_buffer_reads);
+    pass->storage_buffer_writes  = std::move(m_current_deps.storage_buffer_writes);
+    pass->storage_texture_reads  = std::move(m_current_deps.storage_texture_reads);
+    pass->storage_texture_writes = std::move(m_current_deps.storage_texture_writes);
+    pass->num_color_slots        = m_current_deps.num_color_slots;
+    pass->has_depth              = m_current_deps.has_depth;
+    pass->depth_read_only        = m_current_deps.depth_read_only;
+    pass->depth_slot             = m_current_deps.depth_slot;
     std::memcpy(pass->color_slots, m_current_deps.color_slots, sizeof(pass->color_slots));
 
     m_graph.m_passes.push_back(pass);
@@ -210,6 +402,10 @@ void RGBuilder::PassDependencies::reset()
     buffer_reads.clear();
     texture_writes.clear();
     buffer_writes.clear();
+    storage_buffer_reads.clear();
+    storage_buffer_writes.clear();
+    storage_texture_reads.clear();
+    storage_texture_writes.clear();
     for (auto& s : color_slots)
     {
         s            = {};

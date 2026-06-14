@@ -13,12 +13,35 @@ namespace Ignis
 class MetalCommandContext : public GRICommandContext
 {
 private:
-    MetalDevice&               m_device;
-    MetalStateCache            m_state_cache;
-    MetalCommandBuffer*        m_command_buffer;
-    MetalViewport*             m_active_viewport;
-    MetalRenderCommandEncoder* m_render_encoder;
-    MTL::SamplerState*         m_default_sampler;
+    MetalDevice&                m_device;
+    MetalStateCache             m_state_cache;
+    MetalCommandBuffer*         m_command_buffer;
+    MetalCommandBuffer*         m_compute_command_buffer;
+    MetalViewport*              m_active_viewport;
+    MetalRenderCommandEncoder*  m_render_encoder;
+    MetalComputeCommandEncoder* m_compute_encoder;
+    MTL::Size                   m_active_threadgroup_size;
+    MTL::SamplerState*          m_default_sampler;
+
+    void end_render_encoder()
+    {
+        if (!m_render_encoder)
+        {
+            return;
+        }
+        delete m_render_encoder;
+        m_render_encoder = nullptr;
+    }
+
+    void end_compute_encoder()
+    {
+        if (!m_compute_encoder)
+        {
+            return;
+        }
+        delete m_compute_encoder;
+        m_compute_encoder = nullptr;
+    }
 
 public:
     MetalCommandContext(MetalDevice& device);
@@ -33,8 +56,13 @@ public:
                                     const GRIDepthRenderTargetView* depth_stencil_target) override;
     virtual void set_render_targets_and_clear(const GRIRenderTargetsInfo& info) override;
 
-    virtual void begin_render_pass(const GRIRenderPassInfo& info) override;
+    virtual void begin_render_pass(const GRIRenderPassInfo& info, const Vector<GRIBuffer*>& storage_buffers,
+                                   const Vector<GRITexture2D*>& storage_textures) override;
     virtual void end_render_pass() override;
+
+    virtual void begin_compute_pass(const Vector<GRIBuffer*>&    storage_bufs,
+                                    const Vector<GRITexture2D*>& storage_textures) override;
+    virtual void end_compute_pass() override;
 
     virtual void set_vertex_buffer(GRIBuffer* buffer, uint32_t offset, uint32_t buffer_index) override;
     virtual void set_index_buffer(GRIBuffer* buffer, GRIIndexFormat format, uint32_t offset) override;
@@ -48,6 +76,15 @@ public:
     virtual void draw_indexed_primitives_instanced(uint32_t index_count, uint32_t instance_count,
                                                    uint32_t base_instance, uint32_t first_index,
                                                    int32_t vertex_offset) override;
+
+    virtual void set_compute_pipeline_state(GRIComputePipelineState* pso) override;
+    virtual void set_storage_buffer(GRIBuffer* buffer, uint32_t slot) override;
+    virtual void set_storage_texture(GRITexture2D* texture, uint32_t slot, uint32_t mip_level = 0,
+                                     uint32_t array_slice = 0) override;
+    virtual void set_compute_sampler(GRISamplerState* sampler, uint32_t slot) override;
+    virtual void dispatch(uint32_t x, uint32_t y, uint32_t z) override;
+    virtual void draw_indexed_primitives_indirect(GRIBuffer* args_buf, uint32_t byte_offset) override;
+    virtual void memory_barrier(GRIResource* resource, GRIAccessFlags old_access, GRIAccessFlags new_access) override;
 
     inline MTL::CommandBuffer* get_current_command_buffer() const
     {

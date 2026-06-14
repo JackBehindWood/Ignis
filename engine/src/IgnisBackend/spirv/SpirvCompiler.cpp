@@ -1,5 +1,6 @@
 #include "igpch.h"
 #include "SpirvCompiler.h"
+#include "SpirvUtils.h"
 
 #include <spirv_cross.hpp>
 
@@ -19,44 +20,15 @@ static void read_bindings(const spirv_cross::Compiler&                          
     dst.reserve(src.size());
     for (const spirv_cross::Resource& r : src)
     {
+        const auto& type         = compiler.get_type(r.type_id);
+        const bool  is_unbounded = !type.array.empty() && type.array[0] == 0;
         dst.push_back({
             r.name,
             compiler.get_decoration(r.id, spv::DecorationDescriptorSet),
             compiler.get_decoration(r.id, spv::DecorationBinding),
+            is_unbounded,
         });
     }
-}
-
-// Extract the HLSL semantic string from a stage I/O resource.
-// Priority order:
-//   1. DecorationHlslSemanticGOOGLE (5635) — present on all DXC-compiled SPIR-V.
-//   2. Strip the "in_var_" / "out_var_" prefix from the variable name — DXC fallback.
-//   3. Raw variable name — handles hand-assembled SPIR-V with no DXC conventions.
-static String extract_semantic(const spirv_cross::Compiler& compiler, const spirv_cross::Resource& r)
-{
-    constexpr auto k_hlsl_semantic = static_cast<spv::Decoration>(5635);
-    if (compiler.has_decoration(r.id, k_hlsl_semantic))
-    {
-        String s = compiler.get_decoration_string(r.id, k_hlsl_semantic);
-        if (!s.empty())
-        {
-            return s;
-        }
-    }
-
-    // DXC emits dotted names on non-Windows ("in.var.SEMANTIC") and underscored names
-    // on Windows ("in_var_SEMANTIC"). Handle both forms.
-    const String& name = r.name;
-    for (const char* prefix : {"in.var.", "out.var.", "in_var_", "out_var_"})
-    {
-        const size_t plen = std::strlen(prefix);
-        if (name.size() > plen && name.compare(0, plen, prefix) == 0)
-        {
-            return name.substr(plen);
-        }
-    }
-
-    return name;
 }
 } // namespace Utils
 
@@ -69,6 +41,7 @@ SpirvReflection SpirvCompiler::reflect(const uint32_t* spirv, uint32_t word_coun
 
     Utils::read_bindings(compiler, resources.uniform_buffers, out.uniform_buffers);
     Utils::read_bindings(compiler, resources.storage_buffers, out.storage_buffers);
+    Utils::read_bindings(compiler, resources.storage_images, out.storage_textures);
     Utils::read_bindings(compiler, resources.separate_images, out.separate_images);
     Utils::read_bindings(compiler, resources.separate_samplers, out.separate_samplers);
 
@@ -76,7 +49,7 @@ SpirvReflection SpirvCompiler::reflect(const uint32_t* spirv, uint32_t word_coun
     for (const auto& r : resources.stage_inputs)
     {
         out.stage_inputs.push_back({
-            Utils::extract_semantic(compiler, r),
+            SpirvUtils::extract_semantic(compiler, r),
             compiler.get_decoration(r.id, spv::DecorationLocation),
         });
     }
@@ -85,7 +58,7 @@ SpirvReflection SpirvCompiler::reflect(const uint32_t* spirv, uint32_t word_coun
     for (const auto& r : resources.stage_outputs)
     {
         out.stage_outputs.push_back({
-            Utils::extract_semantic(compiler, r),
+            SpirvUtils::extract_semantic(compiler, r),
             compiler.get_decoration(r.id, spv::DecorationLocation),
         });
     }
@@ -98,6 +71,19 @@ SpirvReflection SpirvCompiler::reflect(const uint32_t* spirv, uint32_t word_coun
             r.name,
             static_cast<uint32_t>(compiler.get_declared_struct_size(type)),
         });
+    }
+
+    const auto& entry_points = compiler.get_entry_points_and_stages();
+    for (const auto& ep : entry_points)
+    {
+        if (ep.execution_model == spv::ExecutionModelGLCompute)
+        {
+            const auto& wgs        = compiler.get_entry_point(ep.name, ep.execution_model).workgroup_size;
+            out.threadgroup_size_x = wgs.x;
+            out.threadgroup_size_y = wgs.y;
+            out.threadgroup_size_z = wgs.z;
+            break;
+        }
     }
 
     return out;

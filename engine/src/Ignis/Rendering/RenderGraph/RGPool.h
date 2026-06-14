@@ -15,7 +15,7 @@ public:
                           uint32_t current_frame);
 
     GRIBuffer* acquire_buffer(const GRIBufferDesc& desc, uint16_t first_used, uint16_t last_used,
-                              uint32_t current_frame);
+                              uint32_t current_frame, bool allow_aliasing = true);
 
     void begin_frame(uint32_t current_frame);
 

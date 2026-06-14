@@ -23,7 +23,7 @@ namespace Ignis
 
 	void GRICommandBeginRenderPass::execute(GRICommandListBase& cmd_list)
 	{
-		INTERNAL_DECORATOR(begin_render_pass)(info);
+		INTERNAL_DECORATOR(begin_render_pass)(info, storage_buffers, storage_textures);
 	}
 
 	void GRICommandEndRenderPass::execute(GRICommandListBase& cmd_list)
@@ -70,6 +70,51 @@ namespace Ignis
 	void GRICommandSetTexture::execute(GRICommandListBase& cmd_list)
 	{
 		INTERNAL_DECORATOR(set_texture)(texture, slot, stage);
+	}
+
+	void GRICommandSetComputePipelineState::execute(GRICommandListBase& cmd_list)
+	{
+		INTERNAL_DECORATOR(set_compute_pipeline_state)(pso);
+	}
+
+	void GRICommandSetStorageBuffer::execute(GRICommandListBase& cmd_list)
+	{
+		INTERNAL_DECORATOR(set_storage_buffer)(buffer, slot);
+	}
+
+	void GRICommandSetStorageTexture::execute(GRICommandListBase& cmd_list)
+	{
+		INTERNAL_DECORATOR(set_storage_texture)(texture, slot, mip_level, array_slice);
+	}
+
+	void GRICommandSetComputeSampler::execute(GRICommandListBase& cmd_list)
+	{
+		INTERNAL_DECORATOR(set_compute_sampler)(sampler, slot);
+	}
+
+	void GRICommandDispatch::execute(GRICommandListBase& cmd_list)
+	{
+		INTERNAL_DECORATOR(dispatch)(x, y, z);
+	}
+
+	void GRICommandDrawIndexedPrimitivesIndirect::execute(GRICommandListBase& cmd_list)
+	{
+		INTERNAL_DECORATOR(draw_indexed_primitives_indirect)(args_buf, byte_offset);
+	}
+
+	void GRICommandMemoryBarrier::execute(GRICommandListBase& cmd_list)
+	{
+		INTERNAL_DECORATOR(memory_barrier)(resource, old_access, new_access);
+	}
+
+	void GRICommandBeginComputePass::execute(GRICommandListBase& cmd_list)
+	{
+		INTERNAL_DECORATOR(begin_compute_pass)(storage_buffers, storage_textures);
+	}
+
+	void GRICommandEndComputePass::execute(GRICommandListBase& cmd_list)
+	{
+		INTERNAL_DECORATOR(end_compute_pass)();
 	}
 }
 

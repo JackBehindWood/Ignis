@@ -8,11 +8,14 @@ namespace Ignis
 class AssetTexture2D : public Asset
 {
 public:
-    AssetTexture2D(AssetID id, AssetPixelFormat format, uint32_t width, uint32_t height, Vector<uint8_t> pixels)
+    AssetTexture2D(AssetID id, AssetPixelFormat format, uint32_t width, uint32_t height, Vector<uint8_t> pixels,
+                   bool is_cubemap = false, uint32_t num_faces = 1)
         : m_format(format),
           m_width(width),
           m_height(height),
-          m_pixels(std::move(pixels))
+          m_pixels(std::move(pixels)),
+          m_is_cubemap(is_cubemap),
+          m_num_faces(num_faces)
     {
         m_id = id;
     }
@@ -33,6 +36,14 @@ public:
     {
         return m_pixels;
     }
+    bool is_cubemap() const
+    {
+        return m_is_cubemap;
+    }
+    uint32_t get_num_faces() const
+    {
+        return m_num_faces;
+    }
 
     static AssetType static_type()
     {
@@ -44,6 +55,8 @@ private:
     uint32_t         m_width  = 0;
     uint32_t         m_height = 0;
     Vector<uint8_t>  m_pixels;
+    bool             m_is_cubemap = false;
+    uint32_t         m_num_faces  = 1;
 };
 
 } // namespace Ignis

@@ -153,12 +153,15 @@ public:
 
 struct GRITexture2DDesc
 {
-    uint32_t       width             = 0;
-    uint32_t       height            = 0;
-    uint32_t       num_mip_levels    = 1;
-    GRIPixelFormat format            = GRIPixelFormat::BGRA8Unorm;
-    const void*    initial_data      = nullptr;
-    size_t         initial_data_size = 0;
+    uint32_t       width                  = 0;
+    uint32_t       height                 = 0;
+    uint32_t       num_mip_levels         = 1;
+    uint32_t       array_layers           = 1;
+    GRIPixelFormat format                 = GRIPixelFormat::BGRA8Unorm;
+    bool           is_cubemap             = false;
+    bool           allow_unordered_access = false;
+    const void*    initial_data           = nullptr;
+    size_t         initial_data_size      = 0;
 };
 
 class GRITexture2D : public GRIResource
@@ -221,6 +224,36 @@ public:
     {
     }
     virtual ~GRIPixelShader() = default;
+};
+
+class GRIComputeShader : public GRIShader
+{
+public:
+    GRIComputeShader()
+        : GRIShader(GRIShaderStage::Compute)
+    {
+    }
+    virtual ~GRIComputeShader() = default;
+};
+
+class GRIComputePipelineState : public GRIResource
+{
+public:
+    GRIComputePipelineState()
+        : GRIResource(GRIResourceType::Pipeline)
+    {
+    }
+    virtual ~GRIComputePipelineState() = default;
+};
+
+class GRISamplerState : public GRIResource
+{
+public:
+    explicit GRISamplerState(GRIResourceType type = GRIResourceType::Sampler)
+        : GRIResource(type)
+    {
+    }
+    virtual ~GRISamplerState() = default;
 };
 
 // ---------- Vertex layout ----------

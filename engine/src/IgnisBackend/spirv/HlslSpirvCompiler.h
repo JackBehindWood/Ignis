@@ -8,12 +8,12 @@ class HlslSpirvCompiler : public SpirvCompiler
 public:
     // Register a virtual include file served from an in-memory source string.
     // virtual_path must match the path as written in the #include directive,
-    // e.g. "Ignis/Core.hlsl" to satisfy #include <Ignis/Core.hlsl>.
+    // e.g. "Ignis.hlsl" to satisfy #include <Ignis.hlsl>.
     void register_virtual_include(const String& virtual_path, const String& source);
 
-    // Set the base directory used to resolve relative #include directives.
-    // Should be the directory containing the HLSL source file being compiled.
-    void set_source_directory(const Path& dir);
+    // Set the ordered list of directories searched for relative #include resolution.
+    // First match wins. Replaces any previously set directories.
+    void set_include_dirs(const Vector<Path>& dirs);
 
 protected:
     Vector<uint32_t> compile_to_target(const String& source, const char* entry_point, spv::ExecutionModel exec_model,
@@ -25,7 +25,7 @@ protected:
 
 private:
     UnorderedMap<String, String> m_virtual_includes;
-    Path                         m_source_dir;
+    Vector<Path>                 m_include_dirs;
 };
 
 } // namespace Ignis

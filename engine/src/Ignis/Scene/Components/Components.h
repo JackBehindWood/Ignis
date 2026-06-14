@@ -63,4 +63,52 @@ struct TextureComponent
     AssetID texture_id;
 };
 
+IG_CLASS(Component)
+struct DirectionalLightComponent
+{
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    Math::Vec3f color = Math::Vec3f(1.0f, 1.0f, 1.0f);
+
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    float intensity = 1.0f;
+
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    Math::Vec3f direction = Math::Vec3f(0.0f, -1.0f, 0.0f);
+};
+
+IG_CLASS(Component)
+struct PointLightComponent
+{
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    Math::Vec3f color = Math::Vec3f(1.0f, 1.0f, 1.0f);
+
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    float intensity = 1.0f;
+
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    float radius = 10.0f;
+};
+
+IG_CLASS(Component)
+struct SpotLightComponent
+{
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    Math::Vec3f color = Math::Vec3f(1.0f, 1.0f, 1.0f);
+
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    float intensity = 1.0f;
+
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    float radius = 10.0f;
+
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    Math::Vec3f direction = Math::Vec3f(0.0f, -1.0f, 0.0f);
+
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    float inner_cone_angle = 20.0f;
+
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    float outer_cone_angle = 30.0f;
+};
+
 } // namespace Ignis

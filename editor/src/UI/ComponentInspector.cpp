@@ -22,6 +22,9 @@ const Vector<ComponentDescriptor>& ComponentInspector::all()
     return s_descriptors;
 }
 
+namespace Utils
+{
+
 // ---------- Asset thumbnail helpers ----------
 
 static ImTextureID imgui_tex(GRITexture2D* tex)
@@ -474,16 +477,160 @@ static void draw_camera(Entity& e)
     }
 }
 
+// ---------- Directional Light ----------
+
+static bool has_directional_light(Entity& e)
+{
+    return e.has_component<DirectionalLightComponent>();
+}
+static void add_directional_light(Entity& e)
+{
+    e.add_component<DirectionalLightComponent>();
+}
+static void remove_directional_light(Entity& e)
+{
+    e.remove_component<DirectionalLightComponent>();
+}
+static void draw_directional_light(Entity& e)
+{
+    if (!ImGui::CollapsingHeader("Directional Light", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        return;
+    }
+    auto& light = e.get_component<DirectionalLightComponent>();
+
+    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 72.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.5f);
+
+    draw_field("Color", e, light.color,
+               [](Entity& ent, const Math::Vec3f& v) { ent.get_component<DirectionalLightComponent>().color = v; });
+
+    draw_field(
+        "Intensity", e, light.intensity,
+        [](Entity& ent, const float& v) { ent.get_component<DirectionalLightComponent>().intensity = v; }, 0.05f);
+
+    draw_field("Direction", e, light.direction,
+               [](Entity& ent, const Math::Vec3f& v) { ent.get_component<DirectionalLightComponent>().direction = v; });
+
+    ImGui::PopStyleVar();
+    ImGui::PopItemWidth();
+}
+
+// ---------- Point Light ----------
+
+static bool has_point_light(Entity& e)
+{
+    return e.has_component<PointLightComponent>();
+}
+static void add_point_light(Entity& e)
+{
+    e.add_component<PointLightComponent>();
+}
+static void remove_point_light(Entity& e)
+{
+    e.remove_component<PointLightComponent>();
+}
+static void draw_point_light(Entity& e)
+{
+    if (!ImGui::CollapsingHeader("Point Light", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        return;
+    }
+    auto& light = e.get_component<PointLightComponent>();
+
+    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 72.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.5f);
+
+    draw_field("Color", e, light.color,
+               [](Entity& ent, const Math::Vec3f& v) { ent.get_component<PointLightComponent>().color = v; });
+
+    draw_field(
+        "Intensity", e, light.intensity,
+        [](Entity& ent, const float& v) { ent.get_component<PointLightComponent>().intensity = v; }, 0.05f);
+
+    draw_field(
+        "Radius", e, light.radius,
+        [](Entity& ent, const float& v) { ent.get_component<PointLightComponent>().radius = v; }, 0.1f);
+
+    ImGui::PopStyleVar();
+    ImGui::PopItemWidth();
+}
+
+// ---------- Spot Light ----------
+
+static bool has_spot_light(Entity& e)
+{
+    return e.has_component<SpotLightComponent>();
+}
+static void add_spot_light(Entity& e)
+{
+    e.add_component<SpotLightComponent>();
+}
+static void remove_spot_light(Entity& e)
+{
+    e.remove_component<SpotLightComponent>();
+}
+static void draw_spot_light(Entity& e)
+{
+    if (!ImGui::CollapsingHeader("Spot Light", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        return;
+    }
+    auto& light = e.get_component<SpotLightComponent>();
+
+    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 72.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.5f);
+
+    draw_field("Color", e, light.color,
+               [](Entity& ent, const Math::Vec3f& v) { ent.get_component<SpotLightComponent>().color = v; });
+
+    draw_field(
+        "Intensity", e, light.intensity,
+        [](Entity& ent, const float& v) { ent.get_component<SpotLightComponent>().intensity = v; }, 0.05f);
+
+    draw_field(
+        "Radius", e, light.radius,
+        [](Entity& ent, const float& v) { ent.get_component<SpotLightComponent>().radius = v; }, 0.1f);
+
+    draw_field("Direction", e, light.direction,
+               [](Entity& ent, const Math::Vec3f& v) { ent.get_component<SpotLightComponent>().direction = v; });
+
+    draw_field(
+        "Inner Angle", e, light.inner_cone_angle,
+        [](Entity& ent, const float& v) { ent.get_component<SpotLightComponent>().inner_cone_angle = v; }, 0.5f);
+
+    draw_field(
+        "Outer Angle", e, light.outer_cone_angle,
+        [](Entity& ent, const float& v) { ent.get_component<SpotLightComponent>().outer_cone_angle = v; }, 0.5f);
+
+    ImGui::PopStyleVar();
+    ImGui::PopItemWidth();
+}
+
+} // namespace Utils
+
 // ---------- Registration ----------
 
 void ComponentInspector::register_defaults()
 {
-    register_component({"Transform", "", has_transform, add_transform, remove_transform, draw_transform});
     register_component(
-        {"Mesh Renderer", "Rendering", has_mesh_renderer, add_mesh_renderer, remove_mesh_renderer, draw_mesh_renderer});
-    register_component({"Material", "Rendering", has_material, add_material, remove_material, draw_material});
-    register_component({"Texture", "Rendering", has_texture, add_texture, remove_texture, draw_texture});
-    register_component({"Camera", "Scene", has_camera, add_camera, remove_camera, draw_camera});
+        {"Transform", "", Utils::has_transform, Utils::add_transform, Utils::remove_transform, Utils::draw_transform});
+    register_component({"Mesh Renderer", "Rendering", Utils::has_mesh_renderer, Utils::add_mesh_renderer,
+                        Utils::remove_mesh_renderer, Utils::draw_mesh_renderer});
+    register_component({"Material", "Rendering", Utils::has_material, Utils::add_material, Utils::remove_material,
+                        Utils::draw_material});
+    register_component(
+        {"Texture", "Rendering", Utils::has_texture, Utils::add_texture, Utils::remove_texture, Utils::draw_texture});
+    register_component(
+        {"Camera", "Scene", Utils::has_camera, Utils::add_camera, Utils::remove_camera, Utils::draw_camera});
+
+    // Light Components Registration
+    register_component({"Directional Light", "Lighting", Utils::has_directional_light, Utils::add_directional_light,
+                        Utils::remove_directional_light, Utils::draw_directional_light});
+    register_component({"Point Light", "Lighting", Utils::has_point_light, Utils::add_point_light,
+                        Utils::remove_point_light, Utils::draw_point_light});
+    register_component({"Spot Light", "Lighting", Utils::has_spot_light, Utils::add_spot_light,
+                        Utils::remove_spot_light, Utils::draw_spot_light});
 }
 
 } // namespace Ignis

@@ -443,7 +443,7 @@ void EditorResourceCache::compile_all()
     GRIRasterDesc grid_raster;
     grid_raster.cull_mode                                  = GRICullMode::None;
     m_materials[static_cast<size_t>(EditorMaterial::Grid)] = Renderer::get_material_factory().get_or_create(
-        grid_vs, grid_ps, "", cfg.render_target_format, cfg.depth_format, {}, grid_raster, grid_blend);
+        grid_vs, grid_ps, "", GRIPixelFormat::RGBA16Float, cfg.depth_format, {}, grid_raster, grid_blend);
 
     SharedPtr<RenderShader> outline_vs =
         m_shader_cache.get_or_compile("outline_composite.hlsl", GRIShaderStage::Vertex);
@@ -463,7 +463,7 @@ void EditorResourceCache::compile_all()
     GRIRasterDesc outline_raster;
     outline_raster.cull_mode                                           = GRICullMode::None;
     m_materials[static_cast<size_t>(EditorMaterial::SelectionOutline)] = Renderer::get_material_factory().get_or_create(
-        outline_vs, outline_ps, "", cfg.render_target_format, GRIPixelFormat::Unknown, outline_ds, outline_raster,
+        outline_vs, outline_ps, "", GRIPixelFormat::RGBA16Float, GRIPixelFormat::Unknown, outline_ds, outline_raster,
         outline_blend);
 
     SharedPtr<RenderShader> thumb_vs = m_shader_cache.get_or_compile("thumbnail.hlsl", GRIShaderStage::Vertex);
@@ -500,7 +500,7 @@ void EditorResourceCache::compile_all()
         m_outline_params = RenderSystem::get_gri()->create_buffer(desc, &outline_params);
     }
 
-    EditorPrimitives::init(m_shader_cache);
+    EditorPrimitives::init();
 
     const SharedPtr<Material>& thumb_mat = m_materials[static_cast<size_t>(EditorMaterial::ThumbnailPreview)];
     if (thumb_mat)

@@ -10,6 +10,19 @@
 namespace Ignis
 {
 
+static uint64_t fnv1a_bytes(const uint8_t* data, size_t size)
+{
+    constexpr uint64_t k_basis = 14695981039346656037ULL;
+    constexpr uint64_t k_prime = 1099511628211ULL;
+    uint64_t           h       = k_basis;
+    for (size_t i = 0; i < size; ++i)
+    {
+        h ^= static_cast<uint64_t>(data[i]);
+        h *= k_prime;
+    }
+    return h ? h : 1;
+}
+
 void MetalShaderLibrary::init(MetalDevice* device)
 {
     m_device = device;
@@ -26,7 +39,8 @@ void MetalShaderLibrary::reset()
 
 MTL::Function* MetalShaderLibrary::load_hardware_function(const uint8_t* data, size_t size, const String& entry_point)
 {
-    const String fn_key = to_string(reinterpret_cast<uintptr_t>(data)) + ':' + entry_point;
+    const uint64_t hash   = fnv1a_bytes(data, size);
+    const String   fn_key = to_string(hash) + ':' + entry_point;
 
     auto fn_it = m_function_cache.find(fn_key);
     if (fn_it != m_function_cache.end())
@@ -63,6 +77,23 @@ MTL::Function* MetalShaderLibrary::load_hardware_function(const uint8_t* data, s
     m_function_cache.emplace(fn_key, function);
     function->retain();
     return function;
+}
+
+void MetalShaderLibrary::invalidate(uint64_t bytecode_hash)
+{
+    const String prefix = to_string(bytecode_hash) + ':';
+    for (auto it = m_function_cache.begin(); it != m_function_cache.end();)
+    {
+        if (it->first.compare(0, prefix.size(), prefix) == 0)
+        {
+            it->second->release();
+            it = m_function_cache.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
 }
 
 MetalShaderLibrary::~MetalShaderLibrary()

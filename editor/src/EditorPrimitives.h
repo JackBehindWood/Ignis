@@ -5,8 +5,6 @@
 namespace Ignis
 {
 
-class EditorShaderCache;
-
 enum class PrimShape : int
 {
     Triangle = 0,
@@ -21,7 +19,7 @@ enum class PrimShape : int
 class EditorPrimitives
 {
 public:
-    static void init(EditorShaderCache& shader_cache);
+    static void init();
 
     static constexpr uint64_t prim_material_key()
     {

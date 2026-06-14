@@ -18,4 +18,9 @@ MetalBuffer::~MetalBuffer()
         m_buffer->release();
     }
 }
+
+void MetalBuffer::bind_storage(MTL::ComputeCommandEncoder* encoder, uint32_t slot) const
+{
+    encoder->setBuffer(m_buffer, 0, slot);
+}
 } // namespace Ignis

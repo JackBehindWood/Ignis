@@ -3,6 +3,7 @@
 #include <Ignis.h>
 #include "Project/IProjectObserver.h"
 #include "IAssetEventObserver.h"
+#include "IBLBaker.h"
 
 namespace Ignis
 {
@@ -20,7 +21,7 @@ public:
     void on_project_opened(const ProjectContext& ctx) override;
     void on_project_closed() override;
 
-    void set_engine_root(const Path& root);
+    void set_engine_root(const Path& root, const Path& engine_shaders);
 
     const Path& engine_root() const
     {
@@ -30,6 +31,9 @@ public:
     {
         return m_project_root;
     }
+
+    void          ensure_brdf_lut();
+    IBLBakeResult cook_ibl_environment(const Path& equirect_abs_path);
 
     // --- Asset pipeline ---
     AssetID import_engine_asset(const Path& relative, AssetType type);
@@ -88,6 +92,7 @@ private:
     Path                         m_project_root;
     Path                         m_project_asset_root;
     Vector<IAssetEventObserver*> m_observers;
+    IBLBaker                     m_ibl_baker;
 };
 
 } // namespace Ignis

@@ -120,6 +120,7 @@ struct VirtualBuffer
     RGBufferDesc desc            = {};
     GRIBuffer*   physical        = nullptr;
     bool         is_imported     = false;
+    bool         allow_aliasing  = true; // false when IndirectBuffer flag set; held exclusively
     uint16_t     ref_count       = 0;
     uint16_t     writer_pass_idx = k_rg_invalid_id;
     uint16_t     first_used_pass = k_rg_invalid_id;

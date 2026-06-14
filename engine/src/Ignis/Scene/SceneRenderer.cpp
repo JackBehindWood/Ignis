@@ -1,511 +1,214 @@
 #include "igpch.h"
 #include "SceneRenderer.h"
-#include "Entity.h"
-#include "Components/Components.h"
-#include "Ignis/Asset/AssetManager.h"
-#include "Ignis/Asset/AssetMesh.h"
-#include "Ignis/Asset/AssetMaterial.h"
-#include "Ignis/Asset/AssetTexture2D.h"
-#include "Ignis/Rendering/Material.h"
 #include "Ignis/Rendering/Renderer.h"
 #include "Ignis/Rendering/RenderSystem.h"
 #include "Ignis/Rendering/RenderTexture2D.h"
 #include "Ignis/Rendering/RenderGraph/RGBuilder.h"
-#include "Ignis/Rendering/Shaders/ShaderCache.h"
-#include "Ignis/Rendering/VertexDeclarationRegistry.h"
 #include "Ignis/Rendering/StaticGeometryBatcher.h"
 
 namespace Ignis
 {
 
-namespace
+void SceneRenderer::ensure_gpu_buffers()
 {
-
-constexpr uint64_t k_fallback_material_key = 0xFFFF'FFFF'FFFF'FFFEull;
-constexpr uint64_t k_sel_mask_material_key = 0xFFFF'FFFF'FFFF'FFFDull;
-constexpr uint64_t k_white_texture_key     = 0xFFFF'FFFF'FFFF'FFFCull;
-
-constexpr const char* k_sel_mask_hlsl = R"(
-#pragma pack_matrix(column_major)
-struct FrameUniforms { float4x4 view_projection; };
-struct GPUInstanceData { float4x4 world_matrix; uint material_index; uint3 padding; };
-struct VertexIn { float3 position : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD; };
-struct VertexOut { float4 position : SV_POSITION; };
-ConstantBuffer<FrameUniforms> g_frame : register(b0);
-StructuredBuffer<GPUInstanceData> g_instances : register(t0, space28);
-VertexOut VSMain(VertexIn input, uint instanceID : SV_InstanceID)
-{
-    VertexOut o;
-    o.position = mul(g_frame.view_projection, mul(g_instances[instanceID].world_matrix, float4(input.position, 1.0)));
-    return o;
-}
-float4 PSMain(VertexOut input) : SV_TARGET { return float4(1.0, 0.0, 0.0, 1.0); }
-)";
-
-constexpr const char* k_fallback_hlsl = R"(
-#pragma pack_matrix(column_major)
-struct FrameUniforms { float4x4 view_projection; };
-struct GPUInstanceData { float4x4 world_matrix; uint material_index; uint3 padding; };
-struct VertexIn { float3 position : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD; };
-struct VertexOut { float4 position : SV_POSITION; };
-ConstantBuffer<FrameUniforms> g_frame : register(b0);
-StructuredBuffer<GPUInstanceData> g_instances : register(t0, space28);
-VertexOut VSMain(VertexIn input, uint instanceID : SV_InstanceID)
-{
-    VertexOut o;
-    o.position = mul(g_frame.view_projection, mul(g_instances[instanceID].world_matrix, float4(input.position, 1.0)));
-    return o;
-}
-float4 PSMain(VertexOut input) : SV_TARGET { return float4(1.0, 0.0, 1.0, 1.0); }
-)";
-
-} // namespace
-
-// #NOTE: Fallback shader seems to fail with compiling!
-void SceneRenderer::prepare(Scene& scene)
-{
-    if (!Renderer::get_resource_cache().find_material(k_fallback_material_key))
+    if (!m_entity_data_buffer)
     {
-        m_fallback_material = nullptr;
+        GRIBufferDesc d;
+        d.size               = k_max_instances * static_cast<uint32_t>(sizeof(GPUInstanceData));
+        d.usage              = static_cast<GRIBufferUsage>(static_cast<uint32_t>(GRIBufferUsage::VertexBuffer) |
+                                                           static_cast<uint32_t>(GRIBufferUsage::Dynamic));
+        m_entity_data_buffer = RenderSystem::get_gri()->create_buffer(d);
     }
-    if (!m_fallback_material)
+    if (!m_cull_input_buffer)
     {
-        ShaderCompilerOptions fallback_opts;
-        fallback_opts.stages[0] = {GRIShaderStage::Vertex};
-        fallback_opts.stages[1] = {GRIShaderStage::Pixel};
-        fallback_opts.count     = 2;
-
-        const RendererConfig&   cfg = Renderer::get_config();
-        SharedPtr<RenderShader> vs  = ShaderCache::get().get_or_compile(String(k_fallback_hlsl), "_fallback",
-                                                                        GRIShaderStage::Vertex, fallback_opts);
-        SharedPtr<RenderShader> ps  = ShaderCache::get().get_or_compile(String(k_fallback_hlsl), "_fallback",
-                                                                        GRIShaderStage::Pixel, fallback_opts);
-        if (vs && ps)
-        {
-            m_fallback_material = Renderer::get_material_factory().get_or_create(
-                vs, ps, "standard_mesh", cfg.render_target_format, cfg.depth_format, {}, {}, {});
-            m_fallback_material_id =
-                Renderer::get_resource_cache().register_material(k_fallback_material_key, m_fallback_material);
-        }
+        GRIBufferDesc d;
+        d.size              = k_max_instances * static_cast<uint32_t>(sizeof(GPUCullInstance));
+        d.usage             = GRIBufferUsage::StorageBuffer;
+        m_cull_input_buffer = RenderSystem::get_gri()->create_buffer(d);
     }
-
-    if (!Renderer::get_resource_cache().find_material(k_sel_mask_material_key))
+    if (!m_visible_indices_buffer)
     {
-        m_sel_mask_material = nullptr;
+        GRIBufferDesc d;
+        d.size                   = k_max_instances * 2u * static_cast<uint32_t>(sizeof(uint32_t));
+        d.usage                  = static_cast<GRIBufferUsage>(static_cast<uint32_t>(GRIBufferUsage::StorageBuffer) |
+                                                               static_cast<uint32_t>(GRIBufferUsage::Dynamic));
+        m_visible_indices_buffer = RenderSystem::get_gri()->create_buffer(d);
     }
-    if (!m_sel_mask_material)
+    if (!m_gpu_cull_visible_buffer)
     {
-        ShaderCompilerOptions sel_opts;
-        sel_opts.stages[0] = {GRIShaderStage::Vertex};
-        sel_opts.stages[1] = {GRIShaderStage::Pixel};
-        sel_opts.count     = 2;
-
-        const RendererConfig&   cfg = Renderer::get_config();
-        SharedPtr<RenderShader> sel_vs =
-            ShaderCache::get().get_or_compile(String(k_sel_mask_hlsl), "_sel_mask", GRIShaderStage::Vertex, sel_opts);
-        SharedPtr<RenderShader> sel_ps =
-            ShaderCache::get().get_or_compile(String(k_sel_mask_hlsl), "_sel_mask", GRIShaderStage::Pixel, sel_opts);
-        if (sel_vs && sel_ps)
-        {
-            GRIDepthStencilDesc sel_ds;
-            sel_ds.depth_write  = false;
-            m_sel_mask_material = Renderer::get_material_factory().get_or_create(
-                sel_vs, sel_ps, "standard_mesh", GRIPixelFormat::RGBA8Unorm, cfg.depth_format, sel_ds, {}, {});
-            Renderer::get_resource_cache().register_material(k_sel_mask_material_key, m_sel_mask_material);
-        }
+        GRIBufferDesc d;
+        d.size                    = k_max_instances * 2u * static_cast<uint32_t>(sizeof(uint32_t));
+        d.usage                   = static_cast<GRIBufferUsage>(static_cast<uint32_t>(GRIBufferUsage::StorageBuffer) |
+                                                                static_cast<uint32_t>(GRIBufferUsage::Dynamic));
+        m_gpu_cull_visible_buffer = RenderSystem::get_gri()->create_buffer(d);
     }
-
-    AssetManager&        am        = AssetManager::get();
-    const GRIPixelFormat rt_fmt    = Renderer::get_config().render_target_format;
-    const GRIPixelFormat depth_fmt = Renderer::get_config().depth_format;
-
-    // Mesh resolution — register with batcher; bounds read from cook-time fields.
+    if (!m_atomic_counter_buffer)
     {
-        auto view = scene.registry().view<MeshRendererComponent>();
-        for (auto [entity, mesh_comp] : view.each())
-        {
-            const uint64_t key = static_cast<uint64_t>(mesh_comp.mesh_id);
-            if (Renderer::get_resource_cache().find_mesh(key))
-            {
-                continue;
-            }
-
-            SharedPtr<AssetMesh> asset_mesh = am.get_asset_as<AssetMesh>(mesh_comp.mesh_id);
-            if (!asset_mesh)
-            {
-                if (am.get_state(mesh_comp.mesh_id) == AssetState::Unloaded)
-                {
-                    am.load_deferred(mesh_comp.mesh_id);
-                }
-                continue;
-            }
-
-            const MeshSlot slot = StaticGeometryBatcher::get().register_mesh(
-                key, asset_mesh->get_vertices().data(), static_cast<uint32_t>(asset_mesh->get_vertices().size()),
-                asset_mesh->get_indices().data(), static_cast<uint32_t>(asset_mesh->get_indices().size()));
-
-            SharedPtr<RenderMesh> render_mesh =
-                RenderMesh::create_batched(asset_mesh->get_bounds_center(), asset_mesh->get_bounds_radius(), slot);
-            Renderer::get_resource_cache().register_mesh(key, std::move(render_mesh));
-        }
-        StaticGeometryBatcher::get().flush_to_gpu();
+        GRIBufferDesc d;
+        d.size                  = static_cast<uint32_t>(sizeof(uint32_t));
+        d.usage                 = static_cast<GRIBufferUsage>(static_cast<uint32_t>(GRIBufferUsage::StorageBuffer) |
+                                                              static_cast<uint32_t>(GRIBufferUsage::Dynamic));
+        m_atomic_counter_buffer = RenderSystem::get_gri()->create_buffer(d);
     }
-
-    // Material & PSO resolution — async-only path.
-    // build_cull_proxies is a strict cache-hit-only zone; all compilation happens here.
+    if (!m_draw_args_buffer)
     {
-        auto view = scene.registry().view<MaterialComponent>();
-        for (auto [entity, mat_comp] : view.each())
-        {
-            const uint64_t key = static_cast<uint64_t>(mat_comp.material_id);
-            if (Renderer::get_resource_cache().find_material(key))
-            {
-                continue;
-            }
-
-            SharedPtr<AssetMaterial> asset_mat = am.get_asset_as<AssetMaterial>(mat_comp.material_id);
-            if (!asset_mat)
-            {
-                if (am.get_state(mat_comp.material_id) == AssetState::Unloaded)
-                {
-                    am.load_deferred(mat_comp.material_id);
-                }
-                continue;
-            }
-
-            ShaderCompilerOptions opts;
-            opts.stages[0] = {GRIShaderStage::Vertex};
-            opts.stages[1] = {GRIShaderStage::Pixel};
-            opts.count     = 2;
-
-            // get_or_compile_async: returns nullptr if PSO not yet baked (Phase 2+).
-            // Entity will receive fallback material in build_cull_proxies for this frame.
-            SharedPtr<RenderShader> vs =
-                ShaderCache::get().get_or_compile_async(asset_mat->get_shader_source(), GRIShaderStage::Vertex, opts);
-            SharedPtr<RenderShader> ps =
-                ShaderCache::get().get_or_compile_async(asset_mat->get_shader_source(), GRIShaderStage::Pixel, opts);
-            if (!vs || !ps)
-            {
-                continue;
-            }
-
-            const String& layout = asset_mat->get_vertex_layout();
-            if (!VertexDeclarationRegistry::get().find(layout))
-            {
-                continue;
-            }
-
-            GRIDepthStencilDesc ds;
-            GRIRasterDesc       raster;
-            raster.cull_mode = asset_mat->is_two_sided() ? GRICullMode::None : GRICullMode::Back;
-
-            GRIBlendDesc blend;
-            if (asset_mat->is_transparent())
-            {
-                blend.enable     = true;
-                blend.src_factor = GRIBlendFactor::SrcAlpha;
-                blend.dst_factor = GRIBlendFactor::InvSrcAlpha;
-                blend.blend_op   = GRIBlendOp::Add;
-                blend.src_alpha  = GRIBlendFactor::One;
-                blend.dst_alpha  = GRIBlendFactor::InvSrcAlpha;
-                blend.alpha_op   = GRIBlendOp::Add;
-                ds.depth_write   = false;
-            }
-
-            GRIBufferPtr           params_buffer;
-            const Vector<uint8_t>& param_data = asset_mat->get_param_data();
-            if (!param_data.empty())
-            {
-                GRIBufferDesc buf_desc;
-                buf_desc.size  = static_cast<uint32_t>(param_data.size());
-                buf_desc.usage = GRIBufferUsage::UniformBuffer;
-                params_buffer  = RenderSystem::get_gri()->create_buffer(buf_desc, param_data.data());
-            }
-
-            SharedPtr<Material> material = Renderer::get_material_factory().create_with_params(
-                vs, ps, layout, rt_fmt, depth_fmt, ds, raster, blend, std::move(params_buffer));
-            Renderer::get_resource_cache().register_material(key, std::move(material));
-        }
+        GRIBufferDesc d;
+        d.size             = k_max_batches * static_cast<uint32_t>(sizeof(DrawIndexedArguments));
+        d.usage            = static_cast<GRIBufferUsage>(static_cast<uint32_t>(GRIBufferUsage::StorageBuffer) |
+                                                         static_cast<uint32_t>(GRIBufferUsage::IndirectBuffer) |
+                                                         static_cast<uint32_t>(GRIBufferUsage::Dynamic));
+        m_draw_args_buffer = RenderSystem::get_gri()->create_buffer(d);
     }
-
-    // White fallback texture — 1x1 RGBA8 all-white; bound at slot 0 for entities without a TextureComponent.
-    if (!m_white_texture)
+    if (!m_cull_cb)
     {
-        if (SharedPtr<RenderTexture2D> cached = Renderer::get_resource_cache().find_texture(k_white_texture_key))
-        {
-            m_white_texture = cached;
-        }
-        else
-        {
-            constexpr uint8_t k_white[4] = {0xFF, 0xFF, 0xFF, 0xFF};
-            GRITexture2DDesc  desc;
-            desc.width             = 1;
-            desc.height            = 1;
-            desc.format            = GRIPixelFormat::RGBA8Unorm;
-            desc.initial_data      = k_white;
-            desc.initial_data_size = 4;
-            if (GRITexture2DPtr gri = RenderSystem::get_gri()->create_texture2d(desc))
-            {
-                m_white_texture = create_shared<RenderTexture2D>(std::move(gri), 1u, 1u, GRIPixelFormat::RGBA8Unorm);
-                Renderer::get_resource_cache().register_texture(k_white_texture_key, m_white_texture);
-            }
-        }
-    }
-
-    // Texture resolution — upload to GRI if not already cached.
-    {
-        auto view = scene.registry().view<TextureComponent>();
-        for (auto [entity, tex_comp] : view.each())
-        {
-            const uint64_t key = static_cast<uint64_t>(tex_comp.texture_id);
-            if (!key || Renderer::get_resource_cache().find_texture(key))
-            {
-                continue;
-            }
-
-            SharedPtr<AssetTexture2D> asset_tex = am.get_asset_as<AssetTexture2D>(tex_comp.texture_id);
-            if (!asset_tex)
-            {
-                if (am.get_state(tex_comp.texture_id) == AssetState::Unloaded)
-                {
-                    am.load_deferred(tex_comp.texture_id);
-                }
-                continue;
-            }
-
-            GRITexture2DDesc desc;
-            desc.width             = asset_tex->get_width();
-            desc.height            = asset_tex->get_height();
-            desc.format            = static_cast<GRIPixelFormat>(asset_tex->get_format());
-            desc.initial_data      = asset_tex->get_pixels().data();
-            desc.initial_data_size = static_cast<uint32_t>(asset_tex->get_pixels().size());
-            if (GRITexture2DPtr gri = RenderSystem::get_gri()->create_texture2d(desc))
-            {
-                auto rt = create_shared<RenderTexture2D>(std::move(gri), desc.width, desc.height, desc.format);
-                Renderer::get_resource_cache().register_texture(key, std::move(rt));
-            }
-        }
+        GRIBufferDesc d;
+        d.size    = static_cast<uint32_t>(sizeof(GPUCullConstants));
+        d.usage   = static_cast<GRIBufferUsage>(static_cast<uint32_t>(GRIBufferUsage::UniformBuffer) |
+                                                static_cast<uint32_t>(GRIBufferUsage::Dynamic));
+        m_cull_cb = RenderSystem::get_gri()->create_buffer(d);
     }
 }
 
-// Strict cache-hit-only zone. No shader compilation, PSO creation, or MTL::Function lookup may occur here.
-void SceneRenderer::build_cull_proxies(Scene& scene, const Math::Mat4f& cam_view)
-{
-    m_cull_proxies.clear();
-    m_pool.clear();
-
-    auto view = scene.registry().view<TransformComponent, MeshRendererComponent>();
-    for (auto [entity, transform, mesh_comp] : view.each())
-    {
-        if (!mesh_comp.is_visible)
-        {
-            continue;
-        }
-
-        const uint64_t        mesh_key    = static_cast<uint64_t>(mesh_comp.mesh_id);
-        SharedPtr<RenderMesh> cached_mesh = Renderer::get_resource_cache().find_mesh(mesh_key);
-        if (!cached_mesh)
-        {
-            continue;
-        }
-        const RenderMesh* render_mesh = cached_mesh.get();
-        const uint16_t    buffer_id   = Renderer::get_resource_cache().find_mesh_id(mesh_key);
-
-        // Resolve material from cache only — no loading or compilation permitted here.
-        const MaterialComponent* mat_comp = scene.registry().try_get<MaterialComponent>(entity);
-        const uint64_t           mat_key  = mat_comp ? static_cast<uint64_t>(mat_comp->material_id) : 0;
-
-        SharedPtr<Material> cached_mat = mat_key ? Renderer::get_resource_cache().find_material(mat_key) : nullptr;
-        if (!cached_mat)
-        {
-            cached_mat = m_fallback_material;
-        }
-        if (!cached_mat)
-        {
-            continue;
-        }
-
-        const uint16_t material_id = (mat_key && mat_key != 0)
-                                         ? Renderer::get_resource_cache().find_material_id(mat_key)
-                                         : m_fallback_material_id;
-        // Forward and depth PSOs are 1:1 with material in Phase 1.
-        // XOR 0x8000 keeps depth_pso_id in disjoint bit-space from pso_id within each 16-bit slot.
-        const uint16_t pso_id       = material_id;
-        const uint16_t depth_pso_id = material_id ^ 0x8000u;
-
-        const Math::Mat4f  world        = transform.to_mat4();
-        const Math::Vec3f  world_center = (world * Math::Vec4f(render_mesh->get_bounds_center(), 1.0f)).xyz();
-        const Math::Vec3f& s            = transform.scale;
-        const float        world_radius = render_mesh->get_bounds_radius() * Math::max(s.x, Math::max(s.y, s.z));
-
-        const float    raw_z     = cam_view.row(2).x * world_center.x + cam_view.row(2).y * world_center.y +
-                                   cam_view.row(2).z * world_center.z + cam_view.row(2).w;
-        const float    view_z    = Math::max(0.0f, Math::min(raw_z, k_depth_range));
-        const uint32_t depth_u32 = static_cast<uint32_t>(view_z / k_depth_range * float(UINT32_MAX));
-
-        // Depth pre-pass key: [Z:32][buffer_id:16][depth_pso_id:16] — ascending = front-to-back.
-        const uint64_t depth_key = (uint64_t(depth_u32) << 32) | (uint64_t(buffer_id) << 16) | uint64_t(depth_pso_id);
-
-        // Forward key.
-        const uint64_t fwd_key = [&]() -> uint64_t
-        {
-            if (cached_mat->is_transparent())
-            {
-                // bit63=1 forces transparents after all opaques; ~Z = back-to-front on ascending sort.
-                return (uint64_t(1) << 63) | (uint64_t(~depth_u32) & ((uint64_t(1) << 63) - 1u));
-            }
-            // Opaque: [0:1][buffer_id:15][pso_id:15][material_id:16][Z:17]
-            const uint32_t z17 = depth_u32 >> 15;
-            return (uint64_t(buffer_id & 0x7FFFu) << 48) | (uint64_t(pso_id & 0x7FFFu) << 33) |
-                   (uint64_t(material_id) << 17) | uint64_t(z17 & 0x1FFFFu);
-        }();
-
-        CullProxy proxy;
-        proxy.world_center = world_center;
-        proxy.world_radius = world_radius;
-        proxy.entity_index = static_cast<uint32_t>(m_pool.size());
-        m_cull_proxies.push_back(proxy);
-
-        const TextureComponent*    tex_comp = scene.registry().try_get<TextureComponent>(entity);
-        const uint64_t             tex_key  = tex_comp ? static_cast<uint64_t>(tex_comp->texture_id) : 0;
-        SharedPtr<RenderTexture2D> cached_tex =
-            tex_key ? Renderer::get_resource_cache().find_texture(tex_key) : nullptr;
-        GRITexture2D* tex =
-            cached_tex ? cached_tex->get_texture() : (m_white_texture ? m_white_texture->get_texture() : nullptr);
-
-        VisibleItem item;
-        item.world_matrix = world;
-        item.mesh         = render_mesh;
-        item.pso          = cached_mat->get_pipeline_state();
-        item.depth_pso    = cached_mat->get_depth_pso();
-        item.material     = cached_mat.get();
-        item.texture      = tex;
-        item.buffer_id    = buffer_id;
-        item.pso_id       = pso_id;
-        item.depth_pso_id = depth_pso_id;
-        item.material_id  = material_id;
-        item.depth_key    = depth_key;
-        item.fwd_key      = fwd_key;
-        m_pool.push_back(item);
-    }
-}
-
-void SceneRenderer::build_commands()
+void SceneRenderer::build_commands(const RenderScene& rs)
 {
     m_depth_batches.clear();
     m_fwd_batches.clear();
-    m_instance_data.clear();
 
-    if (m_visible.empty())
+    if (rs.depth_proxies.empty() && rs.fwd_proxies.empty())
     {
         return;
     }
 
-    // --- Depth pre-pass (opaques only, front-to-back) ---
-    std::sort(m_visible.begin(), m_visible.end(),
-              [](const VisibleItem& a, const VisibleItem& b) { return a.depth_key < b.depth_key; });
+    RenderResourceCache& cache = Renderer::get_resource_cache();
 
-    for (const VisibleItem& item : m_visible)
+    Vector<uint32_t> cpu_visible_indices;
+    cpu_visible_indices.reserve(rs.depth_proxies.size() + rs.fwd_proxies.size());
+    uint32_t total_visible = 0;
+
+    // --- Depth pre-pass (opaques, already sorted front-to-back) ---
+    for (const DrawProxy& proxy : rs.depth_proxies)
     {
-        if (item.fwd_key >> 63)
-        {
-            continue; // transparent: skip depth pre-pass
-        }
-        if (m_instance_data.size() >= k_max_instances)
+        if (total_visible >= k_max_instances)
         {
             IG_CORE_ASSERT(false, "SceneRenderer: k_max_instances exceeded in depth pre-pass");
             break;
         }
 
-        const bool same = !m_depth_batches.empty() && m_depth_batches.back().mesh == item.mesh &&
-                          m_depth_batches.back().pso == item.depth_pso;
-        if (!same)
+        SharedPtr<Material> mat = cache.find_material(proxy.mat_key);
+        if (!mat)
         {
-            const MeshSlot slot = item.mesh->get_mesh_slot();
-            DrawBatch      batch;
-            batch.args.index_count    = slot.index_count;
+            continue;
+        }
+
+        GRIPipelineState* depth_pso = mat->get_depth_pso();
+
+        const bool merge = !m_depth_batches.empty() && m_depth_batches.back().pso_id == proxy.depth_pso_id &&
+                           m_depth_batches.back().buffer_id == proxy.buffer_id;
+        if (!merge)
+        {
+            DrawBatch batch;
+            batch.args.index_count    = proxy.slot.index_count;
             batch.args.instance_count = 0;
-            batch.args.first_index    = slot.first_index;
-            batch.args.base_vertex    = slot.base_vertex;
-            batch.args.base_instance  = static_cast<uint32_t>(m_instance_data.size());
-            batch.mesh                = item.mesh;
-            batch.pso                 = item.depth_pso;
+            batch.args.first_index    = proxy.slot.first_index;
+            batch.args.base_vertex    = proxy.slot.base_vertex;
+            batch.args.base_instance  = total_visible;
+            batch.mesh                = nullptr; // global batcher mesh — resolved at draw time
+            batch.pso                 = depth_pso;
             batch.material            = nullptr;
-            batch.buffer_id           = item.buffer_id;
-            batch.pso_id              = item.depth_pso_id;
+            batch.buffer_id           = proxy.buffer_id;
+            batch.pso_id              = proxy.depth_pso_id;
             batch.material_id         = 0;
             m_depth_batches.push_back(batch);
         }
         m_depth_batches.back().args.instance_count++;
-
-        GPUInstanceData gid;
-        gid.world_matrix   = item.world_matrix;
-        gid.material_index = 0;
-        gid.padding[0] = gid.padding[1] = gid.padding[2] = 0;
-        m_instance_data.push_back(gid);
+        cpu_visible_indices.push_back(proxy.entity_index);
+        total_visible++;
     }
 
-    // --- Forward pass (opaques state-minimised, then transparents back-to-front) ---
-    std::sort(m_visible.begin(), m_visible.end(),
-              [](const VisibleItem& a, const VisibleItem& b) { return a.fwd_key < b.fwd_key; });
-
-    for (const VisibleItem& item : m_visible)
+    // --- Forward pass (already sorted by fwd_key) ---
+    for (const DrawProxy& proxy : rs.fwd_proxies)
     {
-        if (m_instance_data.size() >= k_max_instances)
+        if (total_visible >= k_max_instances)
         {
             IG_CORE_ASSERT(false, "SceneRenderer: k_max_instances exceeded in forward pass");
             break;
         }
 
-        const bool transparent = (item.fwd_key >> 63) != 0;
-
-        // Coalesce: same (buffer, pso, material, mesh_slot) → increment instance_count.
-        // Transparents are never coalesced; draw order must be preserved exactly.
-        const bool same = !transparent && !m_fwd_batches.empty() && m_fwd_batches.back().buffer_id == item.buffer_id &&
-                          m_fwd_batches.back().pso_id == item.pso_id &&
-                          m_fwd_batches.back().material_id == item.material_id &&
-                          m_fwd_batches.back().texture == item.texture && m_fwd_batches.back().mesh == item.mesh;
-        if (!same)
+        SharedPtr<Material> mat = cache.find_material(proxy.mat_key);
+        if (!mat)
         {
-            const MeshSlot slot = item.mesh->get_mesh_slot();
-            DrawBatch      batch;
-            batch.args.index_count    = slot.index_count;
+            continue;
+        }
+
+        GRITexture2D* tex = nullptr;
+        if (proxy.texture_key)
+        {
+            if (SharedPtr<RenderTexture2D> rt = cache.find_texture(proxy.texture_key))
+            {
+                tex = rt->get_texture();
+            }
+        }
+        if (!tex)
+        {
+            if (SharedPtr<RenderTexture2D> wt = cache.find_texture(k_white_texture_key))
+            {
+                tex = wt->get_texture();
+            }
+        }
+
+        const bool transparent = proxy.is_transparent;
+        const bool merge = !transparent && !m_fwd_batches.empty() &&
+                           m_fwd_batches.back().buffer_id == proxy.buffer_id &&
+                           m_fwd_batches.back().pso_id == proxy.material_id &&
+                           m_fwd_batches.back().material_id == proxy.material_id && m_fwd_batches.back().texture == tex;
+        if (!merge)
+        {
+            DrawBatch batch;
+            batch.args.index_count    = proxy.slot.index_count;
             batch.args.instance_count = 0;
-            batch.args.first_index    = slot.first_index;
-            batch.args.base_vertex    = slot.base_vertex;
-            batch.args.base_instance  = static_cast<uint32_t>(m_instance_data.size());
-            batch.mesh                = item.mesh;
-            batch.pso                 = item.pso;
-            batch.material            = item.material;
-            batch.texture             = item.texture;
-            batch.buffer_id           = item.buffer_id;
-            batch.pso_id              = item.pso_id;
-            batch.material_id         = item.material_id;
+            batch.args.first_index    = proxy.slot.first_index;
+            batch.args.base_vertex    = proxy.slot.base_vertex;
+            batch.args.base_instance  = total_visible;
+            batch.mesh                = nullptr;
+            batch.pso                 = mat->get_pipeline_state();
+            batch.material            = mat.get();
+            batch.texture             = tex;
+            batch.buffer_id           = proxy.buffer_id;
+            batch.pso_id              = proxy.material_id;
+            batch.material_id         = proxy.material_id;
             m_fwd_batches.push_back(batch);
         }
         m_fwd_batches.back().args.instance_count++;
-
-        GPUInstanceData gid;
-        gid.world_matrix   = item.world_matrix;
-        gid.material_index = 0;
-        gid.padding[0] = gid.padding[1] = gid.padding[2] = 0;
-        m_instance_data.push_back(gid);
+        cpu_visible_indices.push_back(proxy.entity_index);
+        total_visible++;
     }
 
-    // Upload instance data — Dynamic/Shared storage; no explicit flush on Apple Silicon.
-    if (!m_instance_data.empty())
+    if (cpu_visible_indices.empty())
     {
-        if (!m_instance_buffer)
-        {
-            GRIBufferDesc desc;
-            desc.size         = k_max_instances * static_cast<uint32_t>(sizeof(GPUInstanceData));
-            desc.usage        = static_cast<GRIBufferUsage>(static_cast<uint32_t>(GRIBufferUsage::VertexBuffer) |
-                                                            static_cast<uint32_t>(GRIBufferUsage::Dynamic));
-            m_instance_buffer = RenderSystem::get_gri()->create_buffer(desc);
-        }
-        RenderSystem::get_gri()->update_buffer(m_instance_buffer.get(), m_instance_data.data(),
-                                               static_cast<uint32_t>(m_instance_data.size() * sizeof(GPUInstanceData)));
+        return;
     }
+
+    IG_CORE_ASSERT(m_visible_indices_buffer && m_draw_args_buffer, "SceneRenderer: GPU buffers not allocated");
+
+    RenderSystem::get_gri()->update_buffer(m_visible_indices_buffer.get(), cpu_visible_indices.data(),
+                                           static_cast<uint32_t>(cpu_visible_indices.size() * sizeof(uint32_t)));
+
+    const uint32_t total_batches = static_cast<uint32_t>(m_depth_batches.size() + m_fwd_batches.size());
+    IG_CORE_ASSERT(total_batches <= k_max_batches, "SceneRenderer: k_max_batches exceeded");
+
+    Vector<DrawIndexedArguments> all_args;
+    all_args.reserve(total_batches);
+    for (const DrawBatch& b : m_depth_batches)
+    {
+        all_args.push_back(b.args);
+    }
+    for (const DrawBatch& b : m_fwd_batches)
+    {
+        all_args.push_back(b.args);
+    }
+
+    RenderSystem::get_gri()->update_buffer(m_draw_args_buffer.get(), all_args.data(),
+                                           static_cast<uint32_t>(total_batches * sizeof(DrawIndexedArguments)));
 }
 
 void SceneRenderer::resize(uint32_t w, uint32_t h)
@@ -522,8 +225,15 @@ void SceneRenderer::resize(uint32_t w, uint32_t h)
     color_desc.width          = w;
     color_desc.height         = h;
     color_desc.num_mip_levels = 1;
-    color_desc.format         = GRIPixelFormat::BGRA8Unorm;
+    color_desc.format         = GRIPixelFormat::RGBA16Float;
     m_color_rt                = RenderSystem::get_gri()->create_texture2d(color_desc);
+
+    GRITexture2DDesc ldr_desc;
+    ldr_desc.width          = w;
+    ldr_desc.height         = h;
+    ldr_desc.num_mip_levels = 1;
+    ldr_desc.format         = GRIPixelFormat::BGRA8Unorm;
+    m_ldr_rt                = RenderSystem::get_gri()->create_texture2d(ldr_desc);
 
     GRITexture2DDesc depth_desc;
     depth_desc.width          = w;
@@ -531,197 +241,235 @@ void SceneRenderer::resize(uint32_t w, uint32_t h)
     depth_desc.num_mip_levels = 1;
     depth_desc.format         = GRIPixelFormat::Depth32Float;
     m_depth_rt                = RenderSystem::get_gri()->create_texture2d(depth_desc);
-
-    GRITexture2DDesc sel_mask_desc;
-    sel_mask_desc.width          = w;
-    sel_mask_desc.height         = h;
-    sel_mask_desc.num_mip_levels = 1;
-    sel_mask_desc.format         = GRIPixelFormat::RGBA8Unorm;
-    m_sel_mask_rt                = RenderSystem::get_gri()->create_texture2d(sel_mask_desc);
 }
 
-SceneRenderHandles SceneRenderer::render_scene(Scene& scene, const CameraData& camera, RGBuilder& builder)
+SceneRenderHandles SceneRenderer::render_scene(const RenderScene& rs, RGBuilder& builder)
 {
-    IG_ASSERT(m_color_rt && m_depth_rt, "SceneRenderer: RTs not initialized — call resize() before render_scene()");
+    IG_ASSERT(m_color_rt && m_depth_rt && m_ldr_rt,
+              "SceneRenderer: RTs not initialized — call resize() before render_scene()");
 
-    build_cull_proxies(scene, camera.view);
+    Renderer::upload_frame_data(rs.frame_data);
 
-    m_visible.clear();
-    for (uint32_t i = 0; i < static_cast<uint32_t>(m_cull_proxies.size()); ++i)
+    // Upload instance data and cull proxies to persistent GPU buffers.
+    const uint32_t entity_count = static_cast<uint32_t>(rs.instance_data.size());
+    if (entity_count > 0)
     {
-        const CullProxy& proxy = m_cull_proxies[i];
-        if (Math::frustum_contains_sphere(camera.frustum, proxy.world_center, proxy.world_radius))
+        ensure_gpu_buffers();
+        IG_CORE_ASSERT(entity_count <= k_max_instances, "SceneRenderer: entity_count exceeds k_max_instances");
+
+        for (uint32_t i = 0; i < entity_count; ++i)
         {
-            m_visible.push_back(m_pool[proxy.entity_index]);
+            RenderSystem::get_gri()->update_buffer(m_entity_data_buffer.get(), &rs.instance_data[i],
+                                                   static_cast<uint32_t>(sizeof(GPUInstanceData)),
+                                                   i * static_cast<uint32_t>(sizeof(GPUInstanceData)));
         }
+
+        for (uint32_t i = 0; i < entity_count; ++i)
+        {
+            const CullProxy& proxy = rs.cull_proxies[i];
+            GPUCullInstance  ci;
+            ci.world_center = proxy.world_center;
+            ci.world_radius = proxy.world_radius;
+            ci.entity_index = i;
+            ci._pad[0] = ci._pad[1] = ci._pad[2] = 0;
+            RenderSystem::get_gri()->update_buffer(m_cull_input_buffer.get(), &ci,
+                                                   static_cast<uint32_t>(sizeof(GPUCullInstance)),
+                                                   i * static_cast<uint32_t>(sizeof(GPUCullInstance)));
+        }
+
+        GPUCullConstants cc;
+        for (int32_t i = 0; i < 6; ++i)
+        {
+            cc.planes[i].normal = Math::Vec3f(rs.frustum.planes[i].x, rs.frustum.planes[i].y, rs.frustum.planes[i].z);
+            cc.planes[i].d      = rs.frustum.planes[i].w;
+        }
+        cc.instance_count = entity_count;
+        cc._pad[0] = cc._pad[1] = cc._pad[2] = 0;
+        RenderSystem::get_gri()->update_buffer(m_cull_cb.get(), &cc, sizeof(GPUCullConstants));
+
+        const uint32_t zero = 0;
+        RenderSystem::get_gri()->update_buffer(m_atomic_counter_buffer.get(), &zero, sizeof(uint32_t));
     }
 
-    build_commands();
+    build_commands(rs);
 
     RGTextureHandle color = builder.import_texture("scene_color", m_color_rt.get());
     RGTextureHandle depth = builder.import_texture("scene_depth", m_depth_rt.get());
 
+    const bool has_draws = (!m_depth_batches.empty() || !m_fwd_batches.empty()) && m_entity_data_buffer &&
+                           m_draw_args_buffer && m_visible_indices_buffer;
+
+    constexpr GRIBufferUsage k_storage_dynamic = static_cast<GRIBufferUsage>(
+        static_cast<uint32_t>(GRIBufferUsage::StorageBuffer) | static_cast<uint32_t>(GRIBufferUsage::Dynamic));
+    constexpr GRIBufferUsage k_indirect_dynamic = static_cast<GRIBufferUsage>(
+        static_cast<uint32_t>(GRIBufferUsage::StorageBuffer) | static_cast<uint32_t>(GRIBufferUsage::IndirectBuffer) |
+        static_cast<uint32_t>(GRIBufferUsage::Dynamic));
+
+    RGBufferHandle vis_h = has_draws
+                               ? builder.import_buffer("vis_indices", m_visible_indices_buffer.get(), k_storage_dynamic)
+                               : RGBufferHandle{};
+    RGBufferHandle draw_args_h =
+        has_draws ? builder.import_buffer("draw_args", m_draw_args_buffer.get(), k_indirect_dynamic) : RGBufferHandle{};
+
+    GRIComputePipelineStatePtr cull_pso = Renderer::get_global_cache().get_cull_pipeline_state();
+
+    RGBufferHandle gpu_vis_h;
+    if (cull_pso && entity_count > 0 && m_cull_input_buffer && m_gpu_cull_visible_buffer)
+    {
+        RGBufferHandle cull_input_h =
+            builder.import_buffer("cull_input", m_cull_input_buffer.get(), GRIBufferUsage::StorageBuffer);
+        RGBufferHandle counter_h =
+            builder.import_buffer("cull_counter", m_atomic_counter_buffer.get(), k_storage_dynamic);
+        gpu_vis_h = builder.import_buffer("gpu_cull_vis", m_gpu_cull_visible_buffer.get(), k_storage_dynamic);
+
+        builder.read_storage_buffer(cull_input_h);
+        builder.write_storage_buffer(gpu_vis_h);
+        builder.write_storage_buffer(counter_h);
+        builder.add_compute_pass("GPUCull",
+                                 [this, cull_pso, entity_count](GRICommandList& cmd)
+                                 {
+                                     cmd.set_compute_pipeline_state(cull_pso.get());
+                                     cmd.set_uniform_buffer(m_cull_cb.get(), 4, GRIShaderStage::Compute);
+                                     cmd.set_storage_buffer(m_cull_input_buffer.get(), 5);
+                                     cmd.set_storage_buffer(m_gpu_cull_visible_buffer.get(), 6);
+                                     cmd.set_storage_buffer(m_atomic_counter_buffer.get(), 7);
+                                     cmd.dispatch((entity_count + 63u) / 64u, 1, 1);
+                                 });
+    }
+
     // --- Depth pre-pass ---
+    if (gpu_vis_h.is_valid())
+    {
+        builder.read_storage_buffer(gpu_vis_h);
+    }
+    if (vis_h.is_valid())
+    {
+        builder.read_storage_buffer(vis_h);
+    }
+    if (draw_args_h.is_valid())
+    {
+        builder.read_buffer(draw_args_h);
+    }
     builder.write_depth_stencil(depth, {GRILoadAction::Clear, GRIStoreAction::Store, 1.0f});
-    builder.add_pass(
-        "DepthPrePass",
-        [this](GRICommandList& cmd)
-        {
-            if (m_depth_batches.empty() || !m_instance_buffer)
-            {
-                return;
-            }
-            Renderer::bind_frame_data(cmd);
-            cmd.set_vertex_buffer(m_instance_buffer.get(), 0, k_instance_buffer_slot);
-
-            GRIPipelineState* current_pso = nullptr;
-            GRIBuffer*        current_vb  = nullptr;
-            GRIBuffer*        global_vb   = StaticGeometryBatcher::get().get_global_vb();
-            GRIBuffer*        global_ib   = StaticGeometryBatcher::get().get_global_ib();
-            for (const DrawBatch& batch : m_depth_batches)
-            {
-                if (batch.pso != current_pso)
-                {
-                    cmd.set_graphics_pipeline_state(batch.pso);
-                    current_pso = batch.pso;
-                }
-                GRIBuffer* desired_vb = batch.mesh->get_vertex_buffer() ? batch.mesh->get_vertex_buffer() : global_vb;
-                if (desired_vb && desired_vb != current_vb)
-                {
-                    GRIBuffer* desired_ib = batch.mesh->get_index_buffer() ? batch.mesh->get_index_buffer() : global_ib;
-                    cmd.set_vertex_buffer(desired_vb);
-                    cmd.set_index_buffer(desired_ib, batch.mesh->get_index_buffer() ? batch.mesh->get_index_format()
-                                                                                    : GRIIndexFormat::Uint32);
-                    current_vb = desired_vb;
-                }
-                cmd.draw_indexed_primitives_instanced(batch.args.index_count, batch.args.instance_count,
-                                                      batch.args.base_instance, batch.args.first_index,
-                                                      batch.args.base_vertex);
-            }
-        });
-
-    // Explicit dependency: DepthPrePass write must complete before ForwardScene reads.
-    builder.read_texture(depth);
-
-    // --- Forward scene pass ---
-    builder.write_render_target(0, color, RGColorAttachmentDesc::clear({0.1f, 0.1f, 0.1f, 1.0f}));
-    builder.read_depth_stencil(depth, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
-    builder.add_pass(
-        "ForwardScene",
-        [this](GRICommandList& cmd)
-        {
-            if (m_fwd_batches.empty() || !m_instance_buffer)
-            {
-                return;
-            }
-            Renderer::bind_frame_data(cmd);
-            cmd.set_vertex_buffer(m_instance_buffer.get(), 0, k_instance_buffer_slot);
-
-            GRIPipelineState* current_pso = nullptr;
-            const Material*   current_mat = nullptr;
-            GRITexture2D*     current_tex = nullptr;
-            GRIBuffer*        current_vb  = nullptr;
-            GRIBuffer*        global_vb   = StaticGeometryBatcher::get().get_global_vb();
-            GRIBuffer*        global_ib   = StaticGeometryBatcher::get().get_global_ib();
-            for (const DrawBatch& batch : m_fwd_batches)
-            {
-                if (batch.pso != current_pso)
-                {
-                    cmd.set_graphics_pipeline_state(batch.pso);
-                    current_pso = batch.pso;
-                }
-                if (batch.material != current_mat)
-                {
-                    if (batch.material->get_params_buffer())
-                    {
-                        cmd.set_uniform_buffer(batch.material->get_params_buffer(),
-                                               static_cast<uint32_t>(UniformSlot::MaterialArgs), GRIShaderStage::Pixel);
-                    }
-                    current_mat = batch.material;
-                }
-                if (batch.texture != current_tex)
-                {
-                    cmd.set_texture(batch.texture, 0, GRIShaderStage::Pixel);
-                    current_tex = batch.texture;
-                }
-                GRIBuffer* desired_vb = batch.mesh->get_vertex_buffer() ? batch.mesh->get_vertex_buffer() : global_vb;
-                if (desired_vb && desired_vb != current_vb)
-                {
-                    GRIBuffer* desired_ib = batch.mesh->get_index_buffer() ? batch.mesh->get_index_buffer() : global_ib;
-                    cmd.set_vertex_buffer(desired_vb);
-                    cmd.set_index_buffer(desired_ib, batch.mesh->get_index_buffer() ? batch.mesh->get_index_format()
-                                                                                    : GRIIndexFormat::Uint32);
-                    current_vb = desired_vb;
-                }
-                cmd.draw_indexed_primitives_instanced(batch.args.index_count, batch.args.instance_count,
-                                                      batch.args.base_instance, batch.args.first_index,
-                                                      batch.args.base_vertex);
-            }
-        });
-
-    return {color, depth};
-}
-
-RGTextureHandle SceneRenderer::draw_selection_mask(Entity selected, RGTextureHandle depth_rt, RGBuilder& builder)
-{
-    if (!selected.is_valid() || !m_sel_mask_material || !m_sel_mask_rt)
-    {
-        return {};
-    }
-    if (!selected.has_component<MeshRendererComponent>())
-    {
-        return {};
-    }
-
-    const MeshRendererComponent& mrc      = selected.get_component<MeshRendererComponent>();
-    const uint64_t               mesh_key = static_cast<uint64_t>(mrc.mesh_id);
-    SharedPtr<RenderMesh>        mesh     = Renderer::get_resource_cache().find_mesh(mesh_key);
-    if (!mesh)
-    {
-        return {};
-    }
-
-    const TransformComponent& tc = selected.get_component<TransformComponent>();
-
-    if (!m_sel_instance_buf)
-    {
-        GRIBufferDesc desc;
-        desc.size          = static_cast<uint32_t>(sizeof(GPUInstanceData));
-        desc.usage         = static_cast<GRIBufferUsage>(static_cast<uint32_t>(GRIBufferUsage::VertexBuffer) |
-                                                         static_cast<uint32_t>(GRIBufferUsage::Dynamic));
-        m_sel_instance_buf = RenderSystem::get_gri()->create_buffer(desc);
-    }
-
-    GPUInstanceData gid;
-    gid.world_matrix   = tc.to_mat4();
-    gid.material_index = 0;
-    gid.padding[0] = gid.padding[1] = gid.padding[2] = 0;
-    RenderSystem::get_gri()->update_buffer(m_sel_instance_buf.get(), &gid, sizeof(GPUInstanceData));
-
-    RGTextureHandle mask_rt = builder.import_texture("sel_mask", m_sel_mask_rt.get());
-    builder.write_render_target(0, mask_rt, RGColorAttachmentDesc::clear({0.0f, 0.0f, 0.0f, 0.0f}));
-    builder.read_depth_stencil(depth_rt, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
-
-    const MeshSlot slot = mesh->get_mesh_slot();
-    builder.add_pass("SelectionMask",
-                     [this, slot](GRICommandList& cmd)
+    builder.add_pass("DepthPrePass", RGPassType::Graphics,
+                     [this](GRICommandList& cmd)
                      {
-                         GRIBuffer* global_vb = StaticGeometryBatcher::get().get_global_vb();
-                         GRIBuffer* global_ib = StaticGeometryBatcher::get().get_global_ib();
-                         if (!global_vb || !global_ib || !m_sel_instance_buf)
+                         if (m_depth_batches.empty() || !m_entity_data_buffer || !m_visible_indices_buffer)
                          {
                              return;
                          }
                          Renderer::bind_frame_data(cmd);
-                         cmd.set_vertex_buffer(m_sel_instance_buf.get(), 0, k_instance_buffer_slot);
-                         cmd.set_graphics_pipeline_state(m_sel_mask_material->get_pipeline_state());
+                         cmd.set_vertex_buffer(m_entity_data_buffer.get(), 0, k_entity_buffer_slot);
+                         cmd.set_vertex_buffer(m_visible_indices_buffer.get(), 0, k_instance_buffer_slot);
+
+                         GRIPipelineState* current_pso = nullptr;
+                         GRIBuffer*        global_vb   = StaticGeometryBatcher::get().get_global_vb();
+                         GRIBuffer*        global_ib   = StaticGeometryBatcher::get().get_global_ib();
+                         if (!global_vb || !global_ib)
+                         {
+                             return;
+                         }
                          cmd.set_vertex_buffer(global_vb);
                          cmd.set_index_buffer(global_ib, GRIIndexFormat::Uint32);
-                         cmd.draw_indexed_primitives_instanced(slot.index_count, 1, 0, slot.first_index,
-                                                               slot.base_vertex);
+                         for (uint32_t i = 0; i < static_cast<uint32_t>(m_depth_batches.size()); ++i)
+                         {
+                             const DrawBatch& batch = m_depth_batches[i];
+                             if (batch.pso != current_pso)
+                             {
+                                 cmd.set_graphics_pipeline_state(batch.pso);
+                                 current_pso = batch.pso;
+                             }
+                             cmd.draw_indexed_primitives_indirect(
+                                 m_draw_args_buffer.get(), i * static_cast<uint32_t>(sizeof(DrawIndexedArguments)));
+                         }
                      });
 
-    return mask_rt;
+    builder.read_texture(depth);
+
+    // --- Forward scene pass ---
+    if (vis_h.is_valid())
+    {
+        builder.read_storage_buffer(vis_h);
+    }
+    if (draw_args_h.is_valid())
+    {
+        builder.read_buffer(draw_args_h);
+    }
+    builder.write_render_target(0, color, RGColorAttachmentDesc::clear({0.0f, 0.0f, 0.0f, 1.0f}));
+    builder.write_depth_stencil(depth, {GRILoadAction::Load, GRIStoreAction::DontCare, 1.0f});
+    builder.add_pass("ForwardScene", RGPassType::Graphics,
+                     [this](GRICommandList& cmd)
+                     {
+                         if (m_fwd_batches.empty() || !m_entity_data_buffer || !m_visible_indices_buffer)
+                         {
+                             return;
+                         }
+                         Renderer::bind_frame_data(cmd);
+                         cmd.set_vertex_buffer(m_entity_data_buffer.get(), 0, k_entity_buffer_slot);
+                         cmd.set_vertex_buffer(m_visible_indices_buffer.get(), 0, k_instance_buffer_slot);
+
+                         GRIPipelineState* current_pso = nullptr;
+                         const Material*   current_mat = nullptr;
+                         GRITexture2D*     current_tex = nullptr;
+                         GRIBuffer*        global_vb   = StaticGeometryBatcher::get().get_global_vb();
+                         GRIBuffer*        global_ib   = StaticGeometryBatcher::get().get_global_ib();
+                         if (!global_vb || !global_ib)
+                         {
+                             return;
+                         }
+                         cmd.set_vertex_buffer(global_vb);
+                         cmd.set_index_buffer(global_ib, GRIIndexFormat::Uint32);
+                         const uint32_t depth_count = static_cast<uint32_t>(m_depth_batches.size());
+                         for (uint32_t i = 0; i < static_cast<uint32_t>(m_fwd_batches.size()); ++i)
+                         {
+                             const DrawBatch& batch = m_fwd_batches[i];
+                             if (batch.pso != current_pso)
+                             {
+                                 cmd.set_graphics_pipeline_state(batch.pso);
+                                 current_pso = batch.pso;
+                             }
+                             if (batch.material != current_mat)
+                             {
+                                 if (batch.material->get_params_buffer())
+                                 {
+                                     cmd.set_uniform_buffer(batch.material->get_params_buffer(),
+                                                            static_cast<uint32_t>(DefaultBindings::MaterialArgs),
+                                                            GRIShaderStage::Pixel);
+                                 }
+                                 current_mat = batch.material;
+                             }
+                             if (batch.texture != current_tex)
+                             {
+                                 cmd.set_texture(batch.texture, 0, GRIShaderStage::Pixel);
+                                 current_tex = batch.texture;
+                             }
+                             cmd.draw_indexed_primitives_indirect(
+                                 m_draw_args_buffer.get(),
+                                 (depth_count + i) * static_cast<uint32_t>(sizeof(DrawIndexedArguments)));
+                         }
+                     });
+
+    return {color, depth};
+}
+
+RGTextureHandle SceneRenderer::render_tonemap(RGTextureHandle hdr_color, RGBuilder& builder)
+{
+    SharedPtr<Material> tonemap_mat = Renderer::get_global_cache().get_tonemap_material();
+    RGTextureHandle     ldr         = builder.import_texture("scene_ldr", m_ldr_rt.get());
+    builder.read_texture(hdr_color);
+    builder.write_render_target(0, ldr, RGColorAttachmentDesc::clear({0.0f, 0.0f, 0.0f, 1.0f}));
+    builder.add_pass("Tonemap", RGPassType::Graphics,
+                     [this, tonemap_mat](GRICommandList& cmd)
+                     {
+                         if (!tonemap_mat)
+                         {
+                             return;
+                         }
+                         cmd.set_graphics_pipeline_state(tonemap_mat->get_pipeline_state());
+                         cmd.set_texture(m_color_rt.get(), 0, GRIShaderStage::Pixel);
+                         cmd.draw_primitives(3);
+                     });
+    return ldr;
 }
 
 } // namespace Ignis

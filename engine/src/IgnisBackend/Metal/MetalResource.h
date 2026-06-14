@@ -51,6 +51,8 @@ public:
     {
         return m_texture;
     }
+    void bind_storage(MTL::ComputeCommandEncoder* encoder, uint32_t slot, uint32_t mip_level = 0,
+                      uint32_t array_slice = 0) const;
 };
 
 // Non-owning GRITexture2D wrapper around a CA::MetalDrawable's texture.
@@ -185,6 +187,7 @@ public:
     {
         return m_buffer;
     }
+    void bind_storage(MTL::ComputeCommandEncoder* encoder, uint32_t slot) const;
 };
 
 // ---------- Metal shaders ----------
@@ -252,6 +255,64 @@ public:
     }
 };
 
+class MetalComputeShader : public GRIComputeShader
+{
+private:
+    MTL::Function* m_function;
+
+public:
+    explicit MetalComputeShader(MTL::Function* function);
+    ~MetalComputeShader() override;
+    inline MTL::Function* get_function() const
+    {
+        return m_function;
+    }
+};
+
+class MetalComputePipelineState : public GRIComputePipelineState
+{
+private:
+    MTL::ComputePipelineState* m_pso;
+    MTL::Size                  m_threadgroup_size;
+
+public:
+    MetalComputePipelineState(MTL::ComputePipelineState* pso, MTL::Size threadgroup_size);
+    ~MetalComputePipelineState() override;
+    inline MTL::ComputePipelineState* get_pso() const
+    {
+        return m_pso;
+    }
+    inline MTL::Size get_threadgroup_size() const
+    {
+        return m_threadgroup_size;
+    }
+};
+
+class MetalSamplerState : public GRISamplerState
+{
+private:
+    MTL::SamplerState* m_sampler;
+
+public:
+    explicit MetalSamplerState(MTL::SamplerState* sampler)
+        : GRISamplerState(GRIResourceType::Sampler),
+          m_sampler(sampler)
+    {
+    }
+    ~MetalSamplerState() override
+    {
+        if (m_sampler)
+        {
+            m_sampler->release();
+            m_sampler = nullptr;
+        }
+    }
+    inline MTL::SamplerState* get_sampler() const
+    {
+        return m_sampler;
+    }
+};
+
 template <class T>
 struct MetalResourceTraits
 {
@@ -291,6 +352,24 @@ template <>
 struct MetalResourceTraits<GRIPipelineState>
 {
     typedef MetalPipelineState ConcreteType;
+};
+
+template <>
+struct MetalResourceTraits<GRIComputeShader>
+{
+    typedef MetalComputeShader ConcreteType;
+};
+
+template <>
+struct MetalResourceTraits<GRIComputePipelineState>
+{
+    typedef MetalComputePipelineState ConcreteType;
+};
+
+template <>
+struct MetalResourceTraits<GRISamplerState>
+{
+    typedef MetalSamplerState ConcreteType;
 };
 
 template <typename T>

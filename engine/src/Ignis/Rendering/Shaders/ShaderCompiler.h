@@ -28,6 +28,7 @@ struct ShaderCompilerOptions
     StageEntry                   stages[(size_t)GRIShaderStage::COUNT];
     uint8_t                      count = 0;
     Vector<Pair<String, String>> defines;
+    Vector<Path>                 include_dirs; // searched in order; first match wins
 };
 
 class ShaderCompiler
@@ -40,11 +41,13 @@ public:
 
     // Register a virtual include file served from memory.
     // virtual_path must match the path written in the #include directive verbatim
-    // (e.g. "Ignis/Core.hlsl" for #include <Ignis/Core.hlsl>).
+    // (e.g. "Ignis.hlsl" for #include <Ignis.hlsl>).
     void register_virtual_include(const String& virtual_path, const String& source);
 
-    // Set the directory used to resolve relative #include directives for the next compile call.
-    void set_source_directory(const Path& dir);
+    // Set the ordered list of directories used to resolve relative #include directives.
+    // Applied for all subsequent compile() calls. opts.include_dirs takes precedence
+    // if non-empty at call time.
+    void set_include_dirs(const Vector<Path>& dirs);
 
     ShaderTarget get_target() const
     {

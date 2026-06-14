@@ -18,8 +18,9 @@ namespace Ignis
 Editor::Editor(const ApplicationSpecification& spec)
     : Application(spec)
 {
-    const Path engine_root = Filesystem::current_path() / "resources";
-    bootstrap(engine_root);
+    const Path engine_root  = Filesystem::current_path() / "resources";
+    const Path shaders_root = spec.engine_shaders_root;
+    bootstrap(engine_root, shaders_root);
     push_layer(new EditorLayer());
 
     ImGuiLayer* imgui_layer = new ImGuiLayer();
@@ -39,10 +40,10 @@ Editor::~Editor()
     EditorSettingsManager::get().save_engine();
 }
 
-void Editor::bootstrap(const Path& engine_root)
+void Editor::bootstrap(const Path& engine_root, const Path& shaders_root)
 {
     // --- Engine-root setup (order matters) ---
-    EditorAssetManager::get().set_engine_root(engine_root);
+    EditorAssetManager::get().set_engine_root(engine_root, shaders_root);
     EditorResourceCache::get().init(engine_root);
 
     // --- Register project observers (deterministic order) ---
@@ -78,8 +79,9 @@ void Editor::on_asset_reloaded(AssetID id)
 Application* create_application(const ApplicationCommandLineArgs& args)
 {
     ApplicationSpecification spec;
-    spec.name              = "Editor";
-    spec.command_line_args = args;
+    spec.name                = "Editor";
+    spec.command_line_args   = args;
+    spec.engine_shaders_root = Filesystem::absolute(Filesystem::current_path() / ".." / "engine" / "shaders");
     return new Editor(spec);
 }
 

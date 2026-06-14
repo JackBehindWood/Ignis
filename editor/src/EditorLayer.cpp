@@ -50,6 +50,7 @@ void EditorLayer::attach()
     const uint32_t init_w   = viewport ? viewport->get_width() : 1280u;
     const uint32_t init_h   = viewport ? viewport->get_height() : 720u;
     m_scene_renderer.resize(init_w, init_h);
+    m_overlay.resize(init_w, init_h);
 
     m_scene_ready = true;
 
@@ -66,8 +67,8 @@ void EditorLayer::attach()
     m_panel_registry.register_panel(
         {5, "Asset Browser", []() -> UniquePtr<IPanel> { return create_unique<AssetBrowserPanel>(); }});
 
-    m_workspace_manager.register_workspace(
-        create_unique<SceneEditorWorkspace>(m_active_scene, m_scene_renderer, m_panel_registry, m_dispatcher));
+    m_workspace_manager.register_workspace(create_unique<SceneEditorWorkspace>(
+        m_active_scene, m_extractor, m_scene_renderer, m_overlay, m_panel_registry, m_dispatcher));
 
     m_workspace_manager.activate(1);
 
@@ -192,7 +193,7 @@ void EditorLayer::update(Timestep ts)
     m_workspace_manager.update(ts);
 #endif
 
-    m_scene_renderer.prepare(m_active_scene);
+    m_extractor.prepare(m_active_scene);
 }
 
 void EditorLayer::render()

@@ -1,9 +1,9 @@
 #include "edpch.h"
 #include "EditorPrimitives.h"
-#include "EditorShaderCache.h"
 #include "Ignis/Rendering/Renderer.h"
 #include "Ignis/Rendering/MaterialFactory.h"
 #include "Ignis/Rendering/RenderMesh.h"
+#include "Ignis/Rendering/RenderSystem.h"
 
 namespace Ignis
 {
@@ -186,19 +186,28 @@ Entity EditorPrimitives::spawn_pyramid(Scene& scene)
     return spawn_prim(scene, 5, {});
 }
 
-void EditorPrimitives::init(EditorShaderCache& shader_cache)
+void EditorPrimitives::init()
 {
     const RendererConfig& cfg = Renderer::get_config();
 
-    SharedPtr<RenderShader> vs = shader_cache.get_or_compile("primitive.hlsl", GRIShaderStage::Vertex);
-    SharedPtr<RenderShader> ps = shader_cache.get_or_compile("primitive.hlsl", GRIShaderStage::Pixel);
+    SharedPtr<RenderShader> vs = Renderer::get_global_cache().get_pbr_vs();
+    SharedPtr<RenderShader> ps = Renderer::get_global_cache().get_pbr_ps();
 
-    GRIRasterDesc raster;
-    raster.cull_mode = GRICullMode::None;
+    if (vs && ps)
+    {
+        GRIRasterDesc raster;
+        raster.cull_mode = GRICullMode::None;
 
-    SharedPtr<Material> mat = Renderer::get_material_factory().get_or_create(
-        vs, ps, "standard_mesh", cfg.render_target_format, cfg.depth_format, {}, raster, {});
-    Renderer::get_resource_cache().register_material(prim_material_key(), mat);
+        constexpr uint32_t k_zero_indices[6] = {0, 0, 0, 0, 0, 0};
+        GRIBufferDesc      buf_desc;
+        buf_desc.size           = sizeof(k_zero_indices);
+        buf_desc.usage          = GRIBufferUsage::UniformBuffer;
+        GRIBufferPtr params_buf = RenderSystem::get_gri()->create_buffer(buf_desc, k_zero_indices);
+
+        SharedPtr<Material> mat = Renderer::get_material_factory().create_with_params(
+            vs, ps, "standard_mesh", cfg.render_target_format, cfg.depth_format, {}, raster, {}, std::move(params_buf));
+        Renderer::get_resource_cache().register_material(prim_material_key(), mat);
+    }
 
     Renderer::get_resource_cache().register_mesh(
         prim_mesh_key(0), RenderMesh::create(k_tri_verts, sizeof(k_tri_verts), k_tri_indices, 3, GRIIndexFormat::Uint32,

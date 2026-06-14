@@ -16,6 +16,10 @@ static_assert(static_cast<uint8_t>(GRIPixelFormat::RGBA8Unorm) == 1,
               "GRIPixelFormat binary encoding changed — update AssetPixelFormat");
 static_assert(static_cast<uint8_t>(GRIPixelFormat::BGRA8Unorm) == 2,
               "GRIPixelFormat binary encoding changed — update AssetPixelFormat");
-static_assert(static_cast<uint8_t>(GRIPixelFormat::Depth32Float) == 3,
+static_assert(static_cast<uint8_t>(GRIPixelFormat::RGBA16Float) == 3,
+              "GRIPixelFormat binary encoding changed — update AssetPixelFormat");
+static_assert(static_cast<uint8_t>(GRIPixelFormat::Depth32Float) == 4,
+              "GRIPixelFormat binary encoding changed — update AssetPixelFormat");
+static_assert(static_cast<uint8_t>(GRIPixelFormat::RG16Float) == 5,
               "GRIPixelFormat binary encoding changed — update AssetPixelFormat");
 } // namespace Ignis

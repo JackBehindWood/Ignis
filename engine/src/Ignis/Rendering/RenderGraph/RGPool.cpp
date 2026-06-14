@@ -47,30 +47,33 @@ GRITexture2D* RenderGraphResourcePool::acquire(const GRITexture2DDesc& desc, uin
 }
 
 GRIBuffer* RenderGraphResourcePool::acquire_buffer(const GRIBufferDesc& desc, uint16_t first_used, uint16_t last_used,
-                                                   uint32_t current_frame)
+                                                   uint32_t current_frame, bool allow_aliasing)
 {
-    for (BufferEntry& e : m_buffer_entries)
+    if (allow_aliasing)
     {
-        if (e.desc.size != desc.size || e.desc.usage != desc.usage)
+        for (BufferEntry& e : m_buffer_entries)
         {
-            continue;
-        }
-
-        bool overlaps = false;
-        for (const Interval& iv : e.committed)
-        {
-            if (first_used <= iv.last && iv.first <= last_used)
+            if (e.desc.size != desc.size || e.desc.usage != desc.usage)
             {
-                overlaps = true;
-                break;
+                continue;
             }
-        }
 
-        if (!overlaps)
-        {
-            e.committed.push_back({first_used, last_used});
-            e.last_frame_used = current_frame;
-            return e.resource.get();
+            bool overlaps = false;
+            for (const Interval& iv : e.committed)
+            {
+                if (first_used <= iv.last && iv.first <= last_used)
+                {
+                    overlaps = true;
+                    break;
+                }
+            }
+
+            if (!overlaps)
+            {
+                e.committed.push_back({first_used, last_used});
+                e.last_frame_used = current_frame;
+                return e.resource.get();
+            }
         }
     }
 

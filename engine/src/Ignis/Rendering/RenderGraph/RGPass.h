@@ -9,8 +9,15 @@ namespace Ignis
 
 class GRICommandList;
 
+enum class RGPassType
+{
+    Graphics,
+    Compute
+};
+
 struct RGPassBase
 {
+    RGPassType  pass_type       = RGPassType::Graphics;
     const char* name            = nullptr;
     bool        is_culled       = false;
     uint32_t    num_color_slots = 0;
@@ -21,6 +28,11 @@ struct RGPassBase
     Vector<uint16_t> buffer_reads;
     Vector<uint16_t> buffer_writes;
     Vector<uint16_t> texture_writes;
+
+    Vector<uint16_t> storage_buffer_reads;
+    Vector<uint16_t> storage_buffer_writes;
+    Vector<uint16_t> storage_texture_reads;
+    Vector<uint16_t> storage_texture_writes;
 
     RGInternal::AttachmentSlot color_slots[max_simultaneous_render_targets];
     RGInternal::AttachmentSlot depth_slot = {};

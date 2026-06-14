@@ -148,10 +148,10 @@ void ThumbnailRenderer::flush()
 
         cmd.begin_render_pass(pass_info);
         cmd.set_graphics_pipeline_state(pso);
-        cmd.set_uniform_buffer(fu_alloc.buffer, static_cast<uint32_t>(UniformSlot::FrameData), GRIShaderStage::Vertex,
-                               fu_alloc.offset);
-        cmd.set_uniform_buffer(fu_alloc.buffer, static_cast<uint32_t>(UniformSlot::FrameData), GRIShaderStage::Pixel,
-                               fu_alloc.offset);
+        cmd.set_uniform_buffer(fu_alloc.buffer, static_cast<uint32_t>(DefaultBindings::FrameData),
+                               GRIShaderStage::Vertex, fu_alloc.offset);
+        cmd.set_uniform_buffer(fu_alloc.buffer, static_cast<uint32_t>(DefaultBindings::FrameData),
+                               GRIShaderStage::Pixel, fu_alloc.offset);
         cmd.set_vertex_buffer(vb);
         cmd.set_index_buffer(ib, idx_fmt);
         cmd.draw_indexed_primitives(index_count, 0, 0);

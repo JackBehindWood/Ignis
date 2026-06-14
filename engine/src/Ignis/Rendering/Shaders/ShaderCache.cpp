@@ -2,22 +2,26 @@
 #include "ShaderCache.h"
 #include "ShaderCompiler.h"
 #include "Ignis/Rendering/RenderSystem.h"
+#include "Ignis/Rendering/GRI/GRI.h"
 
 namespace Ignis
 {
 
 // ---------------------------------------------------------------------------
-// IGSH v8 cache blob format
-//   ['I','G','S','H'] version=8
+// IGSH v4 cache blob format — one file per stage
+//   ['I','G','S','H'] version=4
 //   source_hash_lo u32
-//   source_hash_hi u32
+//   source_hash_hi u32   (fnv1a-64 of HLSL source content, split lo/hi)
 //   target         u8
-//   num_stages     u8
-//   per stage: stage_type(u8) entry_point(str) bytecode_size(u32) bytecode reflection
+//   stage_type     u8    entry_point str    bytecode_size u32    bytecode
+//   reflection: uniform_buffers storage_buffers storage_textures separate_images separate_samplers
+//               stage_inputs stage_outputs push_constants
+//               each as count(u32) + entries([name set binding is_unbounded])
+//               threadgroup_size_x u32  threadgroup_size_y u32  threadgroup_size_z u32
 // ---------------------------------------------------------------------------
 
 static constexpr uint8_t k_magic[4] = {'I', 'G', 'S', 'H'};
-static constexpr uint8_t k_version  = 1;
+static constexpr uint8_t k_version  = 4;
 
 static void write_str(BinaryWriter& w, const String& s)
 {
@@ -49,19 +53,26 @@ static void write_reflection(BinaryWriter& w, const ShaderReflection& refl)
             write_str(w, b.name);
             w.write_u32(b.set);
             w.write_u32(b.binding);
+            w.write_u8(b.is_unbounded ? 1u : 0u);
         }
     };
     write_bindings(refl.uniform_buffers);
     write_bindings(refl.storage_buffers);
+    write_bindings(refl.storage_textures);
     write_bindings(refl.separate_images);
     write_bindings(refl.separate_samplers);
 
-    w.write_u32(static_cast<uint32_t>(refl.stage_inputs.size()));
-    for (const auto& i : refl.stage_inputs)
+    auto write_stage_io = [&](const Vector<ShaderStageInput>& v)
     {
-        write_str(w, i.name);
-        w.write_u32(i.location);
-    }
+        w.write_u32(static_cast<uint32_t>(v.size()));
+        for (const auto& i : v)
+        {
+            write_str(w, i.name);
+            w.write_u32(i.location);
+        }
+    };
+    write_stage_io(refl.stage_inputs);
+    write_stage_io(refl.stage_outputs);
 
     w.write_u32(static_cast<uint32_t>(refl.push_constants.size()));
     for (const auto& p : refl.push_constants)
@@ -69,6 +80,9 @@ static void write_reflection(BinaryWriter& w, const ShaderReflection& refl)
         write_str(w, p.name);
         w.write_u32(p.size);
     }
+    w.write_u32(refl.threadgroup_size_x);
+    w.write_u32(refl.threadgroup_size_y);
+    w.write_u32(refl.threadgroup_size_z);
 }
 
 static ShaderReflection read_reflection(BinaryReader& r)
@@ -80,23 +94,30 @@ static ShaderReflection read_reflection(BinaryReader& r)
         v.resize(n);
         for (auto& b : v)
         {
-            b.name    = read_str(r);
-            b.set     = r.read_u32();
-            b.binding = r.read_u32();
+            b.name         = read_str(r);
+            b.set          = r.read_u32();
+            b.binding      = r.read_u32();
+            b.is_unbounded = r.read_u8() != 0;
         }
     };
     read_bindings(refl.uniform_buffers);
     read_bindings(refl.storage_buffers);
+    read_bindings(refl.storage_textures);
     read_bindings(refl.separate_images);
     read_bindings(refl.separate_samplers);
 
-    const uint32_t si_n = r.read_u32();
-    refl.stage_inputs.resize(si_n);
-    for (auto& i : refl.stage_inputs)
+    auto read_stage_io = [&](Vector<ShaderStageInput>& v)
     {
-        i.name     = read_str(r);
-        i.location = r.read_u32();
-    }
+        const uint32_t n = r.read_u32();
+        v.resize(n);
+        for (auto& i : v)
+        {
+            i.name     = read_str(r);
+            i.location = r.read_u32();
+        }
+    };
+    read_stage_io(refl.stage_inputs);
+    read_stage_io(refl.stage_outputs);
 
     const uint32_t pc_n = r.read_u32();
     refl.push_constants.resize(pc_n);
@@ -105,6 +126,9 @@ static ShaderReflection read_reflection(BinaryReader& r)
         p.name = read_str(r);
         p.size = r.read_u32();
     }
+    refl.threadgroup_size_x = r.read_u32();
+    refl.threadgroup_size_y = r.read_u32();
+    refl.threadgroup_size_z = r.read_u32();
     return refl;
 }
 
@@ -160,6 +184,16 @@ static constexpr String hex8(uint64_t v)
     return s;
 }
 
+static void ensure_default_stages(ShaderCompilerOptions& opts)
+{
+    if (opts.count == 0)
+    {
+        opts.count           = 2;
+        opts.stages[0].stage = GRIShaderStage::Vertex;
+        opts.stages[1].stage = GRIShaderStage::Pixel;
+    }
+}
+
 void ShaderCache::set_cache_root(const Path& dir)
 {
     m_cache_root = dir;
@@ -168,6 +202,11 @@ void ShaderCache::set_cache_root(const Path& dir)
 void ShaderCache::set_engine_cache_root(const Path& dir)
 {
     m_engine_cache_root = dir;
+}
+
+void ShaderCache::set_engine_include_dir(const Path& dir)
+{
+    m_engine_include_dir = dir;
 }
 
 uint64_t ShaderCache::hash_path(const Path& p)
@@ -260,6 +299,16 @@ SharedPtr<RenderShader> ShaderCache::make_render_shader(const ShaderStageOutput&
         }
         return create_shared<RenderShader>(std::move(raw), GRIShaderStage::Pixel, s.reflection);
     }
+    if (s.stage == GRIShaderStage::Compute)
+    {
+        GRIComputeShaderPtr raw = gri->create_compute_shader(desc);
+        if (!raw)
+        {
+            IG_CORE_ERROR("ShaderCache: GRI rejected compute shader (entry='{}')", s.entry_point);
+            return nullptr;
+        }
+        return create_shared<RenderShader>(std::move(raw), GRIShaderStage::Compute, s.reflection);
+    }
 
     IG_CORE_ERROR("ShaderCache: unsupported shader stage in make_render_shader");
     return nullptr;
@@ -342,11 +391,11 @@ bool ShaderCache::compile_and_store(const Path& source_path, uint64_t variant_ke
     const String source_text = src.read_all_text();
 
     ShaderCompilerOptions effective_opts = opts;
-    if (effective_opts.count == 0)
+    ensure_default_stages(effective_opts);
+
+    if (!m_engine_include_dir.empty())
     {
-        effective_opts.count           = 2;
-        effective_opts.stages[0].stage = GRIShaderStage::Vertex;
-        effective_opts.stages[1].stage = GRIShaderStage::Pixel;
+        effective_opts.include_dirs.push_back(m_engine_include_dir);
     }
 
     const ShaderTarget              target = detect_target();
@@ -376,7 +425,11 @@ bool ShaderCache::compile_and_store(const Path& source_path, uint64_t variant_ke
         {
             return false;
         }
-        m_memory[make_stage_key(variant_key, s.stage)] = {variant_hash, shader};
+        const uint64_t bc_hash = fnv1a(reinterpret_cast<const char*>(s.bytecode.data()), s.bytecode.size());
+        {
+            UniqueLock<SharedMutex> lock(m_mutex);
+            m_memory[make_stage_key(variant_key, s.stage)] = {variant_hash, bc_hash, shader};
+        }
         if (s.stage == requested_stage)
         {
             out = shader;
@@ -393,10 +446,26 @@ void ShaderCache::remove(const Path& source_path)
     const uint64_t path_hash   = hash_path(source_path);
     const uint64_t variant_key = mix_defines(path_hash, {});
 
+    GRI* gri = RenderSystem::get_gri();
+
     for (int s = 0; s < static_cast<int>(GRIShaderStage::COUNT); ++s)
     {
-        const auto stage = static_cast<GRIShaderStage>(s);
-        m_memory.erase(make_stage_key(variant_key, stage));
+        const auto     stage     = static_cast<GRIShaderStage>(s);
+        const uint64_t stage_key = make_stage_key(variant_key, stage);
+
+        {
+            UniqueLock<SharedMutex> lock(m_mutex);
+            auto                    it = m_memory.find(stage_key);
+            if (it != m_memory.end())
+            {
+                if (gri)
+                {
+                    gri->invalidate_compiled_shader(it->second.bytecode_hash);
+                }
+                m_memory.erase(it);
+            }
+        }
+
         const Path cache_file = cache_file_for(variant_key, source_path, stage);
         if (Filesystem::exists(cache_file))
         {
@@ -415,13 +484,16 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const String& source_text, c
     const uint64_t variant_key  = mix_defines(path_hash, opts.defines);
     const uint64_t stage_key    = make_stage_key(variant_key, stage);
 
-    auto it = m_memory.find(stage_key);
-    if (it != m_memory.end() && it->second.variant_hash == variant_hash)
     {
-        SharedPtr<RenderShader> sh = it->second.shader;
-        if (sh)
+        SharedLock<SharedMutex> lock(m_mutex);
+        auto                    it = m_memory.find(stage_key);
+        if (it != m_memory.end() && it->second.variant_hash == variant_hash)
         {
-            return sh;
+            SharedPtr<RenderShader> sh = it->second.shader;
+            if (sh)
+            {
+                return sh;
+            }
         }
     }
 
@@ -431,13 +503,22 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const String& source_text, c
         (m_engine_cache_root != m_cache_root &&
          try_load_disk(m_engine_cache_root / cache_file.filename(), variant_hash, sh)))
     {
-        m_memory[stage_key] = {variant_hash, sh};
+        UniqueLock<SharedMutex> lock(m_mutex);
+        m_memory[stage_key] = {variant_hash, 0u, sh};
         return sh;
+    }
+
+    ShaderCompilerOptions effective_opts = opts;
+    ensure_default_stages(effective_opts);
+
+    if (!m_engine_include_dir.empty())
+    {
+        effective_opts.include_dirs.push_back(m_engine_include_dir);
     }
 
     const ShaderTarget              target = detect_target();
     ShaderCompiler                  compiler(target);
-    const Vector<ShaderStageOutput> stages = compiler.compile(source_text, opts);
+    const Vector<ShaderStageOutput> stages = compiler.compile(source_text, effective_opts);
     if (stages.empty())
     {
         IG_CORE_ERROR("ShaderCache: compile failed for inline shader '{}'", virtual_name);
@@ -461,7 +542,11 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const String& source_text, c
         {
             return nullptr;
         }
-        m_memory[make_stage_key(variant_key, s.stage)] = {variant_hash, shader};
+        const uint64_t bc_hash = fnv1a(reinterpret_cast<const char*>(s.bytecode.data()), s.bytecode.size());
+        {
+            UniqueLock<SharedMutex> lock(m_mutex);
+            m_memory[make_stage_key(variant_key, s.stage)] = {variant_hash, bc_hash, shader};
+        }
         if (s.stage == stage)
         {
             sh = shader;
@@ -494,13 +579,16 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const Path& source_path, GRI
     const uint64_t variant_key  = mix_defines(path_hash, opts.defines);
     const uint64_t stage_key    = make_stage_key(variant_key, stage);
 
-    auto it = m_memory.find(stage_key);
-    if (it != m_memory.end() && it->second.variant_hash == variant_hash)
     {
-        SharedPtr<RenderShader> sh = it->second.shader;
-        if (sh)
+        SharedLock<SharedMutex> lock(m_mutex);
+        auto                    it = m_memory.find(stage_key);
+        if (it != m_memory.end() && it->second.variant_hash == variant_hash)
         {
-            return sh;
+            SharedPtr<RenderShader> sh = it->second.shader;
+            if (sh)
+            {
+                return sh;
+            }
         }
     }
 
@@ -510,7 +598,8 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const Path& source_path, GRI
         (m_engine_cache_root != m_cache_root &&
          try_load_disk(m_engine_cache_root / cache_file.filename(), variant_hash, sh)))
     {
-        m_memory[stage_key] = {variant_hash, sh};
+        UniqueLock<SharedMutex> lock(m_mutex);
+        m_memory[stage_key] = {variant_hash, 0u, sh};
         return sh;
     }
 

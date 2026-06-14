@@ -20,6 +20,10 @@ public:
                            uint32_t index_count);
     void     flush_to_gpu();
 
+    bool has_mesh(uint64_t key) const
+    {
+        return m_slots.find(key) != m_slots.end();
+    }
     GRIBuffer* get_global_vb() const
     {
         return m_vb.get();

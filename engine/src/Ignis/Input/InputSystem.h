@@ -19,6 +19,7 @@ public:
     static bool                 was_action_completed(ActionID action);
     static float                get_axis_value(ActionID action);
     static FixedInputString<32> get_action_label(ActionID action);
+    static float                get_scroll_delta();
 
     static void trigger_action(ActionID action);
 
@@ -43,6 +44,7 @@ private:
     static UnorderedMap<ActionID, ActionState> s_frame_states;
     static UnorderedMap<ActionID, ActionState> s_pending_states;
     static bool                                s_block_game_input;
+    static float                               s_scroll_delta;
 
     static constexpr int32_t k_game_priority_threshold = 50;
 

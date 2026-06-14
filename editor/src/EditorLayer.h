@@ -1,11 +1,13 @@
 #pragma once
 
 #include <Ignis.h>
+#include <Ignis/Scene/SceneExtractor.h>
 
 #ifdef ENGINE_IMGUI
 #include "UI/Panels/PanelRegistry.h"
 #include "UI/Commands/CommandDispatcher.h"
 #include "UI/Workspace/WorkspaceManager.h"
+#include "UI/SceneEditor/EditorSceneOverlay.h"
 #endif
 
 namespace Ignis
@@ -13,15 +15,17 @@ namespace Ignis
 class EditorLayer : public Layer
 {
 private:
-    Scene         m_active_scene;
-    SceneRenderer m_scene_renderer;
-    bool          m_scene_ready = false;
+    Scene          m_active_scene;
+    SceneExtractor m_extractor;
+    SceneRenderer  m_scene_renderer;
+    bool           m_scene_ready = false;
 
 #ifdef ENGINE_IMGUI
-    PanelRegistry     m_panel_registry;
-    CommandDispatcher m_dispatcher;
-    WorkspaceManager  m_workspace_manager{m_panel_registry, m_dispatcher};
-    InputContext      m_global_editor_ctx{"EditorGlobal", 100};
+    EditorSceneOverlay m_overlay;
+    PanelRegistry      m_panel_registry;
+    CommandDispatcher  m_dispatcher;
+    WorkspaceManager   m_workspace_manager{m_panel_registry, m_dispatcher};
+    InputContext       m_global_editor_ctx{"EditorGlobal", 100};
 #endif
 
 public:

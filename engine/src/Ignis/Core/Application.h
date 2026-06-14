@@ -32,6 +32,7 @@ struct ApplicationSpecification
     String                     working_directory;
     uint32_t                   width  = 1280;
     uint32_t                   height = 720;
+    Path                       engine_shaders_root;
     ApplicationCommandLineArgs command_line_args;
 };
 
