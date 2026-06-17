@@ -45,6 +45,21 @@ public:
     virtual void invalidate_compiled_shader(uint64_t bytecode_hash)
     {
     }
+
+    // Initialize the bindless texture array argument encoder from a compiled PBR pixel shader.
+    // Must be called once after the PBR shader is ready, before register_bindless_texture.
+    // No-op on non-Metal backends.
+    virtual void init_bindless_array(GRIShader* /*ps*/)
+    {
+    }
+
+    // Register a texture+sampler pair in the global bindless array.
+    // Returns the bindless slot index for use in PBRMaterialParams.
+    // No-op on non-Metal backends — returns 0.
+    virtual uint32_t register_bindless_texture(GRITexture2DPtr /*texture*/, GRISamplerStatePtr /*sampler*/)
+    {
+        return 0;
+    }
 };
 
 } // namespace Ignis

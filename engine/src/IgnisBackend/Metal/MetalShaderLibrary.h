@@ -13,6 +13,7 @@ class MetalShaderLibrary
 {
 private:
     MetalDevice*                              m_device = nullptr;
+    mutable Mutex                             m_cache_mutex;
     UnorderedMap<std::string, MTL::Function*> m_function_cache;
 
     MetalShaderLibrary() = default;

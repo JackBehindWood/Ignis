@@ -65,11 +65,18 @@ public:
         SharedLock lock(m_mutex);
         return m_pbr_ps;
     }
-    void set_pbr_shaders(SharedPtr<RenderShader> vs, SharedPtr<RenderShader> ps)
+    SharedPtr<RenderShader> get_pbr_ps_masked() const
+    {
+        SharedLock lock(m_mutex);
+        return m_pbr_ps_masked;
+    }
+    void set_pbr_shaders(SharedPtr<RenderShader> vs, SharedPtr<RenderShader> ps,
+                         SharedPtr<RenderShader> ps_masked = nullptr)
     {
         UniqueLock lock(m_mutex);
-        m_pbr_vs = std::move(vs);
-        m_pbr_ps = std::move(ps);
+        m_pbr_vs        = std::move(vs);
+        m_pbr_ps        = std::move(ps);
+        m_pbr_ps_masked = std::move(ps_masked);
     }
 
     void set_cull_pipeline_state(GRIComputePipelineStatePtr pso)
@@ -84,6 +91,36 @@ public:
         return m_cull_pso;
     }
 
+    void set_default_texture_indices(uint32_t white, uint32_t normal, uint32_t black, uint32_t gray)
+    {
+        UniqueLock lock(m_mutex);
+        m_default_white_idx  = white;
+        m_default_normal_idx = normal;
+        m_default_black_idx  = black;
+        m_default_gray_idx   = gray;
+    }
+
+    uint32_t get_default_white_idx() const
+    {
+        SharedLock lock(m_mutex);
+        return m_default_white_idx;
+    }
+    uint32_t get_default_normal_idx() const
+    {
+        SharedLock lock(m_mutex);
+        return m_default_normal_idx;
+    }
+    uint32_t get_default_black_idx() const
+    {
+        SharedLock lock(m_mutex);
+        return m_default_black_idx;
+    }
+    uint32_t get_default_gray_idx() const
+    {
+        SharedLock lock(m_mutex);
+        return m_default_gray_idx;
+    }
+
     void clear()
     {
         UniqueLock lock(m_mutex);
@@ -93,7 +130,12 @@ public:
         m_tonemap_material.reset();
         m_pbr_vs.reset();
         m_pbr_ps.reset();
+        m_pbr_ps_masked.reset();
         m_cull_pso.reset();
+        m_default_white_idx  = 0;
+        m_default_normal_idx = 0;
+        m_default_black_idx  = 0;
+        m_default_gray_idx   = 0;
     }
 
 private:
@@ -104,7 +146,12 @@ private:
     SharedPtr<Material>        m_tonemap_material;
     SharedPtr<RenderShader>    m_pbr_vs;
     SharedPtr<RenderShader>    m_pbr_ps;
+    SharedPtr<RenderShader>    m_pbr_ps_masked;
     GRIComputePipelineStatePtr m_cull_pso;
+    uint32_t                   m_default_white_idx  = 0;
+    uint32_t                   m_default_normal_idx = 0;
+    uint32_t                   m_default_black_idx  = 0;
+    uint32_t                   m_default_gray_idx   = 0;
 };
 
 } // namespace Ignis

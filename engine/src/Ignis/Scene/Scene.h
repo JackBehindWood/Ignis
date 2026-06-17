@@ -2,6 +2,7 @@
 
 #include "entt/entt.hpp"
 #include "Ignis/Scene/CameraData.h"
+#include "Ignis/Core/UUID.h"
 
 namespace Ignis
 {
@@ -18,6 +19,7 @@ public:
     void   destroy_entity(Entity entity);
     void   clear();
     void   update(float ts);
+    Entity find_entity(UUID id);
 
     Optional<CameraData> get_primary_camera_data() const;
 

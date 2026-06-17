@@ -1,9 +1,12 @@
 #include "igpch.h"
 #include "MaterialFactory.h"
 
+#include "Ignis/Rendering/PBRMaterialParams.h"
 #include "Ignis/Rendering/VertexDeclarationRegistry.h"
 #include "Ignis/Rendering/RenderSystem.h"
+#include "Ignis/Rendering/Renderer.h"
 #include "Ignis/Rendering/GRI/GRI.h"
+#include "Ignis/Rendering/Shaders/MergedPipelineReflection.h"
 
 namespace Ignis
 {
@@ -72,7 +75,11 @@ SharedPtr<Material> MaterialFactory::get_or_create(SharedPtr<RenderShader> vs, S
     const GRIVertexDeclaration* vd = key.layout.empty() ? nullptr : VertexDeclarationRegistry::get().find(key.layout);
     GRIPipelineState*           depth_pso = get_depth_pso(key);
 
-    auto mat = create_shared<Material>(vs, ps, pso_it->second, vd, nullptr, depth_pso, raster, blend);
+    MergedPipelineReflection merged =
+        MergedPipelineReflection::merge(vs ? &vs->get_reflection() : nullptr, ps ? &ps->get_reflection() : nullptr);
+
+    auto mat =
+        create_shared<Material>(vs, ps, pso_it->second, vd, std::move(merged), nullptr, depth_pso, raster, blend);
     m_mat_cache.emplace(key, mat);
     return mat;
 }
@@ -82,8 +89,33 @@ SharedPtr<Material> MaterialFactory::create_with_params(SharedPtr<RenderShader> 
                                                         GRIPixelFormat             depth_fmt,
                                                         const GRIDepthStencilDesc& depth_stencil,
                                                         const GRIRasterDesc& raster, const GRIBlendDesc& blend,
-                                                        GRIBufferPtr params)
+                                                        GRIBufferPtr params, PBRMaterialParams pbr_params)
 {
+    auto& gc = Renderer::get_global_cache();
+    if (!pbr_params.albedo_tex)
+    {
+        pbr_params.albedo_tex = gc.get_default_white_idx();
+    }
+    if (!pbr_params.normal_tex)
+    {
+        pbr_params.normal_tex = gc.get_default_normal_idx();
+    }
+    if (!pbr_params.roughness_tex)
+    {
+        pbr_params.roughness_tex = gc.get_default_gray_idx();
+    }
+    if (!pbr_params.metallic_tex)
+    {
+        pbr_params.metallic_tex = gc.get_default_black_idx();
+    }
+    if (!pbr_params.ao_tex)
+    {
+        pbr_params.ao_tex = gc.get_default_white_idx();
+    }
+    if (!pbr_params.emissive_tex)
+    {
+        pbr_params.emissive_tex = gc.get_default_black_idx();
+    }
     CacheKey key{
         vs->get_shader(), ps ? ps->get_shader() : nullptr, layout, rt_fmt, depth_fmt, depth_stencil, raster, blend};
 
@@ -96,7 +128,11 @@ SharedPtr<Material> MaterialFactory::create_with_params(SharedPtr<RenderShader> 
     const GRIVertexDeclaration* vd = key.layout.empty() ? nullptr : VertexDeclarationRegistry::get().find(key.layout);
     GRIPipelineState*           depth_pso = get_depth_pso(key);
 
-    return create_shared<Material>(vs, ps, pso_it->second, vd, std::move(params), depth_pso, raster, blend);
+    MergedPipelineReflection merged =
+        MergedPipelineReflection::merge(vs ? &vs->get_reflection() : nullptr, ps ? &ps->get_reflection() : nullptr);
+
+    return create_shared<Material>(vs, ps, pso_it->second, vd, std::move(merged), std::move(params), depth_pso, raster,
+                                   blend, pbr_params);
 }
 
 void MaterialFactory::clear()

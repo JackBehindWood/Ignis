@@ -8,21 +8,25 @@
 namespace Ignis
 {
 
-static constexpr uint32_t k_uniform_buf_size = 8192;
+static constexpr uint32_t k_uniform_buf_size = 65536;
 
-struct ThumbFrameUniforms
-{
-    Math::Mat4f view_projection;
-};
-
-static Math::Mat4f make_thumbnail_mvp(Math::Vec3f center, float radius)
+static void make_thumbnail_frame_data(Math::Vec3f center, float radius, GPUFrameData& out)
 {
     using namespace Math;
     const Vec3f eye  = center + Vec3f{0.55f, 0.40f, 1.10f} * (radius * 2.5f);
     const Vec3f up   = Vec3f{0.0f, 1.0f, 0.0f};
     const Mat4f view = look_at(eye, center, up);
     const Mat4f proj = perspective(0.7854f, 1.0f, radius * 0.01f, radius * 20.0f);
-    return proj * view;
+
+    out                  = {};
+    out.view_projection  = proj * view;
+    out.camera_world_pos = eye;
+
+    out.num_directional_lights          = 1;
+    out.directional_lights[0].direction = normalized(
+        Vec3f{0.577f, -0.577f, -0.577f}); // Note: our thumbnails seems to nog get lighten up for any direction
+    out.directional_lights[0].intensity = 3.0f;
+    out.directional_lights[0].color     = {1.0f, 1.0f, 1.0f};
 }
 
 SharedPtr<RenderMesh> ThumbnailRenderer::make_sphere_mesh()
@@ -44,14 +48,14 @@ SharedPtr<RenderMesh> ThumbnailRenderer::make_sphere_mesh()
 
     for (uint32_t i = 0; i <= k_lat; ++i)
     {
-        const float phi = static_cast<float>(i) / k_lat * 3.14159265f;
-        const float sp  = std::sin(phi);
-        const float cp  = std::cos(phi);
+        const float phi = static_cast<float>(i) / k_lat * Math::pi;
+        const float sp  = Math::sin(phi);
+        const float cp  = Math::cos(phi);
         for (uint32_t j = 0; j <= k_lon; ++j)
         {
-            const float theta = static_cast<float>(j) / k_lon * 6.28318530f;
-            const float st    = std::sin(theta);
-            const float ct    = std::cos(theta);
+            const float theta = static_cast<float>(j) / k_lon * Math::tau;
+            const float st    = Math::sin(theta);
+            const float ct    = Math::cos(theta);
             Vertex      v;
             v.px = sp * ct;
             v.py = cp;
@@ -90,12 +94,32 @@ void ThumbnailRenderer::init(EditorShaderCache& /*shaders*/)
 {
     m_uniform_alloc.init(k_uniform_buf_size);
     m_sphere_mesh = make_sphere_mesh();
+
+    struct GPUInstanceData
+    {
+        float    world_matrix[16];
+        uint32_t material_index;
+        uint32_t _pad[3];
+    };
+    const GPUInstanceData identity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}, 0, {0, 0, 0}};
+    GRIBufferDesc         inst_desc;
+    inst_desc.size          = sizeof(GPUInstanceData);
+    inst_desc.usage         = GRIBufferUsage::UniformBuffer;
+    m_identity_instance_buf = RenderSystem::get_gri()->create_buffer(inst_desc, &identity);
+
+    const uint32_t zero_idx = 0;
+    GRIBufferDesc  vis_desc;
+    vis_desc.size      = sizeof(uint32_t);
+    vis_desc.usage     = GRIBufferUsage::UniformBuffer;
+    m_zero_visible_buf = RenderSystem::get_gri()->create_buffer(vis_desc, &zero_idx);
 }
 
 void ThumbnailRenderer::shutdown()
 {
     m_queue.clear();
     m_sphere_mesh.reset();
+    m_identity_instance_buf.reset();
+    m_zero_visible_buf.reset();
     m_uniform_alloc.shutdown();
 }
 
@@ -125,8 +149,8 @@ void ThumbnailRenderer::flush()
 
     for (const ThumbnailRenderRequest& req : m_queue)
     {
-        ThumbFrameUniforms fu;
-        fu.view_projection                         = make_thumbnail_mvp(req.bounds_center, req.bounds_radius);
+        GPUFrameData fu;
+        make_thumbnail_frame_data(req.bounds_center, req.bounds_radius, fu);
         FrameUniformAllocator::Allocation fu_alloc = m_uniform_alloc.allocate(&fu, sizeof(fu));
 
         GRIPipelineState*    pso         = req.material ? req.material->get_pipeline_state() : nullptr;
@@ -152,6 +176,30 @@ void ThumbnailRenderer::flush()
                                GRIShaderStage::Vertex, fu_alloc.offset);
         cmd.set_uniform_buffer(fu_alloc.buffer, static_cast<uint32_t>(DefaultBindings::FrameData),
                                GRIShaderStage::Pixel, fu_alloc.offset);
+
+        if (auto ibl = Renderer::get_global_cache().get_irradiance_cube())
+        {
+            cmd.set_texture(ibl->get_texture(), 0, GRIShaderStage::Pixel);
+        }
+        if (auto pre = Renderer::get_global_cache().get_prefilter_cube())
+        {
+            cmd.set_texture(pre->get_texture(), 1, GRIShaderStage::Pixel);
+        }
+        if (auto lut = Renderer::get_global_cache().get_brdf_lut())
+        {
+            cmd.set_texture(lut->get_texture(), 2, GRIShaderStage::Pixel);
+        }
+
+        if (req.material->get_params_buffer())
+        {
+            cmd.set_uniform_buffer(req.material->get_params_buffer(),
+                                   static_cast<uint32_t>(DefaultBindings::MaterialArgs), GRIShaderStage::Pixel);
+        }
+
+        cmd.set_uniform_buffer(m_identity_instance_buf.get(), static_cast<uint32_t>(DefaultBindings::InstanceData),
+                               GRIShaderStage::Vertex);
+        cmd.set_uniform_buffer(m_zero_visible_buf.get(), static_cast<uint32_t>(DefaultBindings::VisibleIndices),
+                               GRIShaderStage::Vertex);
         cmd.set_vertex_buffer(vb);
         cmd.set_index_buffer(ib, idx_fmt);
         cmd.draw_indexed_primitives(index_count, 0, 0);

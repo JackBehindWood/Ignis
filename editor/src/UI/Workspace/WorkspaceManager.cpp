@@ -149,7 +149,7 @@ void WorkspaceManager::draw_imgui()
         }
 
         bool  open   = true;
-        bool* p_open = active_def.policies.allow_closing ? &open : nullptr;
+        bool* p_open = panel->is_closeable() ? &open : nullptr;
 
         panel->push_window_style();
         ImGui::Begin(panel->get_title(), p_open, panel->get_window_flags());

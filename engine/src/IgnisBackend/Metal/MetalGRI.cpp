@@ -67,4 +67,16 @@ void MetalGRI::invalidate_compiled_shader(uint64_t bytecode_hash)
 {
     MetalShaderLibrary::get().invalidate(bytecode_hash);
 }
+
+void MetalGRI::init_bindless_array(GRIShader* ps)
+{
+    auto* mps = static_cast<MetalPixelShader*>(ps);
+    m_context.init_bindless_array(mps->get_function());
+}
+
+uint32_t MetalGRI::register_bindless_texture(GRITexture2DPtr texture, GRISamplerStatePtr sampler)
+{
+    return m_context.register_bindless_texture(std::move(texture), std::move(sampler));
+}
+
 } // namespace Ignis

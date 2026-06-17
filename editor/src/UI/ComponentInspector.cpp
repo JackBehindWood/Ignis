@@ -1,6 +1,7 @@
 #include "edpch.h"
 #include "UI/ComponentInspector.h"
 #include "UI/ImExt/ImExt.h"
+#include "UI/Commands/SceneCommands.h"
 #include "EditorResourceCache.h"
 #include "Asset/EditorAssetManager.h"
 
@@ -299,19 +300,39 @@ static void draw_material(Entity& e)
     }
     auto& m = e.get_component<MaterialComponent>();
 
-    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 72.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.5f);
+    // ---- Material slot ----
+    const ImVec2 thumb_size = {64.0f, 64.0f};
 
-    char mat_buf[32];
-    std::snprintf(mat_buf, sizeof(mat_buf), "%llu", static_cast<uint64_t>(m.material_id));
-    ImGui::InputText("Material##id", mat_buf, sizeof(mat_buf), ImGuiInputTextFlags_ReadOnly);
+    Path mat_src = m.material_id ? EditorAssetManager::get().try_get_source_path(m.material_id) : Path{};
+
+    EditorResourceCache::ThumbnailResult tr{};
+    if (m.material_id && !mat_src.empty())
+    {
+        tr = EditorResourceCache::get().request_thumbnail(mat_src, "MAT");
+    }
+
+    if (tr.ready)
+    {
+        ImGui::Image(reinterpret_cast<ImTextureID>(tr.tex_id), thumb_size, {tr.uv0[0], tr.uv0[1]},
+                     {tr.uv1[0], tr.uv1[1]});
+    }
+    else
+    {
+        ImGui::Dummy(thumb_size);
+        ImDrawList* dl   = ImGui::GetWindowDrawList();
+        ImVec2      rmin = ImGui::GetItemRectMin();
+        ImVec2      rmax = ImGui::GetItemRectMax();
+        dl->AddRectFilled(rmin, rmax, m.material_id ? IM_COL32(60, 60, 80, 255) : IM_COL32(35, 35, 35, 255));
+        dl->AddRect(rmin, rmax, IM_COL32(80, 80, 80, 255));
+    }
+
     if (auto target = ImExt::DragDrop::Target<AssetDragPayload>())
     {
         if (const auto* hover = target.peek())
         {
             bool compat = hover->count > 0 && std::strcmp(hover->items[0].type_label, "MAT") == 0;
             target.draw_compat_feedback(compat, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-            ImGui::SetTooltip(compat ? "Drop to assign material" : "Wrong type - needs MAT");
+            ImGui::SetTooltip(compat ? "Drop to assign material" : "Wrong type — needs MAT");
         }
         if (const auto* p = target.accept())
         {
@@ -335,8 +356,70 @@ static void draw_material(Entity& e)
         }
     }
 
-    ImGui::PopStyleVar();
-    ImGui::PopItemWidth();
+    ImGui::SameLine();
+    ImGui::BeginGroup();
+    {
+        String mat_name = mat_src.empty() ? "None" : mat_src.stem().string();
+        ImGui::TextUnformatted(mat_name.c_str());
+
+        if (m.material_id)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150, 150, 150, 255));
+            char id_buf[24];
+            std::snprintf(id_buf, sizeof(id_buf), "#%llu", static_cast<uint64_t>(m.material_id));
+            ImGui::TextUnformatted(id_buf);
+            ImGui::PopStyleColor();
+
+            if (ImGui::SmallButton("Clear"))
+            {
+                if (auto* d = CommandDispatcher::active())
+                {
+                    d->commit(create_unique<AssignMaterialToEntityCmd>(e, m.material_id, AssetID{}));
+                }
+                else
+                {
+                    m.material_id = AssetID{};
+                }
+            }
+        }
+        else
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 100, 100, 255));
+            ImGui::TextUnformatted("Drag a .mat asset here");
+            ImGui::PopStyleColor();
+        }
+    }
+    ImGui::EndGroup();
+
+    const UUID entity_uuid = e.get_component<IDComponent>().id;
+
+    if (!m.material_id)
+    {
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(180, 180, 120, 255));
+        ImGui::TextUnformatted("PBR (inline)");
+        ImGui::PopStyleColor();
+
+        bool dirty = false;
+        ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.65f);
+        dirty |= ImGui::ColorEdit4("Albedo", m.albedo_colour.data, ImGuiColorEditFlags_AlphaBar);
+        dirty |= ImGui::DragFloat("Alpha Cutoff", &m.alpha_cutoff, 0.01f, 0.0f, 1.0f);
+        dirty |= ImGui::DragFloat("Emissive Intensity", &m.emissive_intensity, 0.1f, 0.0f, 100.0f);
+        ImGui::PopItemWidth();
+        if (dirty)
+        {
+            m.params_dirty = true;
+        }
+    }
+
+    ImGui::Spacing();
+    if (ImGui::SmallButton("Edit Material..."))
+    {
+        if (auto* d = CommandDispatcher::active())
+        {
+            d->enqueue(create_unique<OpenMaterialEditorCmd>(entity_uuid));
+        }
+    }
 }
 
 // ---------- Texture ----------

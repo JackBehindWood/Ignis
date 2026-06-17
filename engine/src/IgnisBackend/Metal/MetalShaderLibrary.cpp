@@ -30,6 +30,7 @@ void MetalShaderLibrary::init(MetalDevice* device)
 
 void MetalShaderLibrary::reset()
 {
+    LockGuard<Mutex> lock(m_cache_mutex);
     for (auto& [key, fn] : m_function_cache)
     {
         fn->release();
@@ -42,13 +43,17 @@ MTL::Function* MetalShaderLibrary::load_hardware_function(const uint8_t* data, s
     const uint64_t hash   = fnv1a_bytes(data, size);
     const String   fn_key = to_string(hash) + ':' + entry_point;
 
-    auto fn_it = m_function_cache.find(fn_key);
-    if (fn_it != m_function_cache.end())
     {
-        fn_it->second->retain();
-        return fn_it->second;
+        LockGuard<Mutex> lock(m_cache_mutex);
+        auto             fn_it = m_function_cache.find(fn_key);
+        if (fn_it != m_function_cache.end())
+        {
+            fn_it->second->retain();
+            return fn_it->second;
+        }
     }
 
+    // MTL::Device::newLibrary and MTL::Library::newFunction are thread-safe — no lock held here.
     MTL_AUTORELEASE_POOL;
 
     dispatch_data_t ddata =
@@ -74,14 +79,24 @@ MTL::Function* MetalShaderLibrary::load_hardware_function(const uint8_t* data, s
         return nullptr;
     }
 
-    m_function_cache.emplace(fn_key, function);
-    function->retain();
-    return function;
+    {
+        LockGuard<Mutex> lock(m_cache_mutex);
+        auto [it, inserted] = m_function_cache.emplace(fn_key, function);
+        if (!inserted)
+        {
+            // Another thread compiled and inserted first — drop our duplicate.
+            function->release();
+            function = it->second;
+        }
+        function->retain();
+        return function;
+    }
 }
 
 void MetalShaderLibrary::invalidate(uint64_t bytecode_hash)
 {
-    const String prefix = to_string(bytecode_hash) + ':';
+    const String     prefix = to_string(bytecode_hash) + ':';
+    LockGuard<Mutex> lock(m_cache_mutex);
     for (auto it = m_function_cache.begin(); it != m_function_cache.end();)
     {
         if (it->first.compare(0, prefix.size(), prefix) == 0)
@@ -98,6 +113,7 @@ void MetalShaderLibrary::invalidate(uint64_t bytecode_hash)
 
 MetalShaderLibrary::~MetalShaderLibrary()
 {
+    LockGuard<Mutex> lock(m_cache_mutex);
     for (auto& [key, fn] : m_function_cache)
     {
         fn->release();

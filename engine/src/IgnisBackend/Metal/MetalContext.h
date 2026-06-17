@@ -5,6 +5,7 @@
 #include "MetalStateCache.h"
 #include "MetalCommandEncoder.h"
 #include "MetalCommandBuffer.h"
+#include "MetalBindlessArray.h"
 
 #include <Metal/Metal.hpp>
 
@@ -22,6 +23,7 @@ private:
     MetalComputeCommandEncoder* m_compute_encoder;
     MTL::Size                   m_active_threadgroup_size;
     MTL::SamplerState*          m_default_sampler;
+    MetalBindlessArray          m_bindless_array;
 
     void end_render_encoder()
     {
@@ -85,6 +87,9 @@ public:
     virtual void dispatch(uint32_t x, uint32_t y, uint32_t z) override;
     virtual void draw_indexed_primitives_indirect(GRIBuffer* args_buf, uint32_t byte_offset) override;
     virtual void memory_barrier(GRIResource* resource, GRIAccessFlags old_access, GRIAccessFlags new_access) override;
+
+    void     init_bindless_array(MTL::Function* ps_function);
+    uint32_t register_bindless_texture(GRITexture2DPtr texture, GRISamplerStatePtr sampler);
 
     inline MTL::CommandBuffer* get_current_command_buffer() const
     {

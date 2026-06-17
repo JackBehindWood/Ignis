@@ -20,6 +20,10 @@ public:
     {
         return m_texture.get();
     }
+    const GRITexture2DPtr& get_texture_ptr() const
+    {
+        return m_texture;
+    }
     uint32_t get_width() const
     {
         return m_width;

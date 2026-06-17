@@ -6,6 +6,7 @@
 #include "Ignis/Asset/AssetMaterial.h"
 #include "Ignis/Asset/AssetTexture2D.h"
 #include "Ignis/Rendering/Material.h"
+#include "Ignis/Rendering/PBRMaterialParams.h"
 #include "Ignis/Rendering/Renderer.h"
 #include "Ignis/Rendering/RenderSystem.h"
 #include "Ignis/Rendering/RenderTexture2D.h"
@@ -16,6 +17,8 @@
 
 namespace Ignis
 {
+
+static constexpr uint64_t k_inline_mat_bit = 0x8000'0000'0000'0000ULL;
 
 void SceneExtractor::prepare(Scene& scene)
 {
@@ -30,14 +33,15 @@ void SceneExtractor::prepare(Scene& scene)
         SharedPtr<RenderShader> ps = Renderer::get_global_cache().get_pbr_ps();
         if (vs && ps)
         {
-            constexpr uint32_t k_zero_indices[6] = {0, 0, 0, 0, 0, 0};
-            GRIBufferDesc      buf_desc;
-            buf_desc.size           = sizeof(k_zero_indices);
-            buf_desc.usage          = GRIBufferUsage::UniformBuffer;
-            GRIBufferPtr params_buf = RenderSystem::get_gri()->create_buffer(buf_desc, k_zero_indices);
+            PBRMaterialParams defaults{};
+            GRIBufferDesc     buf_desc;
+            buf_desc.size           = sizeof(PBRMaterialParams);
+            buf_desc.usage          = GRIBufferUsage::UniformBuffer | GRIBufferUsage::Dynamic;
+            GRIBufferPtr params_buf = RenderSystem::get_gri()->create_buffer(buf_desc, &defaults);
 
             SharedPtr<Material> fallback = Renderer::get_material_factory().create_with_params(
-                vs, ps, "standard_mesh", GRIPixelFormat::RGBA16Float, depth_fmt, {}, {}, {}, std::move(params_buf));
+                vs, ps, "standard_mesh", GRIPixelFormat::RGBA16Float, depth_fmt, {}, {}, {}, std::move(params_buf),
+                defaults);
             Renderer::get_resource_cache().register_material(k_fallback_material_key, std::move(fallback));
         }
     }
@@ -91,81 +95,7 @@ void SceneExtractor::prepare(Scene& scene)
         StaticGeometryBatcher::get().flush_to_gpu();
     }
 
-    // Material and PSO compilation — async path.
-    {
-        auto view = scene.registry().view<MaterialComponent>();
-        for (auto [entity, mat_comp] : view.each())
-        {
-            const uint64_t key = static_cast<uint64_t>(mat_comp.material_id);
-            if (Renderer::get_resource_cache().find_material(key))
-            {
-                continue;
-            }
-
-            SharedPtr<AssetMaterial> asset_mat = am.get_asset_as<AssetMaterial>(mat_comp.material_id);
-            if (!asset_mat)
-            {
-                if (am.get_state(mat_comp.material_id) == AssetState::Unloaded)
-                {
-                    am.load_deferred(mat_comp.material_id);
-                }
-                continue;
-            }
-
-            ShaderCompilerOptions opts;
-            opts.stages[0] = {GRIShaderStage::Vertex};
-            opts.stages[1] = {GRIShaderStage::Pixel};
-            opts.count     = 2;
-
-            SharedPtr<RenderShader> vs =
-                ShaderCache::get().get_or_compile_async(asset_mat->get_shader_source(), GRIShaderStage::Vertex, opts);
-            SharedPtr<RenderShader> ps =
-                ShaderCache::get().get_or_compile_async(asset_mat->get_shader_source(), GRIShaderStage::Pixel, opts);
-            if (!vs || !ps)
-            {
-                continue;
-            }
-
-            const String& layout = asset_mat->get_vertex_layout();
-            if (!VertexDeclarationRegistry::get().find(layout))
-            {
-                continue;
-            }
-
-            GRIDepthStencilDesc ds;
-            GRIRasterDesc       raster;
-            raster.cull_mode = asset_mat->is_two_sided() ? GRICullMode::None : GRICullMode::Back;
-
-            GRIBlendDesc blend;
-            if (asset_mat->is_transparent())
-            {
-                blend.enable     = true;
-                blend.src_factor = GRIBlendFactor::SrcAlpha;
-                blend.dst_factor = GRIBlendFactor::InvSrcAlpha;
-                blend.blend_op   = GRIBlendOp::Add;
-                blend.src_alpha  = GRIBlendFactor::One;
-                blend.dst_alpha  = GRIBlendFactor::InvSrcAlpha;
-                blend.alpha_op   = GRIBlendOp::Add;
-                ds.depth_write   = false;
-            }
-
-            GRIBufferPtr           params_buffer;
-            const Vector<uint8_t>& param_data = asset_mat->get_param_data();
-            if (!param_data.empty())
-            {
-                GRIBufferDesc buf_desc;
-                buf_desc.size  = static_cast<uint32_t>(param_data.size());
-                buf_desc.usage = GRIBufferUsage::UniformBuffer;
-                params_buffer  = RenderSystem::get_gri()->create_buffer(buf_desc, param_data.data());
-            }
-
-            SharedPtr<Material> material = Renderer::get_material_factory().create_with_params(
-                vs, ps, layout, rt_fmt, depth_fmt, ds, raster, blend, std::move(params_buffer));
-            Renderer::get_resource_cache().register_material(key, std::move(material));
-        }
-    }
-
-    // Texture upload.
+    // Texture upload from TextureComponent.
     {
         auto view = scene.registry().view<TextureComponent>();
         for (auto [entity, tex_comp] : view.each())
@@ -197,6 +127,194 @@ void SceneExtractor::prepare(Scene& scene)
                 auto rt = create_shared<RenderTexture2D>(std::move(gri), desc.width, desc.height, desc.format);
                 Renderer::get_resource_cache().register_texture(key, std::move(rt));
             }
+        }
+    }
+
+    // Material and PSO compilation — file-backed and inline PBR paths.
+    {
+        const GlobalEngineCache& gec = Renderer::get_global_cache();
+
+        auto upload_tex = [&](AssetID id) -> SharedPtr<RenderTexture2D>
+        {
+            if (!id)
+            {
+                return nullptr;
+            }
+            const uint64_t key = static_cast<uint64_t>(id);
+            if (auto rt = Renderer::get_resource_cache().find_texture(key))
+            {
+                return rt;
+            }
+            SharedPtr<AssetTexture2D> asset_tex = am.get_asset_as<AssetTexture2D>(id);
+            if (!asset_tex)
+            {
+                if (am.get_state(id) == AssetState::Unloaded)
+                {
+                    am.load_deferred(id);
+                }
+                return nullptr;
+            }
+            GRITexture2DDesc desc;
+            desc.width             = asset_tex->get_width();
+            desc.height            = asset_tex->get_height();
+            desc.format            = static_cast<GRIPixelFormat>(asset_tex->get_format());
+            desc.initial_data      = asset_tex->get_pixels().data();
+            desc.initial_data_size = static_cast<uint32_t>(asset_tex->get_pixels().size());
+            if (GRITexture2DPtr gri = RenderSystem::get_gri()->create_texture2d(desc))
+            {
+                auto rt = create_shared<RenderTexture2D>(std::move(gri), desc.width, desc.height, desc.format);
+                Renderer::get_resource_cache().register_texture(key, rt);
+                return rt;
+            }
+            return nullptr;
+        };
+
+        auto resolve_bindless = [&](AssetID id, uint32_t fallback) -> uint32_t
+        {
+            if (!id)
+            {
+                return fallback;
+            }
+            auto rt = Renderer::get_resource_cache().find_texture(static_cast<uint64_t>(id));
+            if (!rt)
+            {
+                return fallback;
+            }
+            GRISamplerDesc sd;
+            sd.linear_filter        = true;
+            GRISamplerStatePtr samp = RenderSystem::get_gri()->create_sampler_state(sd);
+            return RenderSystem::get_gri()->register_bindless_texture(rt->get_texture_ptr(), std::move(samp));
+        };
+
+        auto view = scene.registry().view<MaterialComponent, IDComponent>();
+        for (auto [entity, mat_comp, id_comp] : view.each())
+        {
+            if (mat_comp.material_id)
+            {
+                // Branch A: file-backed .mat asset.
+                const uint64_t key = static_cast<uint64_t>(mat_comp.material_id);
+                if (Renderer::get_resource_cache().find_material(key))
+                {
+                    continue;
+                }
+
+                SharedPtr<AssetMaterial> asset_mat = am.get_asset_as<AssetMaterial>(mat_comp.material_id);
+                if (!asset_mat)
+                {
+                    if (am.get_state(mat_comp.material_id) == AssetState::Unloaded)
+                    {
+                        am.load_deferred(mat_comp.material_id);
+                    }
+                    continue;
+                }
+
+                ShaderCompilerOptions opts;
+                opts.stages[0] = {GRIShaderStage::Vertex};
+                opts.stages[1] = {GRIShaderStage::Pixel};
+                opts.count     = 2;
+
+                SharedPtr<RenderShader> vs = ShaderCache::get().get_or_compile_async(asset_mat->get_shader_source(),
+                                                                                     GRIShaderStage::Vertex, opts);
+                SharedPtr<RenderShader> ps = ShaderCache::get().get_or_compile_async(asset_mat->get_shader_source(),
+                                                                                     GRIShaderStage::Pixel, opts);
+                if (!vs || !ps)
+                {
+                    continue;
+                }
+
+                const String& layout = asset_mat->get_vertex_layout();
+                if (!VertexDeclarationRegistry::get().find(layout))
+                {
+                    continue;
+                }
+
+                GRIDepthStencilDesc ds;
+                GRIRasterDesc       raster;
+                raster.cull_mode = asset_mat->is_two_sided() ? GRICullMode::None : GRICullMode::Back;
+
+                GRIBlendDesc blend;
+                if (asset_mat->is_transparent())
+                {
+                    blend.enable     = true;
+                    blend.src_factor = GRIBlendFactor::SrcAlpha;
+                    blend.dst_factor = GRIBlendFactor::InvSrcAlpha;
+                    blend.blend_op   = GRIBlendOp::Add;
+                    blend.src_alpha  = GRIBlendFactor::One;
+                    blend.dst_alpha  = GRIBlendFactor::InvSrcAlpha;
+                    blend.alpha_op   = GRIBlendOp::Add;
+                    ds.depth_write   = false;
+                }
+
+                GRIBufferPtr           params_buffer;
+                const Vector<uint8_t>& param_data = asset_mat->get_param_data();
+                if (!param_data.empty())
+                {
+                    GRIBufferDesc buf_desc;
+                    buf_desc.size  = static_cast<uint32_t>(param_data.size());
+                    buf_desc.usage = GRIBufferUsage::UniformBuffer;
+                    params_buffer  = RenderSystem::get_gri()->create_buffer(buf_desc, param_data.data());
+                }
+
+                SharedPtr<Material> material = Renderer::get_material_factory().create_with_params(
+                    vs, ps, layout, rt_fmt, depth_fmt, ds, raster, blend, std::move(params_buffer));
+                Renderer::get_resource_cache().register_material(key, std::move(material));
+                continue;
+            }
+
+            // Branch B: inline PBR — keyed by entity UUID with high-bit tag.
+            const uint64_t key = k_inline_mat_bit | static_cast<uint64_t>(id_comp.id);
+
+            upload_tex(mat_comp.albedo_tex);
+            upload_tex(mat_comp.normal_tex);
+            upload_tex(mat_comp.roughness_tex);
+            upload_tex(mat_comp.metallic_tex);
+            upload_tex(mat_comp.ao_tex);
+            upload_tex(mat_comp.emissive_tex);
+
+            SharedPtr<Material> existing = Renderer::get_resource_cache().find_material(key);
+            if (existing)
+            {
+                if (mat_comp.params_dirty)
+                {
+                    PBRMaterialParams p  = existing->get_pbr_params();
+                    p.albedo_colour      = mat_comp.albedo_colour;
+                    p.emissive_colour    = mat_comp.emissive_colour;
+                    p.alpha_cutoff       = mat_comp.alpha_cutoff;
+                    p.emissive_intensity = mat_comp.emissive_intensity;
+                    existing->update_pbr_params(p);
+                    mat_comp.params_dirty = false;
+                }
+                continue;
+            }
+
+            SharedPtr<RenderShader> vs = gec.get_pbr_vs();
+            SharedPtr<RenderShader> ps = gec.get_pbr_ps();
+            if (!vs || !ps)
+            {
+                continue;
+            }
+
+            PBRMaterialParams p{};
+            p.albedo_colour      = mat_comp.albedo_colour;
+            p.emissive_colour    = mat_comp.emissive_colour;
+            p.alpha_cutoff       = mat_comp.alpha_cutoff;
+            p.emissive_intensity = mat_comp.emissive_intensity;
+            p.albedo_tex         = resolve_bindless(mat_comp.albedo_tex, gec.get_default_white_idx());
+            p.normal_tex         = resolve_bindless(mat_comp.normal_tex, gec.get_default_normal_idx());
+            p.roughness_tex      = resolve_bindless(mat_comp.roughness_tex, gec.get_default_gray_idx());
+            p.metallic_tex       = resolve_bindless(mat_comp.metallic_tex, gec.get_default_black_idx());
+            p.ao_tex             = resolve_bindless(mat_comp.ao_tex, gec.get_default_white_idx());
+            p.emissive_tex       = resolve_bindless(mat_comp.emissive_tex, gec.get_default_black_idx());
+
+            GRIBufferDesc bd;
+            bd.size          = sizeof(PBRMaterialParams);
+            bd.usage         = GRIBufferUsage::UniformBuffer | GRIBufferUsage::Dynamic;
+            GRIBufferPtr buf = RenderSystem::get_gri()->create_buffer(bd, &p);
+
+            SharedPtr<Material> mat = Renderer::get_material_factory().create_with_params(
+                vs, ps, "standard_mesh", rt_fmt, depth_fmt, {}, {}, {}, std::move(buf), p);
+            Renderer::get_resource_cache().register_material(key, std::move(mat));
+            mat_comp.params_dirty = false;
         }
     }
 }
@@ -233,7 +351,13 @@ const RenderScene& SceneExtractor::extract(const Scene& scene, const CameraData&
         const uint16_t buffer_id = cache.find_mesh_id(mesh_key);
 
         const MaterialComponent* mat_comp = scene.registry().try_get<MaterialComponent>(entity);
-        const uint64_t           mat_key  = mat_comp ? static_cast<uint64_t>(mat_comp->material_id) : 0;
+        const IDComponent*       id_comp  = scene.registry().try_get<IDComponent>(entity);
+        uint64_t                 mat_key  = 0;
+        if (mat_comp)
+        {
+            mat_key = mat_comp->material_id ? static_cast<uint64_t>(mat_comp->material_id)
+                                            : (id_comp ? (k_inline_mat_bit | static_cast<uint64_t>(id_comp->id)) : 0);
+        }
 
         SharedPtr<Material> cached_mat   = mat_key ? cache.find_material(mat_key) : nullptr;
         const uint64_t      used_mat_key = cached_mat ? mat_key : k_fallback_material_key;

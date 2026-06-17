@@ -53,7 +53,6 @@ bool MaterialHandler::compile(const AssetMetadata& metadata)
         return false;
     }
 
-    // materials/ → parent(assets/) → assets/shaders/<filename>
     const Path shader_source = metadata.source_path.parent_path().parent_path() / "shaders" / shader_filename;
     if (!Filesystem::exists(shader_source))
     {

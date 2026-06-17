@@ -56,13 +56,49 @@ void Renderer::warmup_system_shaders(const Path& engine_shaders_root)
         s_global_cache.set_tonemap_material(std::move(mat));
     }
 
+    ShaderCompilerOptions pbr_opaque_opts;
+    pbr_opaque_opts.defines = {{"IG_MASKED", "0"}};
+    ShaderCompilerOptions pbr_masked_opts;
+    pbr_masked_opts.defines = {{"IG_MASKED", "1"}};
+
     SharedPtr<RenderShader> pbr_vs =
-        ShaderCache::get().get_or_compile(engine_shaders_root / "pbr.hlsl", GRIShaderStage::Vertex);
+        ShaderCache::get().get_or_compile(engine_shaders_root / "pbr.hlsl", GRIShaderStage::Vertex, pbr_opaque_opts);
     SharedPtr<RenderShader> pbr_ps =
-        ShaderCache::get().get_or_compile(engine_shaders_root / "pbr.hlsl", GRIShaderStage::Pixel);
+        ShaderCache::get().get_or_compile(engine_shaders_root / "pbr.hlsl", GRIShaderStage::Pixel, pbr_opaque_opts);
+    SharedPtr<RenderShader> pbr_ps_masked =
+        ShaderCache::get().get_or_compile(engine_shaders_root / "pbr.hlsl", GRIShaderStage::Pixel, pbr_masked_opts);
     if (pbr_vs && pbr_ps)
     {
-        s_global_cache.set_pbr_shaders(std::move(pbr_vs), std::move(pbr_ps));
+        GRIShader* pbr_ps_raw = pbr_ps->get_shader();
+        s_global_cache.set_pbr_shaders(std::move(pbr_vs), std::move(pbr_ps), std::move(pbr_ps_masked));
+        RenderSystem::get_gri()->init_bindless_array(pbr_ps_raw);
+
+        GRISamplerStatePtr default_sampler = RenderSystem::get_gri()->create_sampler_state({});
+
+        struct TexDef
+        {
+            const uint8_t* data;
+            const char*    name;
+        };
+        static constexpr uint8_t k_white[4]  = {0xFF, 0xFF, 0xFF, 0xFF};
+        static constexpr uint8_t k_normal[4] = {0x80, 0x80, 0xFF, 0xFF};
+        static constexpr uint8_t k_black[4]  = {0x00, 0x00, 0x00, 0xFF};
+        static constexpr uint8_t k_gray[4]   = {0x80, 0x80, 0x80, 0xFF};
+        const uint8_t*           defs[4]     = {k_white, k_normal, k_black, k_gray};
+        uint32_t                 indices[4]  = {};
+        for (int i = 0; i < 4; ++i)
+        {
+            GRITexture2DDesc td;
+            td.width             = 1;
+            td.height            = 1;
+            td.format            = GRIPixelFormat::RGBA8Unorm;
+            td.initial_data      = defs[i];
+            td.initial_data_size = 4;
+            GRITexture2DPtr gri  = RenderSystem::get_gri()->create_texture2d(td);
+            IG_CORE_ASSERT(gri, "Renderer: failed to create default texture");
+            indices[i] = RenderSystem::get_gri()->register_bindless_texture(std::move(gri), default_sampler);
+        }
+        s_global_cache.set_default_texture_indices(indices[0], indices[1], indices[2], indices[3]);
     }
 
     ShaderCompilerOptions cull_opts;

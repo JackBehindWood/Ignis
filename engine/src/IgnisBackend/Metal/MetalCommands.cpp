@@ -110,6 +110,8 @@ void MetalCommandContext::begin_render_pass(const GRIRenderPassInfo& info, const
     m_render_encoder = new MetalRenderCommandEncoder(
         m_command_buffer->get_buffer()->renderCommandEncoder(m_state_cache.get_render_pass_descriptor()));
 
+    m_bindless_array.encode(m_render_encoder->get());
+
     for (GRIBuffer* buf : storage_buffers)
     {
         if (!buf)
@@ -363,6 +365,16 @@ void MetalCommandContext::draw_indexed_primitives_indirect(GRIBuffer* args_buf, 
     m_render_encoder->get()->drawIndexedPrimitives(
         m_state_cache.get_primitive_type(), m_state_cache.get_index_type(), m_state_cache.get_index_buffer(),
         m_state_cache.get_index_buffer_offset(), mb->get_buffer(), byte_offset);
+}
+
+void MetalCommandContext::init_bindless_array(MTL::Function* ps_function)
+{
+    m_bindless_array.init(m_device.get_device(), ps_function);
+}
+
+uint32_t MetalCommandContext::register_bindless_texture(GRITexture2DPtr texture, GRISamplerStatePtr sampler)
+{
+    return m_bindless_array.register_texture(std::move(texture), std::move(sampler));
 }
 
 void MetalCommandContext::memory_barrier(GRIResource* resource, GRIAccessFlags old_access, GRIAccessFlags new_access)

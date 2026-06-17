@@ -37,6 +37,14 @@ public:
 
     void remove(const Path& source_path);
 
+    struct ShaderCacheStat
+    {
+        Path     source_path;
+        uint64_t variant_hash;
+        uint64_t bytecode_hash;
+    };
+    Vector<ShaderCacheStat> snapshot_stats() const;
+
 private:
     ShaderCache()
         : m_cache_root("shadercache"),
@@ -49,13 +57,16 @@ private:
         uint64_t variant_hash;
         uint64_t bytecode_hash; // fnv1a of the backend bytecode; used to evict MetalShaderLibrary entries
         SharedPtr<RenderShader> shader;
+        Path                    source_path;
     };
 
-    Path                               m_cache_root;
-    Path                               m_engine_cache_root;
-    Path                               m_engine_include_dir;
-    mutable SharedMutex                m_mutex;
-    UnorderedMap<uint64_t, CacheEntry> m_memory;
+    Path                                 m_cache_root;
+    Path                                 m_engine_cache_root;
+    Path                                 m_engine_include_dir;
+    mutable SharedMutex                  m_mutex;
+    UnorderedMap<uint64_t, CacheEntry>   m_memory;
+    mutable Mutex                        m_pending_mutex;
+    UnorderedMap<uint64_t, Future<bool>> m_pending;
 
     Path cache_file_for(uint64_t variant_key, const Path& source_path, GRIShaderStage stage) const;
 
@@ -70,6 +81,9 @@ private:
     bool compile_and_store(const Path& source_path, uint64_t variant_key, uint64_t variant_hash,
                            GRIShaderStage requested_stage, SharedPtr<RenderShader>& out,
                            const ShaderCompilerOptions& opts);
+    bool compile_text_and_store(const String& source_text, const Path& virtual_path, uint64_t variant_key,
+                                uint64_t variant_hash, GRIShaderStage requested_stage, SharedPtr<RenderShader>& out,
+                                const ShaderCompilerOptions& opts);
 };
 
 } // namespace Ignis

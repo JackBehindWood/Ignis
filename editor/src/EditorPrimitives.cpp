@@ -4,6 +4,7 @@
 #include "Ignis/Rendering/MaterialFactory.h"
 #include "Ignis/Rendering/RenderMesh.h"
 #include "Ignis/Rendering/RenderSystem.h"
+#include "Ignis/Rendering/PBRMaterialParams.h"
 
 namespace Ignis
 {
@@ -157,9 +158,7 @@ static Entity spawn_prim(Scene& scene, int idx, StringView name)
     mrc.mesh_id = AssetID{EditorPrimitives::prim_mesh_key(idx)};
     e.add_component<MeshRendererComponent>(mrc);
 
-    MaterialComponent matc;
-    matc.material_id = AssetID{EditorPrimitives::prim_material_key()};
-    e.add_component<MaterialComponent>(matc);
+    e.add_component<MaterialComponent>();
 
     return e;
 }
@@ -198,11 +197,18 @@ void EditorPrimitives::init()
         GRIRasterDesc raster;
         raster.cull_mode = GRICullMode::None;
 
-        constexpr uint32_t k_zero_indices[6] = {0, 0, 0, 0, 0, 0};
-        GRIBufferDesc      buf_desc;
-        buf_desc.size           = sizeof(k_zero_indices);
+        const GlobalEngineCache& gec = Renderer::get_global_cache();
+        PBRMaterialParams        pmp;
+        pmp.albedo_tex    = gec.get_default_white_idx();
+        pmp.normal_tex    = gec.get_default_normal_idx();
+        pmp.roughness_tex = gec.get_default_gray_idx();
+        pmp.metallic_tex  = gec.get_default_black_idx();
+        pmp.ao_tex        = gec.get_default_white_idx();
+        pmp.emissive_tex  = gec.get_default_black_idx();
+        GRIBufferDesc buf_desc;
+        buf_desc.size           = sizeof(PBRMaterialParams);
         buf_desc.usage          = GRIBufferUsage::UniformBuffer;
-        GRIBufferPtr params_buf = RenderSystem::get_gri()->create_buffer(buf_desc, k_zero_indices);
+        GRIBufferPtr params_buf = RenderSystem::get_gri()->create_buffer(buf_desc, &pmp);
 
         SharedPtr<Material> mat = Renderer::get_material_factory().create_with_params(
             vs, ps, "standard_mesh", cfg.render_target_format, cfg.depth_format, {}, raster, {}, std::move(params_buf));

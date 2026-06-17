@@ -248,7 +248,9 @@ SceneRenderHandles SceneRenderer::render_scene(const RenderScene& rs, RGBuilder&
     IG_ASSERT(m_color_rt && m_depth_rt && m_ldr_rt,
               "SceneRenderer: RTs not initialized — call resize() before render_scene()");
 
-    Renderer::upload_frame_data(rs.frame_data);
+    GPUFrameData fd = rs.frame_data;
+    fd.debug_mode   = m_debug_mode;
+    Renderer::upload_frame_data(fd);
 
     // Upload instance data and cull proxies to persistent GPU buffers.
     const uint32_t entity_count = static_cast<uint32_t>(rs.instance_data.size());
@@ -405,6 +407,20 @@ SceneRenderHandles SceneRenderer::render_scene(const RenderScene& rs, RGBuilder&
                              return;
                          }
                          Renderer::bind_frame_data(cmd);
+
+                         if (auto ibl = Renderer::get_global_cache().get_irradiance_cube())
+                         {
+                             cmd.set_texture(ibl->get_texture(), 0, GRIShaderStage::Pixel);
+                         }
+                         if (auto pre = Renderer::get_global_cache().get_prefilter_cube())
+                         {
+                             cmd.set_texture(pre->get_texture(), 1, GRIShaderStage::Pixel);
+                         }
+                         if (auto lut = Renderer::get_global_cache().get_brdf_lut())
+                         {
+                             cmd.set_texture(lut->get_texture(), 2, GRIShaderStage::Pixel);
+                         }
+
                          cmd.set_vertex_buffer(m_entity_data_buffer.get(), 0, k_entity_buffer_slot);
                          cmd.set_vertex_buffer(m_visible_indices_buffer.get(), 0, k_instance_buffer_slot);
 

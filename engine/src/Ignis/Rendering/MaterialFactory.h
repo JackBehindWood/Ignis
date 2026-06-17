@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Ignis/Rendering/Material.h"
+#include "Ignis/Rendering/PBRMaterialParams.h"
 #include "Ignis/Rendering/Shaders/RenderShader.h"
 #include "Ignis/Rendering/GRI/GRIDefinitions.h"
 
@@ -20,7 +21,8 @@ public:
     SharedPtr<Material> create_with_params(SharedPtr<RenderShader> vs, SharedPtr<RenderShader> ps, const String& layout,
                                            GRIPixelFormat rt_fmt, GRIPixelFormat depth_fmt,
                                            const GRIDepthStencilDesc& depth_stencil, const GRIRasterDesc& raster,
-                                           const GRIBlendDesc& blend, GRIBufferPtr params);
+                                           const GRIBlendDesc& blend, GRIBufferPtr params,
+                                           PBRMaterialParams pbr_params = {});
 
     // Invalidates all PSO and Material entries referencing these shaders.
     void evict(RenderShader* vs, RenderShader* ps);

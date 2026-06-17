@@ -29,12 +29,15 @@ static constexpr InputMapping k_viewport_mappings[] = {
     {EditorActions::k_gizmo_scale, {Key::S, Modifier::Shift}},
 };
 
-static constexpr PanelId     k_panel_scene_tree    = 1;
-static constexpr PanelId     k_panel_viewport      = 2;
-static constexpr PanelId     k_panel_console       = 3;
-static constexpr PanelId     k_panel_properties    = 4;
-static constexpr PanelId     k_panel_asset_browser = 5;
-static constexpr WorkspaceId k_workspace_id        = 1;
+static constexpr PanelId     k_panel_scene_tree      = 1;
+static constexpr PanelId     k_panel_viewport        = 2;
+static constexpr PanelId     k_panel_console         = 3;
+static constexpr PanelId     k_panel_properties      = 4;
+static constexpr PanelId     k_panel_asset_browser   = 5;
+static constexpr PanelId     k_panel_ibl_studio      = 6;
+static constexpr PanelId     k_panel_shader_diag     = 7;
+static constexpr PanelId     k_panel_material_editor = 8;
+static constexpr WorkspaceId k_workspace_id          = 1;
 } // namespace
 
 namespace Utils
@@ -67,6 +70,7 @@ SceneEditorWorkspace::SceneEditorWorkspace(Scene& scene, SceneExtractor& extract
     m_panels.push_back(registry.create(k_panel_console));
     m_panels.push_back(registry.create(k_panel_properties));
     m_panels.push_back(registry.create(k_panel_asset_browser));
+    m_panels.push_back(registry.create(k_panel_material_editor));
 
     InputSystem::register_context(&m_viewport_ctx);
     EditorInputManager::register_panel_context(&m_viewport_ctx, "Viewport");
@@ -83,8 +87,8 @@ WorkspaceDefinition SceneEditorWorkspace::make_definition(PanelRegistry&)
     def.id                      = k_workspace_id;
     def.version                 = 1;
     def.name                    = "Scene Editor";
-    def.allowed_panels          = {k_panel_scene_tree, k_panel_viewport, k_panel_console, k_panel_properties,
-                                   k_panel_asset_browser};
+    def.allowed_panels          = {k_panel_scene_tree,    k_panel_viewport,   k_panel_console,    k_panel_properties,
+                                   k_panel_asset_browser, k_panel_ibl_studio, k_panel_shader_diag};
     def.policies.allow_closing  = false;
     def.policies.allow_floating = false;
     def.theme_id                = 0;
@@ -103,6 +107,8 @@ WorkspaceDefinition SceneEditorWorkspace::make_definition(PanelRegistry&)
     center_bottom->child_a   = create_unique<LayoutNode>();
     center_bottom->child_a->panel_ids.push_back(k_panel_console);
     center_bottom->child_a->panel_ids.push_back(k_panel_asset_browser);
+    center_bottom->child_a->panel_ids.push_back(k_panel_ibl_studio);
+    center_bottom->child_a->panel_ids.push_back(k_panel_shader_diag);
     center_bottom->child_b = create_unique<LayoutNode>();
     center_bottom->child_b->panel_ids.push_back(k_panel_viewport);
     center_bottom->child_b->hide_tab_bar = true;
@@ -267,6 +273,21 @@ void SceneEditorWorkspace::draw_menu_bar()
         ImGui::Separator();
         if (ImGui::MenuItem("Reset Layout"))
         {
+        }
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("View"))
+    {
+        static constexpr const char* k_debug_labels[] = {"None", "Albedo", "Normals", "Roughness", "Metallic"};
+        uint32_t                     current          = m_data.scene_renderer->get_debug_mode();
+        for (uint32_t i = 0; i < 5u; ++i)
+        {
+            bool selected = (current == i);
+            if (ImGui::MenuItem(k_debug_labels[i], nullptr, selected))
+            {
+                m_data.scene_renderer->set_debug_mode(i);
+            }
         }
         ImGui::EndMenu();
     }

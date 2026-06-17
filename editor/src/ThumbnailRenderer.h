@@ -40,6 +40,8 @@ private:
     FrameUniformAllocator          m_uniform_alloc;
     SharedPtr<RenderMesh>          m_sphere_mesh;
     Vector<ThumbnailRenderRequest> m_queue;
+    GRIBufferPtr                   m_identity_instance_buf;
+    GRIBufferPtr                   m_zero_visible_buf;
 };
 
 } // namespace Ignis

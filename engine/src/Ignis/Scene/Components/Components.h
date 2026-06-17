@@ -54,6 +54,30 @@ struct MaterialComponent
 {
     IG_PROPERTY(EditAnywhere, SaveGame)
     AssetID material_id;
+
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    Math::LinearColour albedo_colour = {1.0f, 1.0f, 1.0f, 1.0f};
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    Math::LinearColour emissive_colour = {0.0f, 0.0f, 0.0f, 0.0f};
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    float alpha_cutoff = 0.0f;
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    float emissive_intensity = 1.0f;
+
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    AssetID albedo_tex;
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    AssetID normal_tex;
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    AssetID roughness_tex;
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    AssetID metallic_tex;
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    AssetID ao_tex;
+    IG_PROPERTY(EditAnywhere, SaveGame)
+    AssetID emissive_tex;
+
+    bool params_dirty = true;
 };
 
 IG_CLASS(Component)

@@ -36,6 +36,15 @@ public:
 
     void resize(uint32_t w, uint32_t h);
 
+    void set_debug_mode(uint32_t mode)
+    {
+        m_debug_mode = mode;
+    }
+    uint32_t get_debug_mode() const
+    {
+        return m_debug_mode;
+    }
+
     GRITexture2D* get_color_rt() const
     {
         return m_color_rt.get();
@@ -71,8 +80,9 @@ private:
     GRITexture2DPtr m_color_rt;
     GRITexture2DPtr m_ldr_rt;
     GRITexture2DPtr m_depth_rt;
-    uint32_t        m_rt_width  = 0;
-    uint32_t        m_rt_height = 0;
+    uint32_t        m_rt_width   = 0;
+    uint32_t        m_rt_height  = 0;
+    uint32_t        m_debug_mode = 0;
 };
 
 } // namespace Ignis

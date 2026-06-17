@@ -37,7 +37,9 @@ public:
     GRISamplerStatePtr create_sampler_state(const GRISamplerDesc& desc) override;
     void               read_texture_sync(GRITexture2D* tex, uint32_t face, uint32_t mip, Vector<uint8_t>& out) override;
 
-    void invalidate_compiled_shader(uint64_t bytecode_hash) override;
+    void     invalidate_compiled_shader(uint64_t bytecode_hash) override;
+    void     init_bindless_array(GRIShader* ps) override;
+    uint32_t register_bindless_texture(GRITexture2DPtr texture, GRISamplerStatePtr sampler) override;
 
     inline GRIRenderAPI get_api() const override
     {

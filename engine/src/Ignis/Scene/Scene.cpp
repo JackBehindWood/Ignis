@@ -67,6 +67,19 @@ Optional<CameraData> Scene::get_primary_camera_data() const
     return NullOpt;
 }
 
+Entity Scene::find_entity(UUID target_id)
+{
+    auto view = m_registry.view<IDComponent>();
+    for (auto [handle, id_comp] : view.each())
+    {
+        if (id_comp.id == target_id)
+        {
+            return Entity{handle, this};
+        }
+    }
+    return {};
+}
+
 void Scene::on_script_component_added(entt::registry& reg, entt::entity handle)
 {
     auto& sc = reg.get<ScriptComponent>(handle);

@@ -16,6 +16,9 @@
 #include "UI/Panels/ViewportPanel.h"
 #include "UI/Panels/PropertyPanel.h"
 #include "UI/Panels/AssetBrowserPanel.h"
+#include "UI/Panels/IBLStudioPanel.h"
+#include "UI/Panels/ShaderDiagnosticsPanel.h"
+#include "UI/Panels/MaterialEditorPanel.h"
 #endif
 
 namespace Ignis
@@ -66,6 +69,12 @@ void EditorLayer::attach()
         {4, "Properties", []() -> UniquePtr<IPanel> { return create_unique<PropertyPanel>(); }});
     m_panel_registry.register_panel(
         {5, "Asset Browser", []() -> UniquePtr<IPanel> { return create_unique<AssetBrowserPanel>(); }});
+    m_panel_registry.register_panel(
+        {6, "IBL Studio", []() -> UniquePtr<IPanel> { return create_unique<IBLStudioPanel>(); }});
+    m_panel_registry.register_panel(
+        {7, "Shader Diagnostics", []() -> UniquePtr<IPanel> { return create_unique<ShaderDiagnosticsPanel>(); }});
+    m_panel_registry.register_panel(
+        {8, "Material Editor", []() -> UniquePtr<IPanel> { return create_unique<MaterialEditorPanel>(); }});
 
     m_workspace_manager.register_workspace(create_unique<SceneEditorWorkspace>(
         m_active_scene, m_extractor, m_scene_renderer, m_overlay, m_panel_registry, m_dispatcher));

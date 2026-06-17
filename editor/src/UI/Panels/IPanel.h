@@ -50,6 +50,11 @@ public:
     {
         return ImGuiWindowFlags_NoCollapse;
     }
+
+    virtual bool is_closeable() const
+    {
+        return false;
+    }
 };
 
 } // namespace Ignis

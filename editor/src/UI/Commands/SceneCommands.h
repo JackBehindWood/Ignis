@@ -5,6 +5,7 @@
 #include "../SceneEditor/SceneEditorContext.h"
 #include <Ignis/Scene/Entity.h>
 #include <Ignis/Scene/Components/Components.h>
+#include <Ignis/Rendering/PBRMaterialParams.h>
 #include <Ignis/Scene/SceneSerializer.h>
 #include <Ignis/Math/Transform.h>
 #include <Ignis/Asset/AssetManager.h>
@@ -460,6 +461,57 @@ struct AssignTextureToEntityCmd : IReversibleCommand
     void undo() override
     {
         entity.get_component<TextureComponent>().texture_id = before_id;
+    }
+};
+
+struct OpenMaterialEditorCmd : IEditorCommand
+{
+    UUID entity_id;
+    explicit OpenMaterialEditorCmd(UUID id)
+        : entity_id(id)
+    {
+    }
+    void execute(WorkspaceManager& wm) override
+    {
+        if (auto* d = static_cast<SceneEditorData*>(wm.active_data()))
+        {
+            d->material_editor_target = entity_id;
+        }
+        wm.cmd_open_panel(8);
+    }
+};
+
+struct ChangeMaterialParamsCmd : IReversibleCommand
+{
+    Entity            entity;
+    PBRMaterialParams before;
+    PBRMaterialParams after;
+
+    ChangeMaterialParamsCmd(Entity e, PBRMaterialParams b, PBRMaterialParams a)
+        : entity(e),
+          before(b),
+          after(a)
+    {
+    }
+
+    void execute() override
+    {
+        apply(after);
+    }
+    void undo() override
+    {
+        apply(before);
+    }
+
+private:
+    void apply(const PBRMaterialParams& p)
+    {
+        auto& mc              = entity.get_component<MaterialComponent>();
+        mc.albedo_colour      = p.albedo_colour;
+        mc.emissive_colour    = p.emissive_colour;
+        mc.alpha_cutoff       = p.alpha_cutoff;
+        mc.emissive_intensity = p.emissive_intensity;
+        mc.params_dirty       = true;
     }
 };
 

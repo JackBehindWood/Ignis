@@ -844,6 +844,11 @@ void AssetBrowserPanel::draw_entry(int32_t fi, const Vector<int32_t>& filtered, 
                 else
                 {
                     push_recent(e.path);
+                    if (e.type_label == "MAT" && m_dispatcher)
+                    {
+                        AssetID mat_id = AssetManager::get().import(e.path, AssetType::Material);
+                        m_dispatcher->enqueue(create_unique<OpenMaterialEditorCmd>(mat_id));
+                    }
                 }
             }
 
@@ -1019,6 +1024,11 @@ void AssetBrowserPanel::draw_entry(int32_t fi, const Vector<int32_t>& filtered, 
             else
             {
                 push_recent(e.path);
+                if (e.type_label == "MAT" && m_dispatcher)
+                {
+                    AssetID mat_id = AssetManager::get().import(e.path, AssetType::Material);
+                    m_dispatcher->enqueue(create_unique<OpenMaterialEditorCmd>(mat_id));
+                }
             }
         }
 

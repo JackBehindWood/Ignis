@@ -428,7 +428,7 @@ bool ShaderCache::compile_and_store(const Path& source_path, uint64_t variant_ke
         const uint64_t bc_hash = fnv1a(reinterpret_cast<const char*>(s.bytecode.data()), s.bytecode.size());
         {
             UniqueLock<SharedMutex> lock(m_mutex);
-            m_memory[make_stage_key(variant_key, s.stage)] = {variant_hash, bc_hash, shader};
+            m_memory[make_stage_key(variant_key, s.stage)] = {variant_hash, bc_hash, shader, source_path};
         }
         if (s.stage == requested_stage)
         {
@@ -504,70 +504,16 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const String& source_text, c
          try_load_disk(m_engine_cache_root / cache_file.filename(), variant_hash, sh)))
     {
         UniqueLock<SharedMutex> lock(m_mutex);
-        m_memory[stage_key] = {variant_hash, 0u, sh};
+        m_memory[stage_key] = {variant_hash, 0u, sh, virtual_path};
         return sh;
     }
 
-    ShaderCompilerOptions effective_opts = opts;
-    ensure_default_stages(effective_opts);
-
-    if (!m_engine_include_dir.empty())
+    if (!compile_text_and_store(source_text, virtual_path, variant_key, variant_hash, stage, sh, opts))
     {
-        effective_opts.include_dirs.push_back(m_engine_include_dir);
-    }
-
-    const ShaderTarget              target = detect_target();
-    ShaderCompiler                  compiler(target);
-    const Vector<ShaderStageOutput> stages = compiler.compile(source_text, effective_opts);
-    if (stages.empty())
-    {
-        IG_CORE_ERROR("ShaderCache: compile failed for inline shader '{}'", virtual_name);
         return nullptr;
     }
 
-    for (const auto& s : stages)
-    {
-        const Path cf = cache_file_for(variant_key, virtual_path, s.stage);
-        if (!write_disk(cf, variant_hash, s, target))
-        {
-            IG_CORE_WARN("ShaderCache: failed to write cache for inline shader '{}'", virtual_name);
-        }
-        else
-        {
-            IG_CORE_INFO("ShaderCache: compiled inline '{}' -> {}", virtual_name, cf.filename().string());
-        }
-
-        auto shader = make_render_shader(s);
-        if (!shader)
-        {
-            return nullptr;
-        }
-        const uint64_t bc_hash = fnv1a(reinterpret_cast<const char*>(s.bytecode.data()), s.bytecode.size());
-        {
-            UniqueLock<SharedMutex> lock(m_mutex);
-            m_memory[make_stage_key(variant_key, s.stage)] = {variant_hash, bc_hash, shader};
-        }
-        if (s.stage == stage)
-        {
-            sh = shader;
-        }
-    }
-
     return sh;
-}
-
-// TODO: submit compilation to a worker pool; return nullptr on miss so callers use the fallback material.
-SharedPtr<RenderShader> ShaderCache::get_or_compile_async(const Path& source_path, GRIShaderStage stage,
-                                                          const ShaderCompilerOptions& opts)
-{
-    return get_or_compile(source_path, stage, opts);
-}
-
-// TODO: submit compilation to a worker pool; return nullptr on miss so callers use the fallback material.
-SharedPtr<RenderShader> ShaderCache::get_or_compile_async(const String& source_text, const String& virtual_name,
-                                                          GRIShaderStage stage, const ShaderCompilerOptions& opts)
-{
-    return get_or_compile(source_text, virtual_name, stage, opts);
 }
 
 SharedPtr<RenderShader> ShaderCache::get_or_compile(const Path& source_path, GRIShaderStage stage,
@@ -599,7 +545,7 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const Path& source_path, GRI
          try_load_disk(m_engine_cache_root / cache_file.filename(), variant_hash, sh)))
     {
         UniqueLock<SharedMutex> lock(m_mutex);
-        m_memory[stage_key] = {variant_hash, 0u, sh};
+        m_memory[stage_key] = {variant_hash, 0u, sh, source_path};
         return sh;
     }
 
@@ -609,6 +555,215 @@ SharedPtr<RenderShader> ShaderCache::get_or_compile(const Path& source_path, GRI
     }
 
     return sh;
+}
+
+// ---------------------------------------------------------------------------
+
+bool ShaderCache::compile_text_and_store(const String& source_text, const Path& virtual_path, uint64_t variant_key,
+                                         uint64_t variant_hash, GRIShaderStage requested_stage,
+                                         SharedPtr<RenderShader>& out, const ShaderCompilerOptions& opts)
+{
+    ShaderCompilerOptions effective_opts = opts;
+    ensure_default_stages(effective_opts);
+
+    if (!m_engine_include_dir.empty())
+    {
+        effective_opts.include_dirs.push_back(m_engine_include_dir);
+    }
+
+    const ShaderTarget              target = detect_target();
+    ShaderCompiler                  compiler(target);
+    const Vector<ShaderStageOutput> stages = compiler.compile(source_text, effective_opts);
+    if (stages.empty())
+    {
+        IG_CORE_ERROR("ShaderCache: compile failed for inline shader '{}'", virtual_path.string());
+        return false;
+    }
+
+    for (const auto& s : stages)
+    {
+        const Path cf = cache_file_for(variant_key, virtual_path, s.stage);
+        if (!write_disk(cf, variant_hash, s, target))
+        {
+            IG_CORE_WARN("ShaderCache: failed to write cache for inline shader '{}'", virtual_path.string());
+        }
+        else
+        {
+            IG_CORE_INFO("ShaderCache: compiled inline '{}' -> {}", virtual_path.string(), cf.filename().string());
+        }
+
+        auto shader = make_render_shader(s);
+        if (!shader)
+        {
+            return false;
+        }
+        const uint64_t bc_hash = fnv1a(reinterpret_cast<const char*>(s.bytecode.data()), s.bytecode.size());
+        {
+            UniqueLock<SharedMutex> lock(m_mutex);
+            m_memory[make_stage_key(variant_key, s.stage)] = {variant_hash, bc_hash, shader, virtual_path};
+        }
+        if (s.stage == requested_stage)
+        {
+            out = shader;
+        }
+    }
+
+    return out != nullptr;
+}
+
+// ---------------------------------------------------------------------------
+
+SharedPtr<RenderShader> ShaderCache::get_or_compile_async(const Path& source_path, GRIShaderStage stage,
+                                                          const ShaderCompilerOptions& opts)
+{
+    const uint64_t path_hash    = hash_path(source_path);
+    const uint64_t content_hash = hash_content(source_path);
+    const uint64_t variant_hash = mix_defines(content_hash, opts.defines);
+    const uint64_t variant_key  = mix_defines(path_hash, opts.defines);
+    const uint64_t stage_key    = make_stage_key(variant_key, stage);
+
+    {
+        SharedLock<SharedMutex> lock(m_mutex);
+        auto                    it = m_memory.find(stage_key);
+        if (it != m_memory.end() && it->second.variant_hash == variant_hash && it->second.shader)
+        {
+            return it->second.shader;
+        }
+    }
+
+    {
+        UniqueLock<Mutex> plock(m_pending_mutex);
+        auto              pit = m_pending.find(variant_key);
+        if (pit != m_pending.end())
+        {
+            if (pit->second.wait_for(std::chrono::nanoseconds(0)) == FutureStatus::ready)
+            {
+                pit->second.get();
+                m_pending.erase(pit);
+                plock.unlock();
+                SharedLock<SharedMutex> lock(m_mutex);
+                auto                    it = m_memory.find(stage_key);
+                if (it != m_memory.end() && it->second.shader)
+                {
+                    return it->second.shader;
+                }
+            }
+            return nullptr;
+        }
+
+        {
+            SharedLock<SharedMutex> lock(m_mutex);
+            auto                    it = m_memory.find(stage_key);
+            if (it != m_memory.end() && it->second.variant_hash == variant_hash && it->second.shader)
+            {
+                return it->second.shader;
+            }
+        }
+
+        m_pending.emplace(variant_key,
+                          std::async(std::launch::async,
+                                     [this, source_path, variant_key, variant_hash, stage, opts]() -> bool
+                                     {
+                                         try
+                                         {
+                                             SharedPtr<RenderShader> dummy;
+                                             return compile_and_store(source_path, variant_key, variant_hash, stage,
+                                                                      dummy, opts);
+                                         }
+                                         catch (...)
+                                         {
+                                             IG_CORE_ERROR("ShaderCache: async compile threw unexpectedly for '{}'",
+                                                           source_path.string());
+                                             return false;
+                                         }
+                                     }));
+    }
+
+    return nullptr;
+}
+
+SharedPtr<RenderShader> ShaderCache::get_or_compile_async(const String& source_text, const String& virtual_name,
+                                                          GRIShaderStage stage, const ShaderCompilerOptions& opts)
+{
+    const Path     virtual_path(virtual_name);
+    const uint64_t path_hash    = hash_path(virtual_path);
+    const uint64_t content_hash = fnv1a(source_text.data(), source_text.size());
+    const uint64_t variant_hash = mix_defines(content_hash, opts.defines);
+    const uint64_t variant_key  = mix_defines(path_hash, opts.defines);
+    const uint64_t stage_key    = make_stage_key(variant_key, stage);
+
+    {
+        SharedLock<SharedMutex> lock(m_mutex);
+        auto                    it = m_memory.find(stage_key);
+        if (it != m_memory.end() && it->second.variant_hash == variant_hash && it->second.shader)
+        {
+            return it->second.shader;
+        }
+    }
+
+    {
+        UniqueLock<Mutex> plock(m_pending_mutex);
+        auto              pit = m_pending.find(variant_key);
+        if (pit != m_pending.end())
+        {
+            if (pit->second.wait_for(std::chrono::nanoseconds(0)) == FutureStatus::ready)
+            {
+                pit->second.get();
+                m_pending.erase(pit);
+                plock.unlock();
+                SharedLock<SharedMutex> lock(m_mutex);
+                auto                    it = m_memory.find(stage_key);
+                if (it != m_memory.end() && it->second.shader)
+                {
+                    return it->second.shader;
+                }
+            }
+            return nullptr;
+        }
+
+        {
+            SharedLock<SharedMutex> lock(m_mutex);
+            auto                    it = m_memory.find(stage_key);
+            if (it != m_memory.end() && it->second.variant_hash == variant_hash && it->second.shader)
+            {
+                return it->second.shader;
+            }
+        }
+
+        m_pending.emplace(variant_key,
+                          std::async(std::launch::async,
+                                     [this, source_text, virtual_path, variant_key, variant_hash, stage, opts]() -> bool
+                                     {
+                                         try
+                                         {
+                                             SharedPtr<RenderShader> dummy;
+                                             return compile_text_and_store(source_text, virtual_path, variant_key,
+                                                                           variant_hash, stage, dummy, opts);
+                                         }
+                                         catch (...)
+                                         {
+                                             IG_CORE_ERROR("ShaderCache: async compile threw unexpectedly for '{}'",
+                                                           virtual_path.string());
+                                             return false;
+                                         }
+                                     }));
+    }
+
+    return nullptr;
+}
+
+// ---------------------------------------------------------------------------
+
+Vector<ShaderCache::ShaderCacheStat> ShaderCache::snapshot_stats() const
+{
+    SharedLock<SharedMutex> lock(m_mutex);
+    Vector<ShaderCacheStat> out;
+    out.reserve(m_memory.size());
+    for (const auto& [key, entry] : m_memory)
+    {
+        out.push_back({entry.source_path, entry.variant_hash, entry.bytecode_hash});
+    }
+    return out;
 }
 
 } // namespace Ignis

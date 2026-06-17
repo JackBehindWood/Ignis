@@ -40,6 +40,7 @@ struct SceneEditorData : IWorkspaceData
     RGBuilder*            builder         = nullptr;
     Optional<Path>        current_scene_path;
     Optional<Math::Vec3f> focus_request;
+    UUID                  material_editor_target = UUID(UUID::s_invalid);
 };
 
 } // namespace Ignis

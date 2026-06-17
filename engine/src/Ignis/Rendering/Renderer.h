@@ -42,7 +42,8 @@ struct GPUFrameData
     GPUPointLight       point_lights[k_max_point_lights];
     uint32_t            num_directional_lights = 0;
     uint32_t            num_point_lights       = 0;
-    uint32_t            _pad1[2]               = {};
+    uint32_t            debug_mode             = 0;
+    uint32_t            _pad1                  = 0;
 };
 
 struct RendererConfig

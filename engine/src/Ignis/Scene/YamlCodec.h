@@ -119,6 +119,33 @@ struct convert<Ignis::Math::Quatf>
     }
 };
 
+template <>
+struct convert<Ignis::Math::LinearColour>
+{
+    static Node encode(const Ignis::Math::LinearColour& v)
+    {
+        Node node;
+        node.push_back(v.r);
+        node.push_back(v.g);
+        node.push_back(v.b);
+        node.push_back(v.a);
+        node.SetStyle(EmitterStyle::Flow);
+        return node;
+    }
+    static bool decode(const Node& node, Ignis::Math::LinearColour& v)
+    {
+        if (!node.IsSequence() || node.size() != 4)
+        {
+            return false;
+        }
+        v.r = node[0].as<float>();
+        v.g = node[1].as<float>();
+        v.b = node[2].as<float>();
+        v.a = node[3].as<float>();
+        return true;
+    }
+};
+
 } // namespace YAML
 
 namespace Ignis::Math
@@ -139,6 +166,10 @@ inline YAML::Emitter& operator<<(YAML::Emitter& out, const Vec4f& v)
 inline YAML::Emitter& operator<<(YAML::Emitter& out, const Quatf& v)
 {
     return out << YAML::convert<Quatf>::encode(v);
+}
+inline YAML::Emitter& operator<<(YAML::Emitter& out, const LinearColour& v)
+{
+    return out << YAML::convert<LinearColour>::encode(v);
 }
 
 } // namespace Ignis::Math
@@ -283,6 +314,19 @@ struct YamlCodec<Math::Quatf>
     static Math::Quatf Decode(const YAML::Node& node)
     {
         return node.as<Math::Quatf>();
+    }
+};
+
+template <>
+struct YamlCodec<Math::LinearColour>
+{
+    static YAML::Node Encode(const Math::LinearColour& val)
+    {
+        return YAML::convert<Math::LinearColour>::encode(val);
+    }
+    static Math::LinearColour Decode(const YAML::Node& node)
+    {
+        return node.as<Math::LinearColour>();
     }
 };
 

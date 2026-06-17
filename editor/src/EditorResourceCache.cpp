@@ -10,6 +10,7 @@
 #include <Ignis/Rendering/MaterialFactory.h>
 #include <Ignis/Rendering/RenderResourceCache.h>
 #include <Ignis/Rendering/RenderTexture2D.h>
+#include <Ignis/Rendering/PBRMaterialParams.h>
 #include <stb/stb_image.h>
 
 namespace Ignis
@@ -466,19 +467,35 @@ void EditorResourceCache::compile_all()
         outline_vs, outline_ps, "", GRIPixelFormat::RGBA16Float, GRIPixelFormat::Unknown, outline_ds, outline_raster,
         outline_blend);
 
-    SharedPtr<RenderShader> thumb_vs = m_shader_cache.get_or_compile("thumbnail.hlsl", GRIShaderStage::Vertex);
-    SharedPtr<RenderShader> thumb_ps = m_shader_cache.get_or_compile("thumbnail.hlsl", GRIShaderStage::Pixel);
-    if (thumb_vs && thumb_ps)
     {
-        GRIDepthStencilDesc thumb_ds;
-        thumb_ds.depth_test  = false;
-        thumb_ds.depth_write = false;
-        GRIRasterDesc thumb_raster;
-        thumb_raster.cull_mode = GRICullMode::Back;
-        m_materials[static_cast<size_t>(EditorMaterial::ThumbnailPreview)] =
-            Renderer::get_material_factory().get_or_create(thumb_vs, thumb_ps, "standard_mesh",
-                                                           GRIPixelFormat::RGBA8Unorm, GRIPixelFormat::Unknown,
-                                                           thumb_ds, thumb_raster, {});
+        SharedPtr<RenderShader> thumb_vs = Renderer::get_global_cache().get_pbr_vs();
+        SharedPtr<RenderShader> thumb_ps = Renderer::get_global_cache().get_pbr_ps();
+        if (thumb_vs && thumb_ps)
+        {
+            GRIDepthStencilDesc thumb_ds;
+            thumb_ds.depth_test  = false;
+            thumb_ds.depth_write = false;
+            GRIRasterDesc thumb_raster;
+            thumb_raster.cull_mode = GRICullMode::Back;
+
+            const GlobalEngineCache& gec = Renderer::get_global_cache();
+            PBRMaterialParams        pmp;
+            pmp.albedo_tex    = gec.get_default_white_idx();
+            pmp.normal_tex    = gec.get_default_normal_idx();
+            pmp.roughness_tex = gec.get_default_gray_idx();
+            pmp.metallic_tex  = gec.get_default_black_idx();
+            pmp.ao_tex        = gec.get_default_white_idx();
+            pmp.emissive_tex  = gec.get_default_black_idx();
+            GRIBufferDesc buf_desc;
+            buf_desc.size           = sizeof(PBRMaterialParams);
+            buf_desc.usage          = GRIBufferUsage::UniformBuffer;
+            GRIBufferPtr params_buf = RenderSystem::get_gri()->create_buffer(buf_desc, &pmp);
+
+            m_materials[static_cast<size_t>(EditorMaterial::ThumbnailPreview)] =
+                Renderer::get_material_factory().create_with_params(thumb_vs, thumb_ps, "standard_mesh",
+                                                                    GRIPixelFormat::RGBA8Unorm, GRIPixelFormat::Unknown,
+                                                                    thumb_ds, thumb_raster, {}, std::move(params_buf));
+        }
     }
 
     if (!m_fallback_mesh)
